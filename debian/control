@@ -1,0 +1,30 @@
+Source: ubuntu-image
+Section: utils
+Priority: optional
+Maintainer: Zygmunt Krynicki <zygmunt.krynicki@canonical.com>
+Build-Depends: debhelper (>= 9),
+    dh-python,
+    python3-all,
+    python3-setuptools,
+Standards-Version: 3.9.7
+Homepage: http://launchpad.net/ubuntu-image
+
+Package: ubuntu-image
+Architecture: all
+Depends: python3-ubuntu-image(= ${binary:Version}),
+         ${misc:Depends},
+         ${python3:Depends}
+Description: toolkit for building Ubuntu images.
+ TBD
+ .
+ This package contains the ubuntu-image executable
+
+Package: python3-ubuntu-image
+Architecture: all
+Section: python
+Depends: ${misc:Depends},
+         ${python3:Depends}
+Description: toolkit for building Ubuntu images (python3 module)
+ TBD
+ .
+ This package contains the ubuntu-image python3 library.
