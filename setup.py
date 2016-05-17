@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
+
+from debian.changelog import Changelog
+from setup_helpers import require_python
 from setuptools import setup
+
+
+require_python(0x30500f0)
+
+with open('debian/changelog', encoding='utf-8') as fp:
+    __version__ = str(Changelog(fp).get_version())
+
 
 setup(
     name='ubuntu-image',
-    version='0.1',
-    description='construct snappy images out of a model assertion',
+    version=__version__,
+    description='Construct snappy images out of a model assertion',
     author_email='snapcraft@lists.ubuntu.com',
     url='https://github.com/CanonicalLtd/ubuntu-image',
     packages=['ubuntu_image', 'ubuntu_image.storeapi'],
@@ -15,11 +25,7 @@ setup(
         'requests-oauthlib',
         'requests-toolbelt',
         'ssoclient',
-    ],
-    tests_require=[
-        'responses',
-    ],
-    test_suite='ubuntu_image',
+        ],
     license='GPLv3',
     classifiers=(
         'Development Status :: 3 - Alpha',
@@ -33,5 +39,5 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Topic :: Software Development :: Build Tools',
         'Topic :: System :: Software Distribution',
-    ),
-)
+        ),
+    )
