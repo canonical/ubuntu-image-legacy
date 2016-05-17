@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+export PYBUILD_NAME=ubuntu-image
+
+%:
+	dh $@ --with=python3 --buildsystem=pybuild
+
+# Override dh_install to ensure that /usr/bin/ubuntu-image is in the dedicated package 
+override_dh_install:
+	dh_install
+	mkdir -p debian/ubuntu-image/usr/bin
+	mv debian/python3-ubuntu-image/usr/bin/ubuntu-image debian/ubuntu-image/usr/bin/

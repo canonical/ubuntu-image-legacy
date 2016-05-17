@@ -1,0 +1,5 @@
+ubuntu-image (0.1) UNRELEASED; urgency=medium
+
+  * Initial release. (Closes: #XXXXXX)
+
+ -- Zygmunt Krynicki <zygmunt.krynicki@canonical.com>  Tue, 17 May 2016 23:12:58 +0200
