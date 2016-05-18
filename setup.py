@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import sys
+
 from debian.changelog import Changelog
 from setuptools import setup
 
