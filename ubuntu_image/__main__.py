@@ -1,3 +1,5 @@
+"""Allows the package to be run with `python3 -m ubuntu_image`."""
+
 import sys
 import locale
 import gettext
