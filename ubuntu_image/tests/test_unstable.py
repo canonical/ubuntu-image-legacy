@@ -1,16 +1,10 @@
 """Test definitions for ubuntu_image.unstable module."""
 
 from io import StringIO
+from ubuntu_image._unstable import (
+    FileTextSource, Origin, RFC822Record, RFC822SyntaxError,
+    UnknownTextSource, load_rfc822_records, normalize_rfc822_value)
 from unittest import TestCase
-import os
-
-from ubuntu_image._unstable import FileTextSource
-from ubuntu_image._unstable import Origin
-from ubuntu_image._unstable import UnknownTextSource
-from ubuntu_image._unstable import RFC822Record
-from ubuntu_image._unstable import RFC822SyntaxError
-from ubuntu_image._unstable import load_rfc822_records
-from ubuntu_image._unstable import normalize_rfc822_value
 
 
 class NormalizationTests(TestCase):

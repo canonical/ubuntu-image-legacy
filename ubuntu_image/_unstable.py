@@ -3,13 +3,15 @@ This module contains unstable APIs for things that will be delegated to other
 tools later. While we will do our best not to break those APIs when the
 implementation changes, this is not guaranteed.
 """
-import enum
-import functools
-import gettext
-import logging
+
 import os
 import re
+import enum
+import gettext
+import logging
 import textwrap
+import functools
+
 
 _ = gettext.gettext
 
