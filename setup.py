@@ -7,9 +7,18 @@ setup(
     description='construct snappy images out of a model assertion',
     author_email='snapcraft@lists.ubuntu.com',
     url='https://github.com/CanonicalLtd/ubuntu-image',
-    packages=['ubuntu_image'],
+    packages=['ubuntu_image', 'ubuntu_image.storeapi'],
     scripts=['ubuntu-image'],
-    install_requires=[],
+    install_requires=[
+        'progressbar',
+        'requests',
+        'requests-oauthlib',
+        'requests-toolbelt',
+        'ssoclient',
+    ],
+    tests_require=[
+        'responses',
+    ],
     test_suite='ubuntu_image',
     license='GPLv3',
     classifiers=(
