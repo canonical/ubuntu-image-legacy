@@ -1,35 +1,37 @@
 """Allows the package to be run with `python3 -m ubuntu_image`."""
+import logging
 
-import sys
-import locale
-import gettext
-import argparse
+import guacamole
 
-_ = gettext.gettext
+from ubuntu_image.i18n import _
 
 
-# Allow the test framework to override sys.argv.
-def main(argv=None):
-    if argv is None:
-        argv = sys.argv[1:]                         # pragma: nocover
-    locale.setlocale(locale.LC_ALL, '')
-    parser = argparse.ArgumentParser(
-        prog='ubuntu-image', add_help=True,
-        description=_(
-            'Build bootable Snappy Ubuntu image from a model assertion.'),
-        epilog=_(
-            """Strategy can be used to alter partition layouts.
-            Try --strategy=? for a list of available choices."""))
-    parser.add_argument(
-        'model', metavar=_('MODEL-ASSERTION'),
-        help=_('model assertion file to use'))
-    parser.add_argument(
-        '--strategy', help=_('Use this alternate layout strategy'))
-    args = parser.parse_args(argv)
-    # Stub out execution.
-    print(args)                                     # pragma: nocover
-    return 0                                        # pragma: nocover
+_logger = logging.getLogger("ubuntu-image")
 
 
-if __name__ == '__main__':                          # pragma: nocover
-    sys.exit(main())
+class UbuntuImage(guacamole.Command):
+
+    """
+    Top-level command of ubuntu-image.
+
+    Elegant composer of bootable Ubuntu images.
+    """
+
+    name = 'ubuntu-image'
+
+    @classmethod
+    def register_arguments(cls, parser):
+        parser.add_argument(
+            '--debug', help=_("Enable debugging output"),
+            action='store_true', default=False)
+
+    def invoked(self, ctx):
+        if ctx.args.debug:
+            logging.basicConfig(level=logging.DEBUG)
+        if not hasattr(ctx.args, 'command1'):
+            ctx.parser.print_help()
+            return 0
+
+
+if __name__ == '__main__':
+    UbuntuImage().main()

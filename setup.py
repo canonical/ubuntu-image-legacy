@@ -50,6 +50,7 @@ setup(
     packages=['ubuntu_image', 'ubuntu_image.storeapi'],
     scripts=['ubuntu-image'],
     install_requires=[
+        'guacamole',
         'progressbar',
         'requests',
         'requests-oauthlib',
