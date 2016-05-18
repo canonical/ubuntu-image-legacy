@@ -3,6 +3,7 @@ import logging
 
 import guacamole
 
+from ubuntu_image import auth
 from ubuntu_image.i18n import _
 
 
@@ -18,6 +19,11 @@ class UbuntuImage(guacamole.Command):
     """
 
     name = 'ubuntu-image'
+
+    sub_commands = [
+        ('login', auth.Login),
+        ('logout', auth.Logout),
+    ]
 
     @classmethod
     def register_arguments(cls, parser):
