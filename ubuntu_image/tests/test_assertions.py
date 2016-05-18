@@ -2,6 +2,7 @@ import unittest
 
 from ubuntu_image.assertions import ModelAssertion
 
+
 fake_model_assertion = """
 type: model
 authority-id: nobody
@@ -9,7 +10,7 @@ series: 16
 brand-id: zygoon
 model: kvm-demo
 os: ubuntu-core
-architecture: amd64 
+architecture: amd64
 kernel: canonical-pc-linux
 gadget: canonical-pc
 required-snaps: links
@@ -18,6 +19,7 @@ required-snaps: links
 body-size: 0
 """
 # TODO: add a fake body and signature once the parser understands it
+
 
 class ModelAssertionTest(unittest.TestCase):
 
