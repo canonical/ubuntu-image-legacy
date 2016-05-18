@@ -1,9 +1,8 @@
 # Copyright (C) 2016 Barry Warsaw
 #
-# This project is licensed under the terms of the Apache 2.0 License.  See
-# LICENSE.txt for details.
+# This project is licensed under the terms of the Apache 2.0 License.
 
-"""Flake8 extensions for Barry's coding style."""
+"""Flake8 extensions for Barry's PEP 8 derived coding style."""
 
 
 from ast import NodeVisitor
