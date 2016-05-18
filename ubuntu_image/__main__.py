@@ -1,6 +1,6 @@
-import argparse
-import gettext
 import locale
+import gettext
+import argparse
 
 _ = gettext.gettext
 
