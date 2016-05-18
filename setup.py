@@ -52,6 +52,7 @@ setup(
     install_requires=[
         'guacamole',
         'progressbar',
+        'pyxdg',
         'requests',
         'requests-oauthlib',
         'requests-toolbelt',

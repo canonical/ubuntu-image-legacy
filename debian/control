@@ -13,7 +13,8 @@ Build-Depends: debhelper (>= 9),
                python3-requests-toolbelt,
                python3-responses,
                python3-setuptools,
-               python3-ssoclient
+               python3-ssoclient,
+               python3-xdg
 Standards-Version: 3.9.7
 Homepage: http://launchpad.net/ubuntu-image
 
