@@ -3,15 +3,15 @@ Section: utils
 Priority: optional
 Maintainer: Zygmunt Krynicki <zygmunt.krynicki@canonical.com>
 Build-Depends: debhelper (>= 9),
-    dh-python,
-    python3-all,
-    python3-progressbar,
-    python3-requests,
-    python3-requests-oauthlib,
-    python3-requests-toolbelt,
-    python3-responses,
-    python3-setuptools,
-    python3-ssoclient,
+               dh-python,
+               python3-all,
+               python3-progressbar,
+               python3-requests,
+               python3-requests-oauthlib,
+               python3-requests-toolbelt,
+               python3-responses,
+               python3-setuptools,
+               python3-ssoclient
 Standards-Version: 3.9.7
 Homepage: http://launchpad.net/ubuntu-image
 
@@ -28,8 +28,7 @@ Description: toolkit for building Ubuntu images.
 Package: python3-ubuntu-image
 Architecture: all
 Section: python
-Depends: ${misc:Depends},
-         ${python3:Depends}
+Depends: ${misc:Depends}, ${python3:Depends}
 Description: toolkit for building Ubuntu images (python3 module)
  TBD
  .
