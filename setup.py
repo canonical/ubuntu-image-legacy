@@ -26,6 +26,9 @@ setup(
         'requests-toolbelt',
         'ssoclient',
         ],
+    entry_points={
+        'flake8.extension': ['B40 = ubuntu_image.testing.flake8:ImportOrder'],
+        },
     license='GPLv3',
     classifiers=(
         'Development Status :: 3 - Alpha',
