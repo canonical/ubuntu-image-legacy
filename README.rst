@@ -4,7 +4,7 @@
 
 This tool is used to build Ubuntu images.  Currently it only builds Snappy
 images from a model assertion, but it will be generalized to build more
-(eventually, all) Ubuntu images.
+(eventually all) Ubuntu images.
 
 
 Requirements
@@ -15,7 +15,7 @@ is the minimum Python version required.  All required third party packages are
 available in the Ubuntu archive.
 
 If you want to run the test suite you should install the following
-dependencies::
+dependencies:
 
 * python3-coverage
 * python3-flake8
@@ -29,8 +29,8 @@ dependencies::
 * python3-ssoclient
 * tox
 
-The suite will prefer system installed libraries when available instead of
-PyPI downloaded libraries, however the following test dependencies will be
+The test suite will prefer system installed libraries when available instead
+of PyPI downloaded libraries, however the following test dependencies will be
 downloaded from PyPI on demand, since they aren't yet available in the Ubuntu
 archive:
 
