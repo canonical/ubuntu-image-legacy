@@ -468,8 +468,7 @@ def gen_rfc822_records(stream, data_cls=dict, source=None):
         nonlocal field_offset_map
         key = None
         value_list = None
-        if source is not None:
-            origin = Origin(source, None, None)
+        origin = Origin(source, None, None)
         field_offset_map = {}
         record = RFC822Record(data_cls(), origin, data_cls(), field_offset_map)
 
@@ -492,8 +491,7 @@ def gen_rfc822_records(stream, data_cls=dict, source=None):
 
     def _update_end_lineno():
         """Update the line number of the record tail."""
-        if origin:
-            record.origin.line_end = lineno
+        record.origin.line_end = lineno
 
     # Start with an empty record.
     _new_record()

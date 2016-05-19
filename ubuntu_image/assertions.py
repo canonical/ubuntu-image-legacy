@@ -1,13 +1,12 @@
 from io import StringIO
 from ubuntu_image._unstable import load_rfc822_records
 
+
 __all__ = ('Assertion', 'ModelAssertion')
 
 
 class Assertion:
-
-    """
-    Assertion is a fact encoded in a text file.
+    """Assertion is a fact encoded in a text file.
 
     Assertions are used heavily in snappy. The format of an assertion is
     similar to RFC822 but they are not meant to be read or written by humans
@@ -27,21 +26,20 @@ class Assertion:
         # stdin, validates it and outputs the same assertion as JSON on stdout.
         records = load_rfc822_records(StringIO(text))
         if len(records) != 1:
-            raise ValueError("Expected exactly one assertion")
+            raise ValueError('Expected exactly one assertion')
         headers = records[0].data
         body = None  # XXX: body is not required here
         return cls(headers, body)
 
 
-class header:
-
+class Header:
     """Descriptor for accessing assertion headers conveniently."""
 
     def __init__(self, name):
         self.name = name
 
     def __repr__(self):
-        return 'header({!a})'.format(self.name)
+        return 'Header({!a})'.format(self.name)
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -50,21 +48,18 @@ class header:
 
 
 class ModelAssertion(Assertion):
-
-    """
-    Model assertion describes a class of devices sharing the model name.
+    """Model assertion describes a class of devices sharing the model name.
 
     The assertion contains, among other things, the identifier of the store
     and of the three key snaps (core, kernel, gadget) that have to be
     installed.
     """
-
-    type = header('type')
-    authority_id = header('authority-id')
-    series = header('series')
-    brand_id = header('brand-id')
-    os = header('os')
-    architecture = header('architecture')
-    kernel = header('kernel')
-    gadget = header('gadget')
-    required_snaps = header('required-snaps')
+    type = Header('type')
+    authority_id = Header('authority-id')
+    series = Header('series')
+    brand_id = Header('brand-id')
+    os = Header('os')
+    architecture = Header('architecture')
+    kernel = Header('kernel')
+    gadget = Header('gadget')
+    required_snaps = Header('required-snaps')
