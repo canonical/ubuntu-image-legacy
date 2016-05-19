@@ -9,6 +9,6 @@ before_install:
   - sudo apt-get install -y python3-debian
     # this is required, temporarily, as upstream package is broken
   - sudo apt-get install -y python3-progressbar
-install:
-  - pip install tox
+    # we want a tox outside the standard venv
+  - sudo apt-get install -y python-tox
 script: tox
