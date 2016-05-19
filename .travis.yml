@@ -6,6 +6,7 @@ python:
   - "3.5"
 before_install:
   - docker pull ubuntu:xenial
+  - docker run -d -p 127.0.0.1:80:4567  ubuntu:xenial "lsb_release --all"
   - docker run ubuntu:xenial "sudo apt-get update && sudo apt-get dist-upgrade --force-yes"
   - docker run ubuntu:xenial "sudo apt-get install python3-debian python3-progressbar tox"
 script:
