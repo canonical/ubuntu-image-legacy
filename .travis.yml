@@ -1,16 +1,12 @@
-sudo: false
-addons:
-  apt:
-    packages:
-      # Minimal Python requirement (i.e. Python 3 on Xenial)
-      - python3.5
-      # Currently required by setup.py.
-      - python3-debian
-      # Required for now since upstream PyPI package is broken.
-      - python3-progressbar
-      - python-tox
+sudo: required
+services:
+  - docker
 language: python
 python:
   - "3.5"
+before_install:
+  - docker pull ubuntu:xenial
+  - docker run ubuntu:xenial "sudo apt update && sudo apt full-upgrade --force-yes"
+  - docker run ubuntu:xenial "sudo apt install python3-debian python3-progressbar tox"
 script:
   - tox
