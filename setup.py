@@ -2,7 +2,7 @@
 
 import sys
 
-#from debian.changelog import Changelog
+from debian.changelog import Changelog
 from setuptools import setup
 
 
@@ -37,10 +37,9 @@ def require_python(minimum):
 require_python(0x30500f0)
 
 
-## with open('debian/changelog', encoding='utf-8') as fp:
-##     __version__ = str(Changelog(fp).get_version())
+with open('debian/changelog', encoding='utf-8') as fp:
+    __version__ = str(Changelog(fp).get_version())
 
-__version__ = '0.1'
 
 setup(
     name='ubuntu-image',

@@ -1,16 +1,16 @@
-sudo: required
-dist: trusty
+sudo: false
+addons:
+  apt:
+    packages:
+      # Minimal Python requirement (i.e. Python 3 on Xenial)
+      - python3.5
+      # Currently required by setup.py.
+      - python3-debian
+      # Required for now since upstream PyPI package is broken.
+      - python3-progressbar
+      - python-tox
 language: python
 python:
   - "3.5"
-before_install:
-  - sudo apt-get -qq update
-    # this is required as there's no pip package
-  - sudo apt-get install -y python3-debian
-    # this is required, temporarily, as upstream package is broken
-  - sudo apt-get install -y python3-progressbar
-    # we want a tox outside the standard venv
-  - sudo apt-get install -y python-tox
 script:
-  - tox -c tox-travis.ini --list
-  - tox -c tox-travis.ini -e py35
+  - tox
