@@ -1,5 +1,5 @@
 sudo: required
-dist: xenial
+dist: trusty
 language: python
 python:
   - "3.5"
@@ -10,5 +10,5 @@ before_install:
     # this is required, temporarily, as upstream package is broken
   - sudo apt-get install -y python3-progressbar
     # we want a tox outside the standard venv
-  - sudo apt-get install -y tox
-script: tox
+  - sudo apt-get install -y python-tox
+script: tox -c tox-travis.ini
