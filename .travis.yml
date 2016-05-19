@@ -6,7 +6,7 @@ python:
   - "3.5"
 before_install:
   - docker pull ubuntu:xenial
-  - docker run ubuntu:xenial "sudo apt update && sudo apt full-upgrade --force-yes"
-  - docker run ubuntu:xenial "sudo apt install python3-debian python3-progressbar tox"
+  - docker run ubuntu:xenial "sudo apt-get update && sudo apt-get dist-upgrade --force-yes"
+  - docker run ubuntu:xenial "sudo apt-get install python3-debian python3-progressbar tox"
 script:
   - tox
