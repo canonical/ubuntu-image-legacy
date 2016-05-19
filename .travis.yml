@@ -6,6 +6,6 @@ python:
   - "3.5"
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v1 .
-  - docker run -d foundations/xenial /bin/sh -c "tox"
+  - docker run -d foundations/xenial:v1 /bin/sh -c "tox"
 script:
   - tox
