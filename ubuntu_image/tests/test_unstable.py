@@ -158,6 +158,12 @@ class RFC822ParserTests(TestCase):
         self.assertEqual(records[0].data, {'key': 'value'})
         self.assertEqual(records[0].raw_data, {'key': 'value'})
 
+    def test_single_record_with_source(self):
+        with StringIO('key: value') as stream:
+            records = type(self).loader(stream, source='file.txt')
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].origin.source, 'file.txt')
+
     def test_comments(self):
         # Ensure that comments are stripped and don't break multi-line
         # handling.
@@ -610,15 +616,53 @@ class RFC822WriterTests(TestCase):
             with self.assertRaises(AttributeError):
                 RFC822Record(['key', 'value']).dump(stream)
 
+    def test_dump_list(self):
+        with StringIO() as stream:
+            RFC822Record({'key': ['one', 'two']}).dump(stream)
+            self.assertEqual(stream.getvalue(),
+                             'key:\n'
+                             ' one\n'
+                             ' two\n\n')
+
+    def test_dump_multiline(self):
+        with StringIO() as stream:
+            RFC822Record({'key': 'one\ntwo\n\n'}).dump(stream)
+            self.assertEqual(stream.getvalue(),
+                             'key:\n'
+                             ' one\n'
+                             ' two\n'
+                             ' .\n\n')
+
 
 class RFC822SyntaxErrorTests(TestCase):
     """Tests for RFC822SyntaxError class."""
 
     def test_hash(self):
-        """verify that RFC822SyntaxError is hashable."""
+        # Verify that RFC822SyntaxError is hashable.
         self.assertEqual(
-            hash(RFC822SyntaxError("file.txt", 10, "msg")),
-            hash(RFC822SyntaxError("file.txt", 10, "msg")))
+            hash(RFC822SyntaxError('file.txt', 10, 'msg')),
+            hash(RFC822SyntaxError('file.txt', 10, 'msg')))
+
+    def test_repr(self):
+        self.assertEqual(
+            repr(RFC822SyntaxError('file.txt', 10, 'msg')),
+            "RFC822SyntaxError('file.txt', 10, 'msg')")
+
+    def test_eq(self):
+        first = RFC822SyntaxError('file.txt', 10, 'msg')
+        second = RFC822SyntaxError('file.txt', 10, 'msg')
+        self.assertTrue(first == second)
+
+    def test_eq_other(self):
+        self.assertFalse(RFC822SyntaxError('file.txt', 10, 'msg') == 7)
+
+    def test_ne(self):
+        first = RFC822SyntaxError('file.txt', 10, 'msg')
+        second = RFC822SyntaxError('file.txt', 20, 'msg')
+        self.assertTrue(first != second)
+
+    def test_ne_other(self):
+        self.assertTrue(RFC822SyntaxError('file.txt', 10, 'msg') != 7)
 
 
 class UnknownTextSourceTests(TestCase):
