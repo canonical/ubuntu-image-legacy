@@ -5,9 +5,7 @@ language: python
 python:
   - "3.5"
 before_install:
-  - docker pull ubuntu:xenial
-  - docker run -d -p 127.0.0.1:80:4567 ubuntu:xenial /bin/sh -c "echo $PATH"
-  - docker run ubuntu:xenial /bin/sh -c "sudo apt-get update && sudo apt-get dist-upgrade --force-yes"
-  - docker run ubuntu:xenial /bin/sh -c "sudo apt-get install python3-debian python3-progressbar tox"
+  - docker build -f .dockerfile -t foundations/xenial:v1 .
+  - docker run -d foundations:xenial /bin/sh -c "tox"
 script:
   - tox
