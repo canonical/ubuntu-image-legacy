@@ -28,7 +28,8 @@ class TestMain(TestCase):
         lines = self._stdout.getvalue().splitlines()
         self.assertTrue(lines[0].startswith('usage: ubuntu-image'))
 
-    def test_require_model(self):
+    # XXX: re-enable this when 'ubuntu-image build' is added again
+    def _test_require_model(self):
         # A non-zero exit occurs and an error message is printed if no model
         # positional argument is given.
         with self.assertRaises(SystemExit) as cm:
