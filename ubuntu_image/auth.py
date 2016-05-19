@@ -1,53 +1,47 @@
-import configparser
+"""Utilities for working with SSO authentication."""
+
+import os
 import fcntl
 import getpass
 import logging
-import os
+import configparser
 
+from contextlib import suppress
 from guacamole import Command
-from xdg.BaseDirectory import save_config_path
-
 from ubuntu_image import storeapi
 from ubuntu_image.i18n import _
+from xdg.BaseDirectory import save_config_path
 
-_logger = logging.getLogger("ubuntu-image")
 
 __all__ = ('UnsuccessfulAuthenticationError', 'Credentials', 'Login', 'Logout')
 
-
-"""Utilities for working with SSO authentication."""
+_logger = logging.getLogger('ubuntu-image')
 
 
 class UnsuccessfulAuthenticationError(ValueError):
-
     """Exception raised on unsuccessful SSO authentication."""
 
 
 class Credentials:
-
     """Persistent credentials from Ubuntu SSO."""
 
     def __init__(self):
-        """
-        Initialize SSO credentials.
+        """Initialize SSO credentials.
 
         Credentials stored by other sessions are implicitly loaded on
         initialization. The credentials may end up None, valid or valid but
         expired.
         """
         self._creds = None
-        try:
+        with suppress(FileNotFoundError):
             self._load()
-        except FileNotFoundError:
-            pass
 
     def get(self):
         """Get the object representing SSO credentials."""
         return self._creds
 
     def remember_sso_response(self, sso_response):
-        """
-        Remember credentials passed as a SSO response object.
+        """Remember credentials passed as a SSO response object.
 
         @param sso_response:
             Dictionary with response data, decoded from the SSO response.
@@ -64,7 +58,7 @@ class Credentials:
             Credentials are store in plain text.
         """
         if not sso_response.get('success', False):
-            raise ValueError("SSO response was not successful")
+            raise ValueError('SSO response was not successful')
         self._creds = sso_response.get('body')
         self._save()
 
@@ -78,10 +72,9 @@ class Credentials:
         if self._creds is None:
             return
 
-        stream = open(self._creds_file, 'r+t', encoding='utf-8',
-                      opener=_exclusive_private_opener)
         parser = configparser.ConfigParser()
-        with stream:
+        with open(self._creds_file, 'r+t', encoding='utf-8',
+                  opener=_exclusive_private_opener) as stream:
             parser.read_file(stream)
             if not parser.has_section(self._location):
                 parser.add_section(self._location)
@@ -92,10 +85,9 @@ class Credentials:
 
     def _load(self):
         """Load SSO credentials from disk."""
-        stream = open(self._creds_file, 'rt', encoding='utf-8',
-                      opener=_shared_opener)
         parser = configparser.ConfigParser()
-        with stream:
+        with open(self._creds_file, 'rt', encoding='utf-8',
+                  opener=_shared_opener) as stream:
             parser.read_file(stream)
         if parser.has_section(self._location):
             self._creds = dict(parser.items(self._location))
@@ -103,8 +95,8 @@ class Credentials:
     @property
     def _creds_file(self):
         """Path to per-user file with SSO credentials"""
-        return os.path.join(save_config_path('ubuntu-image'),
-                            'credentials.ini')
+        return os.path.join(
+            save_config_path('ubuntu-image'), 'credentials.ini')
 
     #: section name for SSO credentials
     _location = 'login.ubuntu.com'
@@ -129,7 +121,6 @@ def _shared_opener(fname, flags):
 
 
 class Login(Command):
-
     """Authenticate to the Ubuntu store."""
 
     name = 'login'
@@ -138,18 +129,18 @@ class Login(Command):
     def register_arguments(cls, parser):
         parser.add_argument(
             'email', metavar=_('EMAIL-ADDRESS'),
-            help=_("Email address on Ubuntu SSO"), nargs='?')
+            help=_('Email address on Ubuntu SSO'), nargs='?')
 
     def invoked(self, ctx):
-        print(_("Enter your Ubuntu One SSO credentials."))
+        print(_('Enter your Ubuntu One SSO credentials.'))
         try:
             email = ctx.args.email
             if not email:
-                email = input(_("Email: "))
-            password = getpass.getpass(_("Password: "))
+                email = input(_('Email: '))
+            password = getpass.getpass(_('Password: '))
         except KeyboardInterrupt:
             return
-        otp = ""
+        otp = ''
         while True:
             _logger.info('Authenticating against Ubuntu One SSO.')
             response = storeapi.login(
@@ -164,30 +155,24 @@ class Login(Command):
             code = body.get('code')
             _logger.info('Login failed %s: (%s)', code, body.get('message'))
             if code == 'INVALID_CREDENTIALS':
-                print(_("Invalid email or password, please try again"))
-                password = getpass.getpass(_("Password: "))
+                print(_('Invalid email or password, please try again'))
+                password = getpass.getpass(_('Password: '))
             elif code == 'TWOFACTOR_REQUIRED':
-                print(_("Two-factor authentication required"))
-                otp = input(_("One-time password: "))
+                print(_('Two-factor authentication required'))
+                otp = input(_('One-time password: '))
             else:
-                _logger.warning("Unexpected code in server response: %s", code)
+                _logger.warning('Unexpected code in server response: %s', code)
                 break
-        try:
+        with suppress(UnsuccessfulAuthenticationError):
             Credentials().remember_sso_response(response)
-        except UnsuccessfulAuthenticationError:
-            pass
 
 
 class Logout(Command):
-
     """Logout from the Ubuntu store."""
 
     name = 'logout'
 
     def invoked(self, ctx):
-        try:
+        with suppress(FileNotFoundError):
             Credentials().forget()
-        except FileNotFoundError:
-            pass
-        else:
-            print(_("You have been logged out"))
+            print(_('You have been logged out'))
