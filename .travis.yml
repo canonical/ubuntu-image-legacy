@@ -11,4 +11,6 @@ before_install:
   - sudo apt-get install -y python3-progressbar
     # we want a tox outside the standard venv
   - sudo apt-get install -y python-tox
-script: tox -c tox-travis.ini
+script:
+  - tox -c tox-travis.ini --list
+  - tox -c tox-travis.ini -e py35
