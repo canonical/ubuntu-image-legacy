@@ -39,5 +39,9 @@ class UbuntuImage(guacamole.Command):
             return 0
 
 
+def main(argv):
+    UbuntuImage().main(argv)
+
+
 if __name__ == '__main__':
     UbuntuImage().main()
