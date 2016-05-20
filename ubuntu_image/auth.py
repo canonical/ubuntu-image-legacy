@@ -2,18 +2,14 @@
 
 import os
 import fcntl
-import getpass
 import logging
 import configparser
 
 from contextlib import suppress
-from guacamole import Command
-from ubuntu_image import storeapi
-from ubuntu_image.i18n import _
 from xdg.BaseDirectory import save_config_path
 
 
-__all__ = ('UnsuccessfulAuthenticationError', 'Credentials', 'Login', 'Logout')
+__all__ = ('UnsuccessfulAuthenticationError', 'Credentials')
 
 _logger = logging.getLogger('ubuntu-image')
 
@@ -25,20 +21,30 @@ class UnsuccessfulAuthenticationError(ValueError):
 class Credentials:
     """Persistent credentials from Ubuntu SSO."""
 
+    #: section name for SSO credentials
+    SECTION = 'login.ubuntu.com'
+
     def __init__(self):
         """Initialize SSO credentials.
 
         Credentials stored by other sessions are implicitly loaded on
-        initialization. The credentials may end up None, valid or valid but
-        expired.
+        initialization. The credentials may end up None, valid or valid
+        but expired.
         """
-        self._creds = None
+        self._credentials = None
         with suppress(FileNotFoundError):
             self._load()
 
-    def get(self):
+    @property
+    def credentials(self):
         """Get the object representing SSO credentials."""
-        return self._creds
+        return self._credentials
+
+    def forget(self):
+        """Forget SSO credentials and remove stored copy from disk."""
+        self._credentials = None
+        with suppress(FileNotFoundError):
+            os.unlink(self._credentials_file)
 
     def remember_sso_response(self, sso_response):
         """Remember credentials passed as a SSO response object.
@@ -59,47 +65,42 @@ class Credentials:
         """
         if not sso_response.get('success', False):
             raise ValueError('SSO response was not successful')
-        self._creds = sso_response.get('body')
+        self._credentials = sso_response.get('body')
         self._save()
-
-    def forget(self):
-        """Forget SSO credentials and remove stored copy from disk."""
-        self._creds = None
-        os.unlink(self._creds_file)
 
     def _save(self):
         """Save SSO credentials to disk."""
-        if self._creds is None:
+        if self._credentials is None:
             return
-
         parser = configparser.ConfigParser()
-        with open(self._creds_file, 'r+t', encoding='utf-8',
+        with open(self._credentials_file, 'r+t', encoding='utf-8',
                   opener=_exclusive_private_opener) as stream:
             parser.read_file(stream)
-            if not parser.has_section(self._location):
-                parser.add_section(self._location)
-            for key, value in self._creds.items():
-                parser.set(self._location, key, str(value))
-            stream.truncate()
+            if not parser.has_section(self.SECTION):
+                parser.add_section(self.SECTION)
+            # Sort the keys for deterministic contents.
+            for key in sorted(self._credentials):
+                value = self._credentials[key]
+                parser.set(self.SECTION, key, str(value))
+            # Overwrite the contents of the ini file with the new contents.
+            stream.truncate(0)
+            stream.seek(0)
             parser.write(stream)
 
     def _load(self):
         """Load SSO credentials from disk."""
         parser = configparser.ConfigParser()
-        with open(self._creds_file, 'rt', encoding='utf-8',
+        with open(self._credentials_file, 'rt', encoding='utf-8',
                   opener=_shared_opener) as stream:
             parser.read_file(stream)
-        if parser.has_section(self._location):
-            self._creds = dict(parser.items(self._location))
+        if parser.has_section(self.SECTION):
+            self._credentials = dict(parser.items(self.SECTION))
 
     @property
-    def _creds_file(self):
+    def _credentials_file(self):
         """Path to per-user file with SSO credentials"""
         return os.path.join(
             save_config_path('ubuntu-image'), 'credentials.ini')
-
-    #: section name for SSO credentials
-    _location = 'login.ubuntu.com'
 
 
 def _exclusive_private_opener(fname, flags):
@@ -118,61 +119,3 @@ def _shared_opener(fname, flags):
     if fd > 0:
         fcntl.flock(fd, fcntl.LOCK_SH)
     return fd
-
-
-class Login(Command):
-    """Authenticate to the Ubuntu store."""
-
-    name = 'login'
-
-    @classmethod
-    def register_arguments(cls, parser):
-        parser.add_argument(
-            'email', metavar=_('EMAIL-ADDRESS'),
-            help=_('Email address on Ubuntu SSO'), nargs='?')
-
-    def invoked(self, ctx):
-        print(_('Enter your Ubuntu One SSO credentials.'))
-        try:
-            email = ctx.args.email
-            if not email:
-                email = input(_('Email: '))
-            password = getpass.getpass(_('Password: '))
-        except KeyboardInterrupt:
-            return
-        otp = ''
-        while True:
-            _logger.info('Authenticating against Ubuntu One SSO.')
-            response = storeapi.login(
-                email, password, token_name='ubuntu-image', otp=otp)
-            success = response.get('success', False)
-            if success:
-                _logger.info('Login successful.')
-                break
-            body = response.get('body')
-            if body is None:
-                raise Exception('Server response does not contain body')
-            code = body.get('code')
-            _logger.info('Login failed %s: (%s)', code, body.get('message'))
-            if code == 'INVALID_CREDENTIALS':
-                print(_('Invalid email or password, please try again'))
-                password = getpass.getpass(_('Password: '))
-            elif code == 'TWOFACTOR_REQUIRED':
-                print(_('Two-factor authentication required'))
-                otp = input(_('One-time password: '))
-            else:
-                _logger.warning('Unexpected code in server response: %s', code)
-                break
-        with suppress(UnsuccessfulAuthenticationError):
-            Credentials().remember_sso_response(response)
-
-
-class Logout(Command):
-    """Logout from the Ubuntu store."""
-
-    name = 'logout'
-
-    def invoked(self, ctx):
-        with suppress(FileNotFoundError):
-            Credentials().forget()
-            print(_('You have been logged out'))
