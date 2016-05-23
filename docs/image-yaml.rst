@@ -56,29 +56,29 @@ partitions
 
     Each partition is an object with the following properties:
 
-    * name
+    name
         (*optional*) Partition name. There's an implementation specific
         constraint on the maximum length.
-    * role
+    role
         Role of this partition in the image. Roles are specific to snappy. The
         roles are as follows. (TBD)
-    * guid
+    guid
         GPT partition type identifier. Necessary for bootloaders to correctly
         identify and support booting of the snappy system.
-    * offset
+    offset
         Optional partition offset from the beginning of the image. Offset can
         be used to tweak the position of the first partition.
-    * size
+    size
         Size of the partition. This can be a fixed quantity (such as 1M) or an
         automatically computed guesstimate, based on content size. Size of the
         writable snappy partition can be as small as possible, it is expanded
         on first boot.
-    * content
+    content
         Optional partition content. This must be a relative path to a file or
         directory in the gadget snap. The path is used to either fetch a
         pre-made content (path to a file) or to combine pre-made content as a
         filesystem (path to a directory).
-    * fs-type
+    fs-type
         Type of the filesystem to use. This can be only ``ext4`` or ``vfat``.
 
 
