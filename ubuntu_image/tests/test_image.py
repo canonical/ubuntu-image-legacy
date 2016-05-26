@@ -57,4 +57,13 @@ class TestImage(TestCase):
 
     def test_copy_blob_with_seek(self):
         # dd if=blobs/img.bios-boot of=img bs=1MiB seek=4 count=1 conv=notrunc
-        pass
+        blob_file = os.path.join(self.tmpdir, 'img.bios-boot')
+        with open(blob_file, 'wb') as fp:
+            fp.write(b'x' * 100)
+        image = Image(self.img, MiB(2))
+        image.copy_blob(blob_file, bs=773, seek=4, count=1, conv='notrunc')
+        # The seek=4 skipped 4 blocks of 773 bytes.
+        with open(image.path, 'rb') as fp:
+            self.assertEqual(fp.read(3092), b'\0' * 3092)
+            self.assertEqual(fp.read(100), b'x' * 100)
+            self.assertEqual(fp.read(25), b'\0' * 25)
