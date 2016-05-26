@@ -3,7 +3,7 @@
 import os
 
 from tempfile import TemporaryDirectory
-from ubuntu_image.image import GiB, Image, MiB
+from ubuntu_image.image import Diagnostics, GiB, Image, MiB
 from unittest import TestCase
 
 
@@ -67,3 +67,20 @@ class TestImage(TestCase):
             self.assertEqual(fp.read(3092), b'\0' * 3092)
             self.assertEqual(fp.read(100), b'x' * 100)
             self.assertEqual(fp.read(25), b'\0' * 25)
+
+    def test_partition(self):
+        # Create BIOS boot partition
+        #
+        # The partition is 1MiB in size, as recommended by various
+        # partitioning guides.  The actual required size is much, much
+        # smaller.
+        image = Image(self.img, MiB(10))
+        image.partition(new='1:4MiB:+1MiB')
+        image.partition(typecode='1:21686148-6449-6E6F-744E-656564454649')
+        image.partition(change_name='1:grub')
+        mbr = image.diagnostics(Diagnostics.mbr)
+        # We should see that the disk size is 10MiB.
+        self.assertRegex(mbr, '10.0 MiB')
+        gpt = image.diagnostics(Diagnostics.gpt)
+        # We should see that there is 1 partition named grub.
+        self.assertRegex(gpt, 'grub')

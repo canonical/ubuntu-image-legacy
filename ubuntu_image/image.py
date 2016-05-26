@@ -2,10 +2,12 @@
 
 import os
 
+from enum import Enum
 from subprocess import PIPE, run
 
 
 __all__ = [
+    'Diagnostics',
     'GiB',
     'Image',
     ]
@@ -17,6 +19,11 @@ def GiB(count):
 
 def MiB(count):
     return count * 2**20
+
+
+class Diagnostics(Enum):
+    mbr = '--print-mbr'
+    gpt = '--print'
 
 
 class Image:
@@ -74,11 +81,14 @@ class Image:
         ``sgdisk`` call (after tweaking to prefix the keys with ``--``
         for the command line switch syntax).  See the sgdisk(8) manpage
         for details.
+
+        Underscores in argument keys will be changed to dashes.
+        E.g. change_name='1:grub' becomes ``--change-name=1:grub``
         """
         # Put together the sgdisk command.
         args = ['sgdisk']
-        for key, value in sgdisk_args:
-            args.append('--{}={}'.format(key, value))
+        for key, value in sgdisk_args.items():
+            args.append('--{}={}'.format(key.replace('_', '-'), value))
         # End the command args with the image file.
         args.append(self.path)
         # Run the command.  We'll capture stderr for logging purposes.
@@ -89,16 +99,16 @@ class Image:
         # - log stdout/stderr
         run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
 
-    def diagnostics_mbr(self):
-        args = ('sgdisk', '--print-mbr', self.path)
-        status = run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
-        # TBD:
-        # - check status
-        # - log stderr
-        return status.stdout
+    def diagnostics(self, which):
+        """Return diagnostics string.
 
-    def diagnostics_gpt(self):
-        args = ('sgdisk', '--print', self.path)
+        :param which: An enum value describing which diagnostic to
+            return.  Must be either Diagnostics.mbr or Diagnostics.gpt
+        :type which: Diagnostics enum item.
+        :return: Printed output from the chosen ``sgdisk`` command.
+        :rtype: str
+        """
+        args = ('sgdisk', which.value, self.path)
         status = run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         # TBD:
         # - check status
