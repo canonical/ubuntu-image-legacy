@@ -26,3 +26,35 @@ class TestImage(TestCase):
         self.assertTrue(os.path.exists(image.path))
         # MiB == 1024**2; 4.5MiB == 4718592 bytes.
         self.assertEqual(os.stat(image.path).st_size, 4718592)
+
+    def test_copy_blob_install_grub_to_mbr(self):
+        # Install GRUB to MBR
+        # TODO: this has to be represented in the image.yaml
+        # NOTE: the boot.img has to be a part of the gadget snap itself
+        # FIXME: embed a pointer to 2nd stage in bios-boot partition
+        #
+        # dd if=blobs/img.mbr of=img bs=446 count=1 conv=notrunc
+        #
+        # Start by creating a blob of the requested size.
+        blob_file = os.path.join(self.tmpdir, 'mbr.blob')
+        with open(blob_file, 'wb') as fp:
+            fp.write(b'happyhappyjoyjoy' * 27)
+            fp.write(b'happyhappyjoyj')
+        self.assertEqual(os.stat(blob_file).st_size, 446)
+        image = Image(self.img, MiB(1))
+        image.copy_blob(blob_file, bs=446, count=1, conv='notrunc')
+        # At the top of the image file, there should be 27 Stimpy
+        # Exclamations, followed by a happyhappyjoyj.
+        with open(image.path, 'rb') as fp:
+            complete_stimpys = fp.read(432)
+            partial_stimpys = fp.read(14)
+            # Spot check.
+            zeros = fp.read(108)
+        self.assertEqual(complete_stimpys, b'happyhappyjoyjoy' * 27)
+        self.assertEqual(partial_stimpys, b'happyhappyjoyj')
+        # Stevens $4.13 - the extended file should read as zeros.
+        self.assertEqual(zeros, b'\0' * 108)
+
+    def test_copy_blob_with_seek(self):
+        # dd if=blobs/img.bios-boot of=img bs=1MiB seek=4 count=1 conv=notrunc
+        pass

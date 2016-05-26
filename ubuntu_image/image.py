@@ -38,6 +38,8 @@ class Image:
         # file; i.e. it must already exist.
         with open(path, 'wb'):
             pass
+        # Truncate to zero, so that extending the size in the next call
+        # will cause all the bytes to read as zero.  Stevens $4.13
         os.truncate(path, 0)
         os.truncate(path, size)
 
