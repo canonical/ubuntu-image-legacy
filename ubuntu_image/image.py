@@ -4,6 +4,8 @@ import os
 
 from enum import Enum
 from subprocess import PIPE, run
+from tempfile import TemporaryDirectory
+from yaml import load
 
 
 __all__ = [
@@ -114,3 +116,19 @@ class Image:
         # - check status
         # - log stderr
         return status.stdout
+
+
+def extract(snap_path):
+    """Extract the image.yml file from a path to a .snap.
+
+    :param snap_path: File system path to a .snap.
+    :type snap_path: str
+    :return: The dictionary represented by the meta/image.yaml file contained
+        in the snap.
+    :rtype: dict
+    """
+    with TemporaryDirectory() as destination:
+        run(['unsquashfs', '-d', destination, snap_path])
+        image_yaml = os.path.join(destination, 'meta', 'image.yaml')
+        with open(image_yaml, 'r', encoding='utf-8') as fp:
+            return load(fp)
