@@ -6,11 +6,31 @@ import guacamole
 
 from contextlib import suppress
 from guacamole import Command
-from ubuntu_image import auth, storeapi
+from ubuntu_image import auth
 from ubuntu_image.i18n import _
+from ubuntu_image.phases import phase1
 
 
 _logger = logging.getLogger("ubuntu-image")
+
+
+class Phase1(Command):
+    name = 'phase1'
+
+    @classmethod
+    def register_arguments(cls, parser):
+        parser.add_argument(
+            '-d', '--directory',
+            help=_('The bootstrap gadget-unpack-dir'))
+        parser.add_argument(
+            '-c', '--channel',
+            help=_('The bootstrap channel'))
+        parser.add_argument(
+            '-m', '--model',
+            help=_('The bootstrap model assertion'))
+
+    def invoked(self, ctx):
+        phase1(ctx.args.directory, ctx.args.channel, ctx.args.model)
 
 
 class Login(Command):
@@ -81,6 +101,7 @@ class UbuntuImage(guacamole.Command):
     sub_commands = [
         ('login', Login),
         ('logout', Logout),
+        ('phase1', Phase1),
         ]
 
     @classmethod
