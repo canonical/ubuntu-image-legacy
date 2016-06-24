@@ -3,7 +3,8 @@
 import os
 
 from tempfile import TemporaryDirectory
-from ubuntu_image.image import Diagnostics, GiB, Image, MiB
+from ubuntu_image.image import Diagnostics, Image
+from ubuntu_image.helpers import GiB, MiB
 from unittest import TestCase
 
 

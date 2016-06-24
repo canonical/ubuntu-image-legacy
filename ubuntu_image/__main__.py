@@ -6,7 +6,7 @@ import guacamole
 
 from contextlib import suppress
 from guacamole import Command
-from ubuntu_image import auth
+from ubuntu_image import auth, storeapi
 from ubuntu_image.i18n import _
 from ubuntu_image.phases import phase1
 
