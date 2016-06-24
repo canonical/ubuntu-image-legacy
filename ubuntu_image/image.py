@@ -125,6 +125,8 @@ def extract(snap_path):
     :rtype: dict
     """
     with TemporaryDirectory() as destination:
-        run(['unsquashfs', '-d', destination, snap_path])
-        image_yaml = os.path.join(destination, 'meta', 'image.yaml')
+        unpack_dir = os.path.join(destination, 'unpack')
+        run(['unsquashfs', '-d', unpack_dir, snap_path],
+            stderr=PIPE, stdout=PIPE)
+        image_yaml = os.path.join(unpack_dir, 'meta', 'image.yaml')
         return parse(image_yaml)
