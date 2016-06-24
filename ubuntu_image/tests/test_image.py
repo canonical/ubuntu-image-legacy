@@ -4,9 +4,8 @@ import os
 
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
+from ubuntu_image.image import Diagnostics, Image
 from ubuntu_image.helpers import GiB, MiB
-from ubuntu_image.image import Diagnostics, Image, extract, parse
-from ubuntu_image.roles import ESP
 from unittest import TestCase
 
 
