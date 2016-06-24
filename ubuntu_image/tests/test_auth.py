@@ -183,7 +183,7 @@ username = bill
         self._resources.enter_context(
             patch('ubuntu_image.auth.os.open',
                   return_value=-2))
-        self.assertRaises(OSError, Credentials)
+        self.assertRaises((OSError, ValueError), Credentials)
 
     def test_exclusive_open_goes_negative_during_save(self):
         # See above.
@@ -191,7 +191,7 @@ username = bill
         self._resources.enter_context(
             patch('ubuntu_image.auth.os.open',
                   return_value=-2))
-        self.assertRaises(OSError,
+        self.assertRaises((OSError, ValueError),
                           credentials.remember_sso_response,
                           dict(
                               success=True,
