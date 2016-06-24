@@ -6,21 +6,13 @@ from enum import Enum
 from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
 from yaml import load
+from ubuntu_image.roles import get_role
 
 
 __all__ = [
     'Diagnostics',
-    'GiB',
     'Image',
     ]
-
-
-def GiB(count):
-    return count * 2**30
-
-
-def MiB(count):
-    return count * 2**20
 
 
 class Diagnostics(Enum):
@@ -118,6 +110,11 @@ class Image:
         return status.stdout
 
 
+def parse(image_yaml):
+    with open(image_yaml, 'r', encoding='utf-8') as fp:
+        return get_role(load(fp))
+
+
 def extract(snap_path):
     """Extract the image.yml file from a path to a .snap.
 
@@ -130,5 +127,4 @@ def extract(snap_path):
     with TemporaryDirectory() as destination:
         run(['unsquashfs', '-d', destination, snap_path])
         image_yaml = os.path.join(destination, 'meta', 'image.yaml')
-        with open(image_yaml, 'r', encoding='utf-8') as fp:
-            return load(fp)
+        return parse(image_yaml)
