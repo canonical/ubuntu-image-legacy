@@ -97,11 +97,16 @@ partitions
         located after this one on the disk.
     fs-type
         Type of the filesystem to use. This can be only ``ext4`` or ``vfat``.
-    content
-        Optional partition content. This must be a relative path to a file or
-        directory in the gadget snap. The path is used to either fetch a
-        pre-made content (path to a file) or to combine pre-made content as a
-        filesystem (path to a directory).
+    files
+        An optional list of source files within the gadget snap to be written
+        to the partition.  If an fs-type is defined for this partition, the
+        'source' and 'dest' fields are required for each file.  If no fs-type
+        is defined for this partition, the 'dest' field is disallowed, and an
+        'offset' field is allowed in its place.  This offset field is optional
+        for exactly one file on a partition, with a default value of 0.  For
+        all other files, the offset field is mandatory.  It is an error to
+        have more than one file in the list without an offset field.  It is
+        also an error for files in the list to overlap.
 
 
 Example
@@ -114,5 +119,6 @@ Example
      - role: raw
        offset: 2M
        size: 1M
-       content: assets/grub/core.img
+       files:
+        - source: assets/grub/core.img
     ...
