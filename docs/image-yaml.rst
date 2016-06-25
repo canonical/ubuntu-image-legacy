@@ -91,10 +91,10 @@ partitions
         Optional partition offset from the beginning of the image. Offset can
         be used to tweak the position of the first partition.
     size
-        Size of the partition. This can be a fixed quantity (such as 1M) or an
-        automatically computed guesstimate, based on content size. Size of the
-        writable snappy partition can be as small as possible, it is expanded
-        on first boot.
+        Optional size of the partition.  If not specified, will be
+        automatically computed based on the size of contents, and any limits
+        imposed by offsets specified for partitions located after this one on
+        the disk.
     content
         Optional partition content. This must be a relative path to a file or
         directory in the gadget snap. The path is used to either fetch a
