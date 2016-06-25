@@ -95,13 +95,13 @@ partitions
         automatically computed based on the size of contents, the partition
         role, and any limits imposed by offsets specified for partitions
         located after this one on the disk.
+    fs-type
+        Type of the filesystem to use. This can be only ``ext4`` or ``vfat``.
     content
         Optional partition content. This must be a relative path to a file or
         directory in the gadget snap. The path is used to either fetch a
         pre-made content (path to a file) or to combine pre-made content as a
         filesystem (path to a directory).
-    fs-type
-        Type of the filesystem to use. This can be only ``ext4`` or ``vfat``.
 
 
 Example
