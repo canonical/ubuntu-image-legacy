@@ -92,9 +92,9 @@ partitions
         be used to tweak the position of the first partition.
     size
         Optional size of the partition.  If not specified, will be
-        automatically computed based on the size of contents, and any limits
-        imposed by offsets specified for partitions located after this one on
-        the disk.
+        automatically computed based on the size of contents, the partition
+        role, and any limits imposed by offsets specified for partitions
+        located after this one on the disk.
     content
         Optional partition content. This must be a relative path to a file or
         directory in the gadget snap. The path is used to either fetch a
