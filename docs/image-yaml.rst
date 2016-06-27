@@ -61,25 +61,52 @@ partitions
         constraint on the maximum length.
     role
         Role of this partition in the image. Roles are specific to snappy. The
-        roles are as follows. (TBD)
+        currently defined roles are as follows:
+            ESP
+                (U)EFI System Partition.  VFAT filesystem; partition type
+                EF (for MBR partition table),
+                C12A7328-F81F-11D2-BA4B-00A0C93EC93B (for GPT partition
+                table).  It is an error to specify guid, type, or fs-type
+                values for partitions of this role.
+            raw
+                No filesystem.  Files will be written to raw block offsets
+                within the partition.
+                By default these partitions will have type DA ("Non-FS data")
+                on MBR disks, and type 21686148-6449-6E6F-744E-656564454649
+                ("BIOS Boot") on GPT.
+            custom (default value)
+                If a partition is needed which does not fit any of the above
+                roles, use this role.  The fs-type field is required for
+                partitions of this role.  By default, a custom partition is
+                given type 83 ("Linux") on MBR, and type
+                0FC63DAF-8483-4772-8E79-3D69D8477DE4 on GPT.
     guid
-        GPT partition type identifier. Necessary for bootloaders to correctly
-        identify and support booting of the snappy system.
+        Optional override of the GPT partition type identifier.  If
+        partition-scheme is MBR, this value is ignored.
+    type
+        Optional override of the MBR partition type identifier, given as a
+        two-digit hex code.  If partition-scheme is GPT, this value is
+        ignored.
     offset
         Optional partition offset from the beginning of the image. Offset can
         be used to tweak the position of the first partition.
     size
-        Size of the partition. This can be a fixed quantity (such as 1M) or an
-        automatically computed guesstimate, based on content size. Size of the
-        writable snappy partition can be as small as possible, it is expanded
-        on first boot.
-    content
-        Optional partition content. This must be a relative path to a file or
-        directory in the gadget snap. The path is used to either fetch a
-        pre-made content (path to a file) or to combine pre-made content as a
-        filesystem (path to a directory).
+        Optional size of the partition.  If not specified, will be
+        automatically computed based on the size of contents, the partition
+        role, and any limits imposed by offsets specified for partitions
+        located after this one on the disk.
     fs-type
         Type of the filesystem to use. This can be only ``ext4`` or ``vfat``.
+    files
+        An optional list of source files within the gadget snap to be written
+        to the partition.  If an fs-type is defined for this partition, the
+        'source' and 'dest' fields are required for each file.  If no fs-type
+        is defined for this partition, the 'dest' field is disallowed, and an
+        'offset' field is allowed in its place.  This offset field is optional
+        for exactly one file on a partition, with a default value of 0.  For
+        all other files, the offset field is mandatory.  It is an error to
+        have more than one file in the list without an offset field.  It is
+        also an error for files in the list to overlap.
 
 
 Example
@@ -89,9 +116,9 @@ Example
 
     partition-scheme: gpt
     partitions:
-     - role: bios-boot
-       guid: 21686148-6449-6E6F-744E-656564454649
+     - role: raw
        offset: 2M
        size: 1M
-       content: assets/grub/core.img
+       files:
+        - source: assets/grub/core.img
     ...
