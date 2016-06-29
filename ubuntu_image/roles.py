@@ -1,6 +1,7 @@
 """Partition roles."""
 
 
+from enum import Enum
 from ubuntu_image.helpers import as_size
 
 
@@ -16,13 +17,12 @@ class ESP:
             ]
 
 
-ROLES = {
-    'esp': ESP,
-    }
+class Roles(Enum):
+    esp = ESP
 
 
 def get_role(yaml):
     partitions = yaml['partitions']
     assert len(partitions) == 1, partitions
     role = partitions[0]['role']
-    return ROLES[role.lower()](yaml)
+    return Roles[role.lower()].value(yaml)
