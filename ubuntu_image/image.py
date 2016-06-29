@@ -5,8 +5,8 @@ import os
 from enum import Enum
 from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
-from yaml import load
 from ubuntu_image.roles import get_role
+from yaml import load
 
 
 __all__ = [
