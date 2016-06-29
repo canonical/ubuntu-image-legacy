@@ -5,8 +5,7 @@ import os
 from enum import Enum
 from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
-from ubuntu_image.roles import Roles
-from yaml import load
+from ubuntu_image.parser import parse
 
 
 __all__ = [
@@ -108,18 +107,6 @@ class Image:
         # - check status
         # - log stderr
         return status.stdout
-
-
-def parse(image_yaml):
-    with open(image_yaml, 'r', encoding='utf-8') as fp:
-        yaml = load(fp)
-    # Sanity check yaml against docs/image.rst.
-    pass
-    # Instantiate the partition role.
-    partitions = yaml['partitions']
-    assert len(partitions) == 1, partitions
-    role = partitions[0]['role']
-    return Roles[role.lower()].value(yaml)
 
 
 def extract(snap_path):
