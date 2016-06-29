@@ -81,24 +81,24 @@ partitions
                 given type 83 ("Linux") on MBR, and type
                 0FC63DAF-8483-4772-8E79-3D69D8477DE4 on GPT.
     guid
-        Optional override of the GPT partition type identifier.  If
+        (*optional*) Override of the GPT partition type identifier.  If
         partition-scheme is MBR, this value is ignored.
     type
-        Optional override of the MBR partition type identifier, given as a
+        (*optional*) Override of the MBR partition type identifier, given as a
         two-digit hex code.  If partition-scheme is GPT, this value is
         ignored.
     offset
-        Optional partition offset from the beginning of the image. Offset can
-        be used to tweak the position of the first partition.
+        (*optional*) Partition offset from the beginning of the image. Offset
+        can be used to tweak the position of the first partition.
     size
-        Optional size of the partition.  If not specified, will be
+        (*optional*) Size of the partition.  If not specified, will be
         automatically computed based on the size of contents, the partition
         role, and any limits imposed by offsets specified for partitions
         located after this one on the disk.
     fs-type
         Type of the filesystem to use. This can be only ``ext4`` or ``vfat``.
     files
-        An optional list of source files within the gadget snap to be written
+        (*optional*) List of source files within the gadget snap to be written
         to the partition.  If an fs-type is defined for this partition, the
         'source' and 'dest' fields are required for each file.  If no fs-type
         is defined for this partition, the 'dest' field is disallowed, and an
