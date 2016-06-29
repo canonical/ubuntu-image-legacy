@@ -19,10 +19,3 @@ class ESP:
 
 class Roles(Enum):
     esp = ESP
-
-
-def get_role(yaml):
-    partitions = yaml['partitions']
-    assert len(partitions) == 1, partitions
-    role = partitions[0]['role']
-    return Roles[role.lower()].value(yaml)
