@@ -25,14 +25,16 @@ class ImageSpec:
 
 
 @transform(KeyError, ValueError)
-def parse(image_yaml):
-    """Parse the given YAML.
+def parse(stream):
+    """Parse the YAML read from the stream.
 
     The YAML is parsed and validated against the schema defined in
     docs/image-yaml.rst.
 
-    :param image_yaml: YAML text, usually read from an image.yaml file.
-    :type image_yaml: str
+    :param stream: A file-like object containing an image.yaml
+        specification.  The file should be open for reading with a UTF-8
+        encoding.
+    :type image_yaml: file
     :return: A specification of the image.
     :rtype: ImageSpec
     :raises ValueError: If the schema is violated.
@@ -41,8 +43,7 @@ def parse(image_yaml):
     # function.  At some point it may make sense to refactor that into
     # subclasses, but for now there's enough cross-level requirements
     # that it makes that refactoring tricky.
-    with open(image_yaml, 'r', encoding='utf-8') as fp:
-        yaml = load(fp)
+    yaml = load(stream)
     scheme = yaml['partition-scheme']
     if scheme not in ('MBR', 'GPT'):
         raise ValueError(scheme)

@@ -1,7 +1,7 @@
 """Test the helpers."""
 
 
-from ubuntu_image.helpers import GiB, MiB, as_size
+from ubuntu_image.helpers import GiB, MiB, as_size, transform
 from unittest import TestCase
 
 
@@ -14,3 +14,9 @@ class TestHelpers(TestCase):
 
     def test_bytes(self):
         self.assertEqual(as_size('801'), 801)
+
+    def test_transform(self):
+        @transform(ZeroDivisionError, RuntimeError)
+        def oops():
+            1/0
+        self.assertRaises(RuntimeError, oops)

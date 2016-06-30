@@ -109,7 +109,7 @@ class Image:
         return status.stdout
 
 
-def extract(snap_path):
+def extract(snap_path):                             # pragma: no cover
     """Extract the image.yml file from a path to a .snap.
 
     :param snap_path: File system path to a .snap.

@@ -1,3 +1,4 @@
+partition-scheme: MBR
 partitions:
  - role: ESP
    size: 50M
