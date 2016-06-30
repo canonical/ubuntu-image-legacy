@@ -52,40 +52,50 @@ def parse(stream):
         name = partition.get('name')
         role = partition['role']
         guid = partition.get('guid')
-        type_id = partition.get('type')
-        offset = partition.get('offset')
+        partition_offset = partition.get('offset')
         size = partition.get('size')
         fs_type = partition.get('fs-type')
         # Sanity check the values for the partition role.
-        if role not in ('ESP', 'raw', 'custom'):
-            raise ValueError('Bad role: {}'.format(role))
         if role == 'ESP':
             if fs_type is not None:
-                raise ValueError('Bad fs-type: {}'.format(fs_type))
+                raise ValueError(
+                    'Invalid explicit fs-type: {}'.format(fs_type))
             fs_type = 'vfat'
             if guid is not None:
-                raise ValueError('Bad guid: {}'.format(guid))
-            if type_id is not None:
-                raise ValueError('Bad partition type id: {}'.format(type_id))
+                raise ValueError('Invalid explicit guid: {}'.format(guid))
+            if partition.get('type') is not None:
+                raise ValueError('Invalid explicit type id: {}'.format(
+                    partition.get('type')))
             type_id = ('EF' if scheme == 'MBR'
                        else 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
         elif role == 'raw':
+            if fs_type is not None:
+                raise ValueError(
+                    'No fs-type allowed for raw partitions: {}'.format(
+                        fs_type))
             type_id = ('DA' if scheme == 'MBR'
                        else '21686148-6449-6E6F-744E-656564454649')
         elif role == 'custom':
+            fs_type = partition.get('fs-type')
             if fs_type is None:
                 raise ValueError('fs-type is required')
-            if type_id is not None:
-                raise ValueError('Bad type_id: {}'.format(type_id))
+            elif fs_type not in ('vfat', 'ext4'):
+                raise ValueError('Invalid fs-type: {}'.format(fs_type))
             type_id = ('83' if scheme == 'MBR'
                        else '0FC63DAF-8483-4772-8E79-3D69D8477DE4')
+        else:
+            raise ValueError('Bad role: {}'.format(role))
         # Sanity check other values.
         if scheme == 'MBR':
             guid = None
-        if scheme == 'GPT':
-            type_id = None
-        if offset is not None:
-            offset = as_size(offset)
+            # Allow MBRs to override the partition type identifier.
+            type_id = partition.get('type', type_id)
+        if partition_offset is not None:
+            # If there is no unit suffix, then the YAML parser will have
+            # already converted it to an integer, which we'll interpret
+            # as a byte count.
+            if not isinstance(partition_offset, int):
+                partition_offset = as_size(partition_offset)
         if size is not None:
             size = as_size(size)
         # Handle files.
@@ -101,17 +111,22 @@ def parse(stream):
                     if offset_defaulted:
                         raise ValueError('Only one default offset allowed')
                     offset = 0
+                    offset_defaulted = True
                 else:
-                    offset = as_size(offset)
+                    # Similar to above, if there was no unit suffix,
+                    # offset will already be an integer.
+                    if not isinstance(offset, int):
+                        offset = as_size(offset)
                 files.append((source, offset))
             else:
                 if 'offset' in section:
                     raise ValueError('offset not allowed')
                 dest = section.get('dest')
                 if dest is None:
-                    raise ValueError('dest required')
+                    raise ValueError(
+                        'dest required for source: {}'.format(source))
                 files.append((source, dest))
         # XXX "It is also an error for files in the list to overlap."
         partitions.append(PartitionSpec(
-            name, role, guid, type_id, offset, size, fs_type, files))
+            name, role, guid, type_id, partition_offset, size, fs_type, files))
     return ImageSpec(scheme, partitions)
