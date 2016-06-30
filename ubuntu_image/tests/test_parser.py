@@ -6,7 +6,7 @@ from ubuntu_image.parser import parse
 from unittest import TestCase
 
 
-class TestYAML(TestCase):
+class TestParser(TestCase):
     def test_parse(self):
         # Parse an image.yaml into a partitioning role instance.
         stream = StringIO("""\
@@ -40,8 +40,229 @@ partitions:
             ])
 
     def test_bad_scheme(self):
-        stream = StringIO('partition-scheme: XXX\n')
-        self.assertRaises(ValueError, parse, stream)
+        with self.assertRaises(ValueError) as cm:
+            parse(StringIO('partition-scheme: XXX\n'))
+        self.assertEqual(str(cm.exception), 'XXX')
 
-    def test_raw(self):
-        
+    def test_raw_mbr(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+ - role: raw
+""")
+        image_spec = parse(stream)
+        self.assertEqual(image_spec.partitions[0].type_id, 'DA')
+
+    def test_raw_gpt(self):
+        stream = StringIO("""\
+partition-scheme: GPT
+partitions:
+ - role: raw
+""")
+        image_spec = parse(stream)
+        self.assertEqual(
+            image_spec.partitions[0].type_id,
+            '21686148-6449-6E6F-744E-656564454649')
+
+    def test_custom_with_fs_type(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+ - role: custom
+   fs-type: ext4
+""")
+        image_spec = parse(stream)
+        self.assertEqual(image_spec.partitions[0].fs_type, 'ext4')
+        self.assertEqual(image_spec.partitions[0].type_id, '83')
+
+    def test_custom_without_fs_type(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+ - role: custom
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'fs-type is required')
+
+    def test_custom_mbr_type_id(self):
+        stream = StringIO("""\
+partition-scheme: GPT
+partitions:
+ - role: custom
+   fs-type: ext4
+""")
+        image_spec = parse(stream)
+        self.assertEqual(image_spec.partitions[0].type_id,
+                         '0FC63DAF-8483-4772-8E79-3D69D8477DE4')
+
+    def test_raw_destination(self):
+        # With fs-type 'raw', no file destination is allowed.
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+ - role: raw
+   files:
+   - source: a/b/c
+     dest: e/f/g
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'No dest allowed')
+
+    def test_raw_offsets(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+ - role: raw
+   files:
+   - source: a/b/c
+     offset: 1M
+   - source: d/e/f
+   - source: g/h/i
+     offset: 1024
+""")
+        image_spec = parse(stream)
+        self.assertEqual(len(image_spec.partitions), 1)
+        self.assertEqual(image_spec.partitions[0].files, [
+            # This are file sources and offsets.
+            ('a/b/c', MiB(1)),
+            ('d/e/f', 0),
+            ('g/h/i', 1024),
+            ])
+
+    def test_offsets_not_allowed_for_fs_type(self):
+        # With an explicit fs-type, only source/dest are allowed.
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+ - role: custom
+   fs-type: ext4
+   files:
+   - source: a/b/c
+     offset: 1M
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'offset not allowed')
+
+    def test_missing_dest_for_fs_type(self):
+        # With an explicit fs-type, only source/dest are required.
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+ - role: custom
+   fs-type: ext4
+   files:
+   - source: a/b/c
+   - source: d/e/f
+     dest: g/h/i
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'dest required for source: a/b/c')
+
+    def test_raw_too_many_default_offsets(self):
+        # With fs-type 'raw' only one file is allowed to have a default offset.
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+ - role: raw
+   files:
+   - source: a/b/c
+   - source: d/e/f
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'Only one default offset allowed')
+
+    def test_bad_partition_role(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: with-the-punches
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'Bad role: with-the-punches')
+
+    def test_explicit_fs_type_for_esp(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: ESP
+    fs-type: ext4
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'Invalid explicit fs-type: ext4')
+
+    def test_explicit_guid_for_esp(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: ESP
+    guid: abcdef
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'Invalid explicit guid: abcdef')
+
+    def test_explicit_type_for_esp(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: ESP
+    type: XX
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'Invalid explicit type id: XX')
+
+    def test_explicit_fs_type_for_raw(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: raw
+    fs-type: ext4
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(
+            str(cm.exception),
+            'No fs-type allowed for raw partitions: ext4')
+
+    def test_invalid_fs_type_for_custom(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: custom
+    fs-type: zfs
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'Invalid fs-type: zfs')
+
+    def test_partition_offset(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: custom
+    fs-type: ext4
+    offset: 108
+""")
+        image_spec = parse(stream)
+        self.assertEqual(len(image_spec.partitions), 1)
+        self.assertEqual(image_spec.partitions[0].offset, 108)
+
+    def test_partition_offset_units(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: custom
+    fs-type: ext4
+    offset: 1M
+""")
+        image_spec = parse(stream)
+        self.assertEqual(len(image_spec.partitions), 1)
+        self.assertEqual(image_spec.partitions[0].offset, MiB(1))
