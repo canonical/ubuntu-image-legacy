@@ -5,6 +5,25 @@ from ubuntu_image.helpers import as_size, transform
 from yaml import load
 
 
+class PartitionSpec:
+    def __init__(self,
+                 name, role, guid, type_id, offset, size, fs_type, files):
+        self.name = name
+        self.role = role
+        self.guid = guid
+        self.type_id = type_id
+        self.offset = offset
+        self.size = size
+        self.fs_type = fs_type
+        self.files = files
+
+
+class ImageSpec:
+    def __init__(self, scheme, partitions):
+        self.scheme = scheme
+        self.partitions = partitions
+
+
 @transform(KeyError, ValueError)
 def parse(image_yaml):
     """Parse the given YAML.
@@ -30,12 +49,12 @@ def parse(image_yaml):
     partitions = []
     for partition in yaml['partitions']:
         name = partition.get('name')
-        role = partitions['role']
+        role = partition['role']
         guid = partition.get('guid')
         type_id = partition.get('type')
         offset = partition.get('offset')
         size = partition.get('size')
-        fs_type = partitions.get('fs-type')
+        fs_type = partition.get('fs-type')
         # Sanity check the values for the partition role.
         if role not in ('ESP', 'raw', 'custom'):
             raise ValueError('Bad role: {}'.format(role))
@@ -92,3 +111,6 @@ def parse(image_yaml):
                     raise ValueError('dest required')
                 files.append((source, dest))
         # XXX "It is also an error for files in the list to overlap."
+        partitions.append(PartitionSpec(
+            name, role, guid, type_id, offset, size, fs_type, files))
+    return ImageSpec(scheme, partitions)
