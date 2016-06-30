@@ -2,11 +2,9 @@
 
 import os
 
-from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, MiB
-from ubuntu_image.image import Diagnostics, Image, extract, parse
-from ubuntu_image.roles import ESP
+from ubuntu_image.image import Diagnostics, Image
 from unittest import TestCase
 
 
@@ -87,29 +85,3 @@ class TestImage(TestCase):
         gpt = image.diagnostics(Diagnostics.gpt)
         # We should see that there is 1 partition named grub.
         self.assertRegex(gpt, 'grub')
-
-
-class TestYAML(TestCase):
-    def test_parse(self):
-        # Parse an image.yaml into a partitioning role instance.
-        path = resource_filename('ubuntu_image.tests.data', 'image.yaml')
-        role = parse(path)
-        self.assertTrue(isinstance(role, ESP))
-        self.assertEqual(role.size, MiB(50))
-        self.assertEqual(role.files, [
-            ('grubx64.efi.signed', 'EFI/boot/grubx64.efi'),
-            ('shim.efi.signed', 'EFI/boot/bootx64.efi'),
-            ('grub.cfg', 'EFI/boot/grub.cfg'),
-            ])
-
-    def test_extract_yaml_from_snap(self):
-        path = resource_filename(
-            'ubuntu_image.tests.data', 'canonical-pc_3.2_all.snap')
-        role = extract(path)
-        self.assertTrue(isinstance(role, ESP))
-        self.assertEqual(role.size, MiB(50))
-        self.assertEqual(role.files, [
-            ('grubx64.efi.signed', 'EFI/boot/grubx64.efi'),
-            ('shim.efi.signed', 'EFI/boot/bootx64.efi'),
-            ('grub.cfg', 'EFI/boot/grub.cfg'),
-            ])
