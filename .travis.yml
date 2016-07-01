@@ -6,6 +6,5 @@ python:
   - "3.5"
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v1 .
-  - docker run --detach=false foundations/xenial:v1 /bin/sh -c "cd $TRAVIS_BUILD_DIR; tox"
 script:
-  - python --version
+  - docker run --detach=false foundations/xenial:v1 /bin/sh -c "cd $TRAVIS_BUILD_DIR; tox"
