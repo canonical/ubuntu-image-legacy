@@ -7,5 +7,3 @@ python:
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v1 .
   - docker run -d foundations/xenial:v1 /bin/sh -c "cd $TRAVIS_BUILD_DIR; tox"
-script:
-  - tox
