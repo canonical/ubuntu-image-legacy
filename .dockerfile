@@ -15,4 +15,4 @@ RUN apt-get install -y python3-debian python3-progressbar \
 
 # Grab the branch.
 RUN git clone https://github.com/CanonicalLtd/ubuntu-image.git /root/code
-RUN cd /root/code && git co $TRAVIS_BRANCH
+RUN cd /root/code && git checkout $TRAVIS_BRANCH
