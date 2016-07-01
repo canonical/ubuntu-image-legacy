@@ -8,7 +8,7 @@ RUN apt-get update && apt-get dist-upgrade -y
 # and python3-progressbar because the PyPI version isn't usable inside virtual
 # environments.
 RUN apt-get install -y python3-debian python3-progressbar \
-                       python3-guacamole python3-pyxdg python3-ssoclient \
+                       python3-guacamole python3-xdg python3-ssoclient \
                        python3-requests python3-requests-oauthlib \
                        python3-requests-toolbelt \
                        tox git
