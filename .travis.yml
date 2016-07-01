@@ -7,4 +7,4 @@ python:
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v1 .
 script:
-  - docker run --detach=false foundations/xenial:v1 /bin/sh -c "cd /root/ubuntu-image; tox"
+  - docker run --detach=false foundations/xenial:v1 /bin/sh -c "ls -l /root"
