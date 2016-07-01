@@ -11,7 +11,7 @@ RUN apt-get install -y python3-debian python3-progressbar \
                        python3-guacamole python3-xdg python3-ssoclient \
                        python3-requests python3-requests-oauthlib \
                        python3-requests-toolbelt \
-                       tox git
+                       tox git gdisk
 
 # Grab the branch.
 RUN git clone https://github.com/CanonicalLtd/ubuntu-image.git /root/code
