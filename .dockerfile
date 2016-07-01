@@ -7,4 +7,12 @@ RUN apt-get update && apt-get dist-upgrade -y
 # We need tox to run the test suite, python3-debian to process the setup.py,
 # and python3-progressbar because the PyPI version isn't usable inside virtual
 # environments.
-RUN apt-get install -y python3-debian python3-progressbar tox
+RUN apt-get install -y python3-debian python3-progressbar \
+                       python3-guacamole python3-pyxdg python3-ssoclient \
+                       python3-requests python3-requests-oauthlib \
+                       python3-requests-toolbelt \
+                       tox git
+
+# Grab the branch.
+RUN git clone https://github.com/CanonicalLtd/ubuntu-image.git /root/code
+RUN cd /root/code && git co $TRAVIS_BRANCH
