@@ -32,5 +32,4 @@ python:
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v3 .
 script:
-  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git pull; tox" || false'
-  - '[ "${TRAVIS_PULL_REQUEST}" != "false" ] && docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; tox" || false'
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git pull; tox" || docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; tox"'
