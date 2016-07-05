@@ -12,4 +12,4 @@ RUN apt-get install -y git devscripts equivs
 RUN git clone --depth=50 https://github.com/CanonicalLtd/ubuntu-image.git /root/code
 
 # Install the build dependencies.
-RUN cd /root/code && mk-build-deps --install
+RUN cd /root/code && mk-build-deps --install --tool 'apt-get install -y'
