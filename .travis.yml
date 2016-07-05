@@ -1,3 +1,28 @@
+# barry@ubuntu.com 2016-07-05 What's going on here?
+#
+# Because we're targetting ubuntu-image for Ubuntu 16.04 LTS (Xenial Xerus) we
+# want to make sure that the test suite is running in as close to that
+# environment as possible.  However, by default, Travis CI runs Python code in
+# a virtualenv, pulling in dependencies from PyPI.  That's bad because we're
+# only guaranteeing compatibility with archive packages, which of course may
+# be different in lots of subtle ways from PyPI versions.
+#
+# Therefore, we use a .dockerfile that starts with the official Ubuntu Xenial
+# image, installs all the test dependencies from archive packages, and then
+# clones the master branch of the origin repository.
+#
+# When Travis is run, it happens in two different steps, based on the value of
+# the $TRAVIS_PULL_REQUEST environment variable.  When that's 'false', it
+# means the test is running against the master branch, so no `git fetch` is
+# necessary.  When it's not 'false', it contains the pull request number,
+# which is available as a fetchable refspec in the origin repository, in which
+# case, we ensure that we're running the test suite against the pull request.
+
+# See
+# https://docs.travis-ci.com/user/pull-requests and
+# https://docs.travis-ci.com/user/environment-variables
+# for additional details.
+
 sudo: required
 services:
   - docker
@@ -7,4 +32,5 @@ python:
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v3 .
 script:
-  - docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; tox"
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git pull; tox" || false'
+  - '[ "${TRAVIS_PULL_REQUEST}" != "false" ] && docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; tox"
