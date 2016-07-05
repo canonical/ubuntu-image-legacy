@@ -13,4 +13,4 @@ RUN git clone --depth=50 https://github.com/CanonicalLtd/ubuntu-image.git /root/
 
 # Install the build dependencies.  mk-build-deps(1) doesn't tell you that
 # "install -f" are default options. :/
-RUN cd /root/code && mk-build-deps --install --tool '/usr/bin/apt-get -y'
+RUN cd /root/code && mk-build-deps --install --tool '/usr/bin/apt-get -y' -B
