@@ -5,8 +5,8 @@ language: python
 python:
   - "3.5"
 before_install:
-  - docker build -f .dockerfile -t foundations/xenial:v1 .
-  - docker run --detach=false foundations/xenial:v1 "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge"
-  - docker run --detach=false foundations/xenial:v1 "cd /root/code; git checkout -qf FETCH_HEAD"
+  - docker build -f .dockerfile -t foundations/xenial:v2 .
+  - docker run --detach=false foundations/xenial:v2 "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge"
+  - docker run --detach=false foundations/xenial:v2 "cd /root/code; git checkout -qf FETCH_HEAD"
 script:
-  - docker run --detach=false foundations/xenial:v1 /bin/sh -c "cd /root/code; tox"
+  - docker run --detach=false foundations/xenial:v2 /bin/sh -c "cd /root/code; tox"
