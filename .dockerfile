@@ -14,5 +14,4 @@ RUN apt-get install -y python3-debian python3-progressbar \
                        tox git gdisk
 
 # Grab the branch.
-RUN git clone https://github.com/CanonicalLtd/ubuntu-image.git /root/code
-RUN cd /root/code && git checkout $TRAVIS_BRANCH
+RUN git clone --depth=50 https://github.com/CanonicalLtd/ubuntu-image.git /root/code
