@@ -15,3 +15,6 @@ RUN apt-get install -y python3-debian python3-progressbar \
 
 # Grab the branch.
 RUN git clone --depth=50 https://github.com/CanonicalLtd/ubuntu-image.git /root/code
+RUN cd /root/code
+RUN git fetch origin +refs/pull/$PRNUMBER/merge
+RUN git checkout -qf FETCH_HEAD
