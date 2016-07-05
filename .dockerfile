@@ -13,4 +13,8 @@ RUN git clone --depth=50 https://github.com/CanonicalLtd/ubuntu-image.git /root/
 
 # Install the build dependencies.  mk-build-deps(1) doesn't tell you that
 # "install -f" are default options. :/
-RUN cd /root/code && mk-build-deps --install --tool '/usr/bin/apt-get -y' -B
+RUN cd /root/code && mk-build-deps --install --tool '/usr/bin/apt-get -y'
+
+# For some unknown reason, in Travis, not everything gets installed by
+# mk-build-deps even though in a local Xenial schroot, they do. :(
+RUN apt-get install -y tox
