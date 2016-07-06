@@ -31,7 +31,8 @@ archive:
 * flake8-respect-noqa
 
 Do **not** use `progressbar <https://pypi.python.org/pypi/progressbar>`__ from
-PyPI because of this `upstream open bug`_.  Just ``sudo apt install
+PyPI because of this `upstream bug`_ (fixed in their repo, but not yet
+released or available in Ubuntu).  Just ``sudo apt install
 python3-progressbar`` instead.
 
 
@@ -73,4 +74,4 @@ where *<pattern>* is a Python regular expression matching a test name, e.g.::
     $ tox -e py35 -- -P test_smoke
 
 
-.. _`upstream open bug`: https://github.com/niltonvolpato/python-progressbar/issues/42
+.. _`upstream bug`: https://github.com/niltonvolpato/python-progressbar/issues/42
