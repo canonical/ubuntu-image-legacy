@@ -14,20 +14,14 @@ Ubuntu 16.04 (Xenial Xerus) is the minimum platform requirement.  Python 3.5
 is the minimum Python version required.  All required third party packages are
 available in the Ubuntu archive.
 
-If you want to run the test suite you should install the following
-dependencies:
+If you want to run the test suite locally, you should install all the build
+dependencies named in the `debian/control` file.  The easiest way to do that
+is to `apt install devscripts equivs` and then run::
 
-* python3-coverage
-* python3-flake8
-* python3-nose2
-* python3-progressbar
-* python3-requests
-* python3-requests-oauthlib
-* python3-requests-toolbelt
-* python3-responses
-* python3-setuptools
-* python3-ssoclient
-* tox
+    $ sudo mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'
+
+from the directory containing the `debian` subdirectory.  Alternatively of
+course, you can just install the packages named in the `Build-Depends` field.
 
 The test suite will prefer system installed libraries when available instead
 of PyPI downloaded libraries, however the following test dependencies will be
@@ -37,7 +31,8 @@ archive:
 * flake8-respect-noqa
 
 Do **not** use `progressbar <https://pypi.python.org/pypi/progressbar>`__ from
-PyPI because of this `upstream open bug`_.  Just ``sudo apt install
+PyPI because of this `upstream bug`_ (fixed in their repo, but not yet
+released or available in Ubuntu).  Just ``sudo apt install
 python3-progressbar`` instead.
 
 
@@ -79,4 +74,4 @@ where *<pattern>* is a Python regular expression matching a test name, e.g.::
     $ tox -e py35 -- -P test_smoke
 
 
-.. _`upstream open bug`: https://github.com/niltonvolpato/python-progressbar/issues/42
+.. _`upstream bug`: https://github.com/niltonvolpato/python-progressbar/issues/42
