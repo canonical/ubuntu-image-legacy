@@ -10,6 +10,18 @@
 # Therefore, we use a .dockerfile that starts with the official Ubuntu Xenial
 # image, installs all the test dependencies from archive packages, and then
 # clones the master branch of the origin repository.
+#
+# When Travis is run, it happens in two different steps, based on the value of
+# the $TRAVIS_PULL_REQUEST environment variable.  When that's 'false', it
+# means the test is running against the master branch, so no `git fetch` is
+# necessary.  When it's not 'false', it contains the pull request number,
+# which is available as a fetchable refspec in the origin repository, in which
+# case, we ensure that we're running the test suite against the pull request.
+
+# See
+# https://docs.travis-ci.com/user/pull-requests and
+# https://docs.travis-ci.com/user/environment-variables
+# for additional details.
 
 sudo: required
 services:
@@ -20,4 +32,4 @@ python:
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v3 .
 script:
-  - /usr/bin/python3 .script
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git pull; mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'; tox" || docker run --detach=false foundations/xenial:v3 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'; tox"'
