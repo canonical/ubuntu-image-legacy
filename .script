@@ -23,8 +23,10 @@ cmd = [
     '/bin/sh', '-c',
     ]
 
+
+SPACE = ' '
 CD = 'cd /root/code'
-DEPS = "mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'"
+DEPS = "cat debian/control; mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'"
 FETCH = 'git fetch origin +refs/pull/{}/merge; git checkout -qf FETCH_HEAD'
 
 
@@ -37,4 +39,6 @@ else:
     # Fetch the PR then run the tests.
     cmd.append('"{}; {}; {}; tox"'.format(CD, FETCH.format(PRNUM), DEPS))
 
+
+print(SPACE.join(cmd))
 sys.exit(call(cmd))
