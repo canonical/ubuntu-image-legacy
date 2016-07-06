@@ -14,20 +14,14 @@ Ubuntu 16.04 (Xenial Xerus) is the minimum platform requirement.  Python 3.5
 is the minimum Python version required.  All required third party packages are
 available in the Ubuntu archive.
 
-If you want to run the test suite you should install the following
-dependencies:
+If you want to run the test suite locally, you should install all the build
+dependencies named in the `debian/control` file.  The easiest way to do that
+is to `apt install devscripts equivs` and then run::
 
-* python3-coverage
-* python3-flake8
-* python3-nose2
-* python3-progressbar
-* python3-requests
-* python3-requests-oauthlib
-* python3-requests-toolbelt
-* python3-responses
-* python3-setuptools
-* python3-ssoclient
-* tox
+    $ sudo mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'
+
+from the directory containing the `debian` subdirectory.  Alternatively of
+course, you can just install the packages named in the `Build-Depends` field.
 
 The test suite will prefer system installed libraries when available instead
 of PyPI downloaded libraries, however the following test dependencies will be
