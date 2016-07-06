@@ -15,4 +15,6 @@ RUN git clone --depth=50 https://github.com/CanonicalLtd/ubuntu-image.git /root/
 # "install -f" are default options. :/
 #RUN cd /root/code && mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'
 
+RUN cd /root/code && cat debian/control
+
 RUN cd /root/code && mk-build-deps && dpkg -I ubuntu-image-build-deps_*_all.deb
