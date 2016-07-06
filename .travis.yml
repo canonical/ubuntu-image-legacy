@@ -30,6 +30,6 @@ language: python
 python:
   - "3.5"
 before_install:
-  - docker build -f .dockerfile -t foundations/xenial:v4 .
+  - docker build -f .dockerfile -t foundations/xenial:v5 .
 script:
-  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v4 /bin/sh -c "cd /root/code; git pull; mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'; tox" || docker run --detach=false foundations/xenial:v4 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'; tox"'
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v5 /bin/sh -c "cd /root/code; git pull; mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'; tox" || docker run --detach=false foundations/xenial:v5 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'; tox"'
