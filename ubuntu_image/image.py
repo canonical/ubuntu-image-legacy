@@ -4,21 +4,14 @@ import os
 
 from enum import Enum
 from subprocess import PIPE, run
+from tempfile import TemporaryDirectory
+from ubuntu_image.parser import parse
 
 
 __all__ = [
     'Diagnostics',
-    'GiB',
     'Image',
     ]
-
-
-def GiB(count):
-    return count * 2**30
-
-
-def MiB(count):
-    return count * 2**20
 
 
 class Diagnostics(Enum):
@@ -114,3 +107,20 @@ class Image:
         # - check status
         # - log stderr
         return status.stdout
+
+
+def extract(snap_path):                             # pragma: no cover
+    """Extract the image.yml file from a path to a .snap.
+
+    :param snap_path: File system path to a .snap.
+    :type snap_path: str
+    :return: The dictionary represented by the meta/image.yaml file contained
+        in the snap.
+    :rtype: dict
+    """
+    with TemporaryDirectory() as destination:
+        unpack_dir = os.path.join(destination, 'unpack')
+        run(['unsquashfs', '-d', unpack_dir, snap_path],
+            stderr=PIPE, stdout=PIPE)
+        image_yaml = os.path.join(unpack_dir, 'meta', 'image.yaml')
+        return parse(image_yaml)
