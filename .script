@@ -1,0 +1,38 @@
+#!/usr/bin/python3
+
+# When Travis is run, it happens in two different steps, based on the value of
+# the $TRAVIS_PULL_REQUEST environment variable.  When that's 'false', it
+# means the test is running against the master branch, so no `git fetch` is
+# necessary.  When it's not 'false', it contains the pull request number,
+# which is available as a fetchable refspec in the origin repository, in which
+# case, we ensure that we're running the test suite against the pull request.
+
+# See
+# https://docs.travis-ci.com/user/pull-requests and
+# https://docs.travis-ci.com/user/environment-variables
+# for additional details.
+
+import os
+from subprocess import run
+
+
+cmd = [
+    'docker', 'run', '--detach=false', 'foundations/xenial:v3',
+    '/bin/sh', '-c',
+    ]
+
+CD = 'cd /root/code'
+DEPS = "mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'"
+FETCH = 'git fetch origin +refs/pull/{}/merge; git checkout -qf FETCH_HEAD'
+
+
+PRNUM = os.environ.get('TRAVIS_PULL_REQUEST', 'false')
+
+if PRNUM == 'false':
+    # No pull request in play.
+    cmd.append('"{}; {}; tox"'.format(CD, DEPS))
+else:
+    # Fetch the PR then run the tests.
+    cmd.append('"{}; {}; {}; tox"'.format(CD, FETCH.format(PRNUM), DEPS))
+
+run(cmd)
