@@ -20,4 +20,4 @@ python:
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v3 .
 script:
-  - /usr/bin/python3.5 .script
+  - /usr/bin/python3 .script

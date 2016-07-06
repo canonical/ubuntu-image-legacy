@@ -13,7 +13,9 @@
 # for additional details.
 
 import os
-from subprocess import run
+import sys
+
+from subprocess import call
 
 
 cmd = [
@@ -35,4 +37,4 @@ else:
     # Fetch the PR then run the tests.
     cmd.append('"{}; {}; {}; tox"'.format(CD, FETCH.format(PRNUM), DEPS))
 
-run(cmd)
+sys.exit(call(cmd))
