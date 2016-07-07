@@ -14,24 +14,25 @@ class BaseImageBuilder(State):
     def __init__(self):
         super().__init__()
         self._tmpdir = self.resources.enter_context(TemporaryDirectory())
-        self._next.append(self.rootfs_contents)
+        self._next.append(self.populate_rootfs_contents)
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
         self.bootfs = None
         self.bootfs_size = 0
 
-    def rootfs_contents(self):
+    def populate_rootfs_contents(self):
         # Create and populate a local directory containing the root file
         # system contents.
         self.rootfs = os.path.join(self._tmpdir, 'root')
+        os.makedirs(self.rootfs)
         # XXX For now just put some dummy contents there to verify the basic
         # approach.
         for path, contents in {
                 'foo': 'this is foo',
                 'bar': 'this is bar',
                 'baz/buz': 'some bazz buzz',
-                }:
+                }.items():
             rooted_path = os.path.join(self.rootfs, path)
             dirname = os.path.dirname(path)
             if len(dirname) > 0:
@@ -40,7 +41,7 @@ class BaseImageBuilder(State):
                 fp.write(contents)
         # Mount point for /boot.
         os.mkdir(os.path.join(self.rootfs, 'boot'))
-        self._next.append(self.rootfs_size)
+        self._next.append(self.calculate_rootfs_size)
 
     def _calculate_dirsize(self, path):
         total = 0
@@ -51,29 +52,29 @@ class BaseImageBuilder(State):
         total *= 1.5
         return total
 
-    def rootfs_size(self):
+    def calculate_rootfs_size(self):
         # Calculate the size of the root file system.  Basically, I'm trying
         # to reproduce du(1) close enough without having to call out to it and
         # parse its output.
         self.rootfs_size = self._calculate_dirsize(self.rootfs)
-        self._next.append(self.bootfs_contents)
+        self._next.append(self.populate_bootfs_contents)
 
-    def bootfs_contents(self):
+    def populate_bootfs_contents(self):
         # Create the boot file system contents.
         self.bootfs = os.path.join(self._tmpdir, 'boot')
         for path, contents in {
                 'boot/qux': 'boot qux',
                 'boot/qay': 'boot qay',
-                }:
-            booted_path = os.path(self.bootfs, path)
+                }.items():
+            booted_path = os.path.join(self.bootfs, path)
             dirname = os.path.dirname(path)
             if len(dirname) > 0:
                 os.makedirs(os.path.dirname(booted_path), exist_ok=True)
             with open(booted_path, 'w', encoding='utf-8') as fp:
                 fp.write(contents)
-        self._next.append(self.bootfs_size)
+        self._next.append(self.calculate_bootfs_size)
 
-    def bootfs_size(self):
+    def calculate_bootfs_size(self):
         self.bootfs_size = self._calculate_dirsize(self.bootfs)
         self._next.append(self.prepare_filesystems)
 
