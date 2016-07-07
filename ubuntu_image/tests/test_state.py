@@ -1,7 +1,7 @@
 """Test the image creation workflow."""
 
 from contextlib import suppress
-from ubuntu_image.flow import State
+from ubuntu_image.state import State
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -58,7 +58,7 @@ class TestState(TestCase):
 
     def test_exception_in_step(self):
         state = MyBrokenState()
-        with patch('ubuntu_image.flow.log.exception') as mock:
+        with patch('ubuntu_image.state.log.exception') as mock:
             self.assertRaises(RuntimeError, list, state)
         mock.assert_called_once_with('uncaught exception in state machine')
 
