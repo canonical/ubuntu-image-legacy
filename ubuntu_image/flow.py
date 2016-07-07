@@ -28,7 +28,7 @@ class State:
         # there.  That way, if .close() gets called more than once, only the
         # first call will release the resources, while subsequent ones will
         # no-op.
-        self._resources.pop_all().close()
+        self.resources.pop_all().close()
 
     def __enter__(self):
         return self
@@ -127,7 +127,7 @@ class State:
 class BaseImageBuilder(State):
     def __init__(self):
         super().__init__()
-        self._tmpdir = self._resources.enter_context(TemporaryDirectory())
+        self._tmpdir = self.resources.enter_context(TemporaryDirectory())
         self._next.append(self.rootfs_contents)
         # Information passed between states.
         self.rootfs = None

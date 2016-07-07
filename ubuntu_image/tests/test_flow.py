@@ -1,5 +1,6 @@
 """Test the image creation workflow."""
 
+from contextlib import suppress
 from ubuntu_image.flow import State
 from unittest import TestCase
 from unittest.mock import patch
@@ -60,3 +61,36 @@ class TestState(TestCase):
         with patch('ubuntu_image.flow.log.exception') as mock:
             self.assertRaises(RuntimeError, list, state)
         mock.assert_called_once_with('uncaught exception in state machine')
+
+    def test_context_manager(self):
+        with MyState() as state:
+            list(state)
+        self.assertEqual(state.accumulator, [1, 2, 3])
+
+    def test_run_thru_past_the_end(self):
+        # Running through a nonexistent state just runs through to the end of
+        # the state machine.
+        with MyState() as state:
+            state.run_thru('not-a-state')
+        self.assertEqual(state.accumulator, [1, 2, 3])
+
+    def test_run_thru_exception_closes_resources(self):
+        with MyBrokenState() as state:
+            state.resources.callback(setattr, state, 'x', 5)
+            with suppress(RuntimeError):
+                state.run_thru('not-a-state')
+        self.assertEqual(state.x, 5)
+
+    def test_run_until_past_the_end(self):
+        # Running until a nonexistent state just runs through to the end of
+        # the state machine.
+        with MyState() as state:
+            state.run_until('not-a-state')
+        self.assertEqual(state.accumulator, [1, 2, 3])
+
+    def test_run_until_exception_closes_resources(self):
+        with MyBrokenState() as state:
+            state.resources.callback(setattr, state, 'x', 5)
+            with suppress(RuntimeError):
+                state.run_until('not-a-state')
+        self.assertEqual(state.x, 5)
