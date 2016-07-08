@@ -1,9 +1,10 @@
 """Test image building."""
 
 import os
+import sys
 
 from contextlib import ExitStack, suppress
-from subprocess import PIPE, run
+from subprocess import PIPE, run as subprocess_run
 from tempfile import TemporaryDirectory
 from ubuntu_image.builder import BaseImageBuilder
 from unittest import TestCase
@@ -12,6 +13,20 @@ from unittest import TestCase
 # For convenience.
 def utf8open(path):
     return open(path, 'r', encoding='utf-8')
+
+
+def run(command, **args):
+    if 'shell' not in args:
+        command = command.split()
+    proc = subprocess_run(
+        command,
+        stdout=PIPE, stderr=PIPE,
+        **args)
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stdout)
+        sys.stderr.write(proc.stderr)
+        proc.check_returncode()
+    return proc
 
 
 NL = '\n'
@@ -71,10 +86,7 @@ class TestBaseImageBuilder(TestCase):
             state.run_thru('populate_filesystems')
             boot_dir = resources.enter_context(TemporaryDirectory())
             # The boot file system is a VFAT file system.
-            run('mcopy -s -i {} :: {}'.format(
-                    state.boot_img, boot_dir).split(),
-                stdout=PIPE, stderr=PIPE,
-                check=True,
+            run('mcopy -s -i {} :: {}'.format(state.boot_img, boot_dir),
                 env=dict(MTOOLS_SKIP_CHECK='1'))
             self.assertEqual(set(os.listdir(boot_dir)), {'boot', 'other'})
             self.assertEqual(
@@ -89,9 +101,7 @@ class TestBaseImageBuilder(TestCase):
             # The root file system is an ext4 file system.
             root_dir = resources.enter_context(TemporaryDirectory())
             run('debugfs -R "rdump / {}" {}'.format(root_dir, state.root_img),
-                shell=True,
-                stdout=PIPE, stderr=PIPE,
-                check=True)
+                shell=True)
             self.assertEqual(
                 set(os.listdir(root_dir)),
                 {'foo', 'bar', 'baz', 'lost+found', 'boot'})
@@ -112,10 +122,8 @@ class TestBaseImageBuilder(TestCase):
             self.assertTrue(os.path.exists('disk.img'))
             self.assertFalse(os.path.exists(state.root_img))
             self.assertFalse(os.path.exists(state.boot_img))
-        proc = run('sgdisk --print disk.img'.split(),
-                   stdout=PIPE, stderr=PIPE,
-                   universal_newlines=True,
-                   check=True)
+        proc = run('sgdisk --print disk.img',
+                   universal_newlines=True)
         # The disk identifier (GUID) is variable so remove that line.
         output = proc.stdout.splitlines()
         del output[2]
