@@ -10,6 +10,9 @@ from ubuntu_image.builder import BaseImageBuilder
 from unittest import TestCase
 
 
+NL = '\n'
+
+
 # For convenience.
 def utf8open(path):
     return open(path, 'r', encoding='utf-8')
@@ -27,9 +30,6 @@ def run(command, **args):
         sys.stderr.write(proc.stderr)
         proc.check_returncode()
     return proc
-
-
-NL = '\n'
 
 
 class TestBaseImageBuilder(TestCase):
