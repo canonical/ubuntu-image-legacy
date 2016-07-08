@@ -67,6 +67,7 @@ def run(command, **args):
     proc = subprocess_run(
         command,
         stdout=PIPE, stderr=PIPE,
+        universal_newlines=True,
         **args)
     if proc.returncode != 0:
         sys.stderr.write(proc.stdout)
