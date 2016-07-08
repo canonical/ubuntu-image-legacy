@@ -107,8 +107,7 @@ class TestBaseImageBuilder(TestCase):
             self.assertTrue(os.path.exists('disk.img'))
             self.assertFalse(os.path.exists(state.root_img))
             self.assertFalse(os.path.exists(state.boot_img))
-        proc = run('sgdisk --print disk.img',
-                   universal_newlines=True)
+        proc = run('sgdisk --print disk.img')
         # The disk identifier (GUID) is variable so remove that line.
         output = proc.stdout.splitlines()
         del output[2]
