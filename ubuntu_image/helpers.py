@@ -1,12 +1,16 @@
 """Useful helper functions."""
 
 import re
+import sys
+
+from subprocess import PIPE, run as subprocess_run
 
 
 __all__ = [
     'GiB',
     'MiB',
     'as_size',
+    'run',
     'transform',
     ]
 
@@ -55,3 +59,17 @@ def transform(caught_excs, new_exc):
                 raise new_exc from exception
         return inner
     return outer
+
+
+def run(command, **args):
+    if 'shell' not in args:
+        command = command.split()
+    proc = subprocess_run(
+        command,
+        stdout=PIPE, stderr=PIPE,
+        **args)
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stdout)
+        sys.stderr.write(proc.stderr)
+        proc.check_returncode()
+    return proc

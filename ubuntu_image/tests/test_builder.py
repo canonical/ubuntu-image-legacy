@@ -1,12 +1,11 @@
 """Test image building."""
 
 import os
-import sys
 
 from contextlib import ExitStack, suppress
-from subprocess import PIPE, run as subprocess_run
 from tempfile import TemporaryDirectory
 from ubuntu_image.builder import BaseImageBuilder
+from ubuntu_image.helpers import run
 from unittest import TestCase
 
 
@@ -16,20 +15,6 @@ NL = '\n'
 # For convenience.
 def utf8open(path):
     return open(path, 'r', encoding='utf-8')
-
-
-def run(command, **args):
-    if 'shell' not in args:
-        command = command.split()
-    proc = subprocess_run(
-        command,
-        stdout=PIPE, stderr=PIPE,
-        **args)
-    if proc.returncode != 0:
-        sys.stderr.write(proc.stdout)
-        sys.stderr.write(proc.stderr)
-        proc.check_returncode()
-    return proc
 
 
 class TestBaseImageBuilder(TestCase):

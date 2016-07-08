@@ -4,9 +4,8 @@
 import os
 import shutil
 
-from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB
+from ubuntu_image.helpers import GiB, run
 from ubuntu_image.image import Image
 from ubuntu_image.state import State
 
@@ -90,18 +89,12 @@ class BaseImageBuilder(State):
         # The image for the boot partition.
         self.boot_img = os.path.join(self.images, 'boot.img')
         run('dd if=/dev/zero of={} count=0 bs=1GB seek=1'.format(
-                self.boot_img).split(),
-            stdout=PIPE, stderr=PIPE,
-            check=True)
-        run('mkfs.vfat {}'.format(self.boot_img).split(),
-            check=True,
-            stdout=PIPE, stderr=PIPE)
+            self.boot_img))
+        run('mkfs.vfat {}'.format(self.boot_img))
         # The image for the root partition.
         self.root_img = os.path.join(self.images, 'root.img')
         run('dd if=/dev/zero of={} count=0 bs=1GB seek=2'.format(
-                self.root_img).split(),
-            stdout=PIPE, stderr=PIPE,
-            check=True)
+            self.root_img))
         # We defer creating the root file system image because we have to
         # populate it at the same time.  See mkfs.ext4(8) for details.
         self._next.append(self.populate_filesystems)
@@ -112,15 +105,11 @@ class BaseImageBuilder(State):
             os.path.join(self.bootfs, filename)
             for filename in os.listdir(self.bootfs)
             )
-        run('mcopy -i {} {} ::'.format(self.boot_img, sourcefiles).split(),
-            check=True,
-            stdout=PIPE, stderr=PIPE,
+        run('mcopy -i {} {} ::'.format(self.boot_img, sourcefiles),
             env=dict(MTOOLS_SKIP_CHECK='1'))
         # The root partition needs to be ext4, which can only be populated at
         # creation time.
-        run('mkfs.ext4 {} -d {}'.format(self.root_img, self.rootfs).split(),
-            stdout=PIPE, stderr=PIPE,
-            check=True)
+        run('mkfs.ext4 {} -d {}'.format(self.root_img, self.rootfs))
         self._next.append(self.make_disk)
 
     def make_disk(self):
