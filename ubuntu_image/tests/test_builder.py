@@ -2,8 +2,16 @@
 
 import os
 
+from contextlib import ExitStack
+from subprocess import PIPE, run
+from tempfile import TemporaryDirectory
 from ubuntu_image.builder import BaseImageBuilder
 from unittest import TestCase
+
+
+# For convenience.
+def utf8open(path):
+    return open(path, 'r', encoding='utf-8')
 
 
 class TestBaseImageBuilder(TestCase):
@@ -22,13 +30,11 @@ class TestBaseImageBuilder(TestCase):
                 len(os.listdir(os.path.join(state.rootfs, 'boot'))),
                 0)
             path = os.path.join(state.rootfs, 'foo')
-            with open(path, 'r', encoding='utf-8') as fp:
+            with utf8open(os.path.join(state.rootfs, path)) as fp:
                 self.assertEqual(fp.read(), 'this is foo')
-            path = os.path.join(state.rootfs, 'bar')
-            with open(path, 'r', encoding='utf-8') as fp:
+            with utf8open(os.path.join(state.rootfs, 'bar')) as fp:
                 self.assertEqual(fp.read(), 'this is bar')
-            path = os.path.join(state.rootfs, 'baz', 'buz')
-            with open(path, 'r', encoding='utf-8') as fp:
+            with utf8open(os.path.join(state.rootfs, 'baz', 'buz')) as fp:
                 self.assertEqual(fp.read(), 'some bazz buzz')
             self.assertEqual(state.rootfs_size, 54)
 
@@ -42,14 +48,46 @@ class TestBaseImageBuilder(TestCase):
             self.assertEqual(
                 set(os.listdir(os.path.join(state.bootfs, 'boot'))),
                 {'qux', 'qay'})
-            path = os.path.join(state.bootfs, 'boot', 'qux')
-            with open(path, 'r', encoding='utf-8') as fp:
+            with utf8open(os.path.join(state.bootfs, 'boot', 'qux')) as fp:
                 self.assertEqual(fp.read(), 'boot qux')
-            path = os.path.join(state.bootfs, 'boot', 'qay')
-            with open(path, 'r', encoding='utf-8') as fp:
+            with utf8open(os.path.join(state.bootfs, 'boot', 'qay')) as fp:
                 self.assertEqual(fp.read(), 'boot qay')
             self.assertEqual(state.bootfs_size, 24)
 
     def test_filesystems(self):
-        with BaseImageBuilder() as state:
+        with ExitStack() as resources:
+            state = resources.enter_context(BaseImageBuilder())
             state.run_thru('populate_filesystems')
+            boot_dir = resources.enter_context(TemporaryDirectory())
+            # The boot file system is a VFAT file system.
+            run('mcopy -s -i {} :: {}'.format(
+                    state.boot_img, boot_dir).split(),
+                stdout=PIPE, stderr=PIPE,
+                check=True,
+                env=dict(MTOOLS_SKIP_CHECK='1'))
+            self.assertEqual(set(os.listdir(boot_dir)), {'boot'})
+            self.assertEqual(
+                set(os.listdir(os.path.join(boot_dir, 'boot'))),
+                {'qay', 'qux'})
+            with utf8open(os.path.join(boot_dir, 'boot', 'qux')) as fp:
+                self.assertEqual(fp.read(), 'boot qux')
+            with utf8open(os.path.join(boot_dir, 'boot', 'qay')) as fp:
+                self.assertEqual(fp.read(), 'boot qay')
+            # The root file system is an ext4 file system.
+            root_dir = resources.enter_context(TemporaryDirectory())
+            run('debugfs -R "rdump / {}" {}'.format(root_dir, state.root_img),
+                shell=True,
+                stdout=PIPE, stderr=PIPE,
+                check=True)
+            self.assertEqual(
+                set(os.listdir(root_dir)),
+                {'foo', 'bar', 'baz', 'lost+found', 'boot'})
+            boot_mount = os.path.join(root_dir, 'boot')
+            self.assertTrue(os.path.isdir(boot_mount))
+            self.assertEqual(os.listdir(boot_mount), [])
+            with utf8open(os.path.join(root_dir, 'foo')) as fp:
+                self.assertEqual(fp.read(), 'this is foo')
+            with utf8open(os.path.join(root_dir, 'bar')) as fp:
+                self.assertEqual(fp.read(), 'this is bar')
+            with utf8open(os.path.join(root_dir, 'baz', 'buz')) as fp:
+                self.assertEqual(fp.read(), 'some bazz buzz')

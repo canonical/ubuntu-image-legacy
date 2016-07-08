@@ -4,7 +4,9 @@ Priority: optional
 Maintainer: Zygmunt Krynicki <zygmunt.krynicki@canonical.com>
 Build-Depends: debhelper (>= 9),
                dh-python,
+               e2fsprogs,
                gdisk,
+               mtools,
                python3-all,
                python3-debian,
                python3-guacamole,
