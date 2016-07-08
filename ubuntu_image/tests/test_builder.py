@@ -49,3 +49,7 @@ class TestBaseImageBuilder(TestCase):
             with open(path, 'r', encoding='utf-8') as fp:
                 self.assertEqual(fp.read(), 'boot qay')
             self.assertEqual(state.bootfs_size, 24)
+
+    def test_filesystems(self):
+        with BaseImageBuilder() as state:
+            state.run_thru('populate_filesystems')

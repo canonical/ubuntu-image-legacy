@@ -80,25 +80,28 @@ class BaseImageBuilder(State):
 
     def prepare_filesystems(self):
         self.images = os.path.join(self._tmpdir, '.images')
+        os.makedirs(self.images)
         # The image for the boot partition.
         self.boot_img = os.path.join(self.images, 'boot.img')
-        run('dd if=/dev/zero of={} count=0 bs=1BG seek=1'.format(
-            self.boot_img).split())
-        run('mkfs.vfat {}'.format(self.boot_img).split())
+        run('dd if=/dev/zero of={} count=0 bs=1GB seek=1'.format(
+            self.boot_img).split(), check=True)
+        run('mkfs.vfat {}'.format(self.boot_img).split(), check=True)
         # The image for the root partition.
         self.root_img = os.path.join(self.images, 'root.img')
         run('dd if=/dev/zero of={} count=0 bs=1GB seek=2'.format(
-            self.root_img).split())
+            self.root_img).split(), check=True)
         # We defer creating the root file system image because we have to
         # populate it at the same time.  See mkfs.ext4(8) for details.
         self._next.append(self.populate_filesystems)
 
     def populate_filesystems(self):
         # The boot file system is VFAT.
-        run('mcopy -i {} {} ::'.format(self.boot_img, self.bootfs).split())
+        run('mcopy -i {} {} ::'.format(self.boot_img, self.bootfs).split(),
+            check=True)
         # The root partition needs to be ext4, which can only be populated at
         # creation time.
-        run('mkfs.ext4 {} -d {}'.format(self.root_img, self.rootfs).split())
+        run('mkfs.ext4 {} -d {}'.format(self.root_img, self.rootfs).split(),
+            check=True)
         self._next.append(self.make_disk)
 
     def make_disk(self):
