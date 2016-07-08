@@ -2,7 +2,7 @@
 
 import os
 
-from contextlib import ExitStack
+from contextlib import ExitStack, suppress
 from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
 from ubuntu_image.builder import BaseImageBuilder
@@ -14,7 +14,16 @@ def utf8open(path):
     return open(path, 'r', encoding='utf-8')
 
 
+NL = '\n'
+
+
 class TestBaseImageBuilder(TestCase):
+    maxDiff = None
+
+    def tearDown(self):
+        with suppress(FileNotFoundError):
+            os.remove('disk.img')
+
     def test_rootfs(self):
         with BaseImageBuilder() as state:
             state.run_thru('calculate_rootfs_size')
@@ -43,16 +52,18 @@ class TestBaseImageBuilder(TestCase):
             state.run_thru('calculate_bootfs_size')
             self.assertEqual(
                 set(os.listdir(state.bootfs)),
-                {'boot'})
+                {'boot', 'other'})
             self.assertTrue(os.path.isdir(os.path.join(state.bootfs, 'boot')))
             self.assertEqual(
                 set(os.listdir(os.path.join(state.bootfs, 'boot'))),
                 {'qux', 'qay'})
+            with utf8open(os.path.join(state.bootfs, 'other')) as fp:
+                self.assertEqual(fp.read(), 'other')
             with utf8open(os.path.join(state.bootfs, 'boot', 'qux')) as fp:
                 self.assertEqual(fp.read(), 'boot qux')
             with utf8open(os.path.join(state.bootfs, 'boot', 'qay')) as fp:
                 self.assertEqual(fp.read(), 'boot qay')
-            self.assertEqual(state.bootfs_size, 24)
+            self.assertEqual(state.bootfs_size, 31.5)
 
     def test_filesystems(self):
         with ExitStack() as resources:
@@ -65,10 +76,12 @@ class TestBaseImageBuilder(TestCase):
                 stdout=PIPE, stderr=PIPE,
                 check=True,
                 env=dict(MTOOLS_SKIP_CHECK='1'))
-            self.assertEqual(set(os.listdir(boot_dir)), {'boot'})
+            self.assertEqual(set(os.listdir(boot_dir)), {'boot', 'other'})
             self.assertEqual(
                 set(os.listdir(os.path.join(boot_dir, 'boot'))),
                 {'qay', 'qux'})
+            with utf8open(os.path.join(boot_dir, 'other')) as fp:
+                self.assertEqual(fp.read(), 'other')
             with utf8open(os.path.join(boot_dir, 'boot', 'qux')) as fp:
                 self.assertEqual(fp.read(), 'boot qux')
             with utf8open(os.path.join(boot_dir, 'boot', 'qay')) as fp:
@@ -91,3 +104,30 @@ class TestBaseImageBuilder(TestCase):
                 self.assertEqual(fp.read(), 'this is bar')
             with utf8open(os.path.join(root_dir, 'baz', 'buz')) as fp:
                 self.assertEqual(fp.read(), 'some bazz buzz')
+
+    def test_finish(self):
+        with ExitStack() as resources:
+            state = resources.enter_context(BaseImageBuilder())
+            list(state)
+            self.assertTrue(os.path.exists('disk.img'))
+            self.assertFalse(os.path.exists(state.root_img))
+            self.assertFalse(os.path.exists(state.boot_img))
+        proc = run('sgdisk --print disk.img'.split(),
+                   stdout=PIPE, stderr=PIPE,
+                   universal_newlines=True,
+                   check=True)
+        # The disk identifier (GUID) is variable so remove that line.
+        output = proc.stdout.splitlines()
+        del output[2]
+        self.assertMultiLineEqual(
+                NL.join(output), """\
+Disk disk.img: 8388608 sectors, 4.0 GiB
+Logical sector size: 512 bytes
+Partition table holds up to 128 entries
+First usable sector is 34, last usable sector is 8388574
+Partitions will be aligned on 2048-sector boundaries
+Total free space is 790461 sectors (386.0 MiB)
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   2           10240          141311   64.0 MiB    EF00  system-boot
+   3          147456         7614463   3.6 GiB     8300  writable""")

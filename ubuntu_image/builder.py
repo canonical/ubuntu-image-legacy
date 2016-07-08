@@ -2,6 +2,7 @@
 
 
 import os
+import shutil
 
 from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
@@ -65,7 +66,9 @@ class BaseImageBuilder(State):
     def populate_bootfs_contents(self):
         # Create the boot file system contents.
         self.bootfs = os.path.join(self._tmpdir, 'boot')
+        os.makedirs(self.bootfs)
         for path, contents in {
+                'other': 'other',
                 'boot/qux': 'boot qux',
                 'boot/qay': 'boot qay',
                 }.items():
@@ -154,5 +157,5 @@ class BaseImageBuilder(State):
     def finish(self):
         # Copy the completed disk image to the current directory, since the
         # temporary scratch directory is about to get removed.
-        os.rename(self.disk_img, os.getcwd())
+        shutil.copy(self.disk_img, os.getcwd())
         self._next.append(self.close)
