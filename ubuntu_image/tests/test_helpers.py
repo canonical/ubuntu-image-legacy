@@ -1,8 +1,8 @@
 """Test the helpers."""
 
 
-from io import StringIO
 from contextlib import ExitStack
+from io import StringIO
 from ubuntu_image.helpers import GiB, MiB, as_size, run, transform
 from unittest import TestCase
 from unittest.mock import patch
