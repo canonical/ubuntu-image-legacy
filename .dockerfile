@@ -10,7 +10,7 @@ RUN apt-get install -y git devscripts equivs software-properties-common
 
 # For backport of Yakkety's e2fsprogs.
 RUN add-apt-repository --yes ppa:canonical-foundations/ubuntu-image
-RUN apt-get update
+RUN apt-get update && apt-get dist-upgrade -y
 
 # Grab the origin/master branch as a baseline.
 RUN git clone --depth=50 https://github.com/CanonicalLtd/ubuntu-image.git /root/code

@@ -18,9 +18,9 @@ image::
   # partition the disk image based on the directions in the gadget
   # image.yaml
   dd if=/dev/zero of=snappy.img count=0 bs=1GB seek=4 # ftruncate()
-  # sfdisk is scriptable but not friendly; see
+  # sgdisk is scriptable but not friendly; see
   # lp:~ubuntu-cdimage/debian-cd/ubuntu for example usage
-  sfdisk [...] snappy.img
+  sgdisk [...] snappy.img
 
   # if a boot partition is required, create it as a filesystem image first,
   # same as for the root filesystem, to avoid use of kpartx.  For vfat
