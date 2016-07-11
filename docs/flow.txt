@@ -1,0 +1,52 @@
+As promised, here's a rough description of the flow for creating a snappy
+image::
+
+  # create a filesystem image. FIXME: we don't know the minimum size of our
+  # filesystem until snapd has downloaded all of the snaps and we see how
+  # large everything is
+  dd if=/dev/zero of=snappy-partition.img count=0 bs=1GB seek=2 # ftruncate()
+  mkfs.ext4 snappy-partition.img
+
+  # loop mount the partition so that snappy can write to it
+  mkdir snappy-rootfs
+  sudo mount -oloop snappy-partition.img snappy-rootfs
+
+  # request the gadget snap
+  mkdir snappy-gadget
+  snap get-gadget seed.yaml --target-dir snappy-gadget
+
+  # partition the disk image based on the directions in the gadget
+  # image.yaml
+  dd if=/dev/zero of=snappy.img count=0 bs=1GB seek=4 # ftruncate()
+  # sgdisk is scriptable but not friendly; see
+  # lp:~ubuntu-cdimage/debian-cd/ubuntu for example usage
+  sgdisk [...] snappy.img
+
+  # if a boot partition is required, create it as a filesystem image first,
+  # same as for the root filesystem, to avoid use of kpartx.  For vfat
+  # filesystem this can be done with mtools as non-root instead of with a
+  # loop mount.  However, snappy wants access to the boot partition for
+  # snap weld; we should check that giving them a target dir containing our
+  # own boot bits is sufficient.
+  mkdir -p snappy-rootfs/boot
+  cp snappy-gadget/[...] snappy-rootfs/boot/[...]
+  snap weld seed.yaml --diskimage-dir snappy-rootfs
+  dd if=/dev/zero of=snappy-boot.img count=0 bs=1GB seek=1 # ftruncate()
+  mkfs.vfat snappy-boot.img
+  mcopy -i snappy-boot.img snappy-rootfs/boot/* :: # untested
+  rm -rf snappy-rootfs/boot
+  # leave the boot/ dir here as a mountpoint within the image
+  mkdir -p snappy-rootfs/boot
+
+  # unmount all our filesystems (which automatically removes the loop
+  # mount), then copy the filesystem images into the disk image at the
+  # correct offset (which we know because we defined the partition table).
+  sudo umount snappy-partition.img
+  dd if=snappy-partition.img of=snappy.img seek=$root_partition_offset sparse
+  # 'sparse' to save us writing a lot of 0s by block-copying a
+  # filesystem that's not fully populated
+  dd if=snappy-boot.img of=snappy.img seek=$boot_partition_offset sparse
+
+  # clean up
+  rmdir snappy-rootfs
+  rm -f snappy-partition.img snappy-boot.img

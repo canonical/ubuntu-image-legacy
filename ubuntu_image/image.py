@@ -30,7 +30,7 @@ class Image:
 
         Public attributes:
 
-        * path       - Path to the image file.
+        * path - Path to the image file.
         """
         self.path = path
         # Create an empty image file of a fixed size.  Unlike
