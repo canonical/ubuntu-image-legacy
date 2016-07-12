@@ -37,7 +37,8 @@ Description: toolkit for building Ubuntu images.
 Package: python3-ubuntu-image
 Architecture: all
 Section: python
-Depends: ${misc:Depends}, ${python3:Depends}
+Depends: ${misc:Depends}, ${python3:Depends}, mtools, dosfstools,
+         e2fsprogs (>= 1.43~)
 Description: toolkit for building Ubuntu images (python3 module)
  TBD
  .
