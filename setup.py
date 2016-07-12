@@ -37,8 +37,12 @@ def require_python(minimum):
 require_python(0x30500f0)
 
 
-with open('debian/changelog', encoding='utf-8') as fp:
-    __version__ = str(Changelog(fp).get_version())
+with open('debian/changelog', encoding='utf-8') as infp:
+    __version__ = str(Changelog(infp).get_version())
+    # Write the version out to the package directory so `ubuntu-image
+    # --version` can display it.
+    with open('ubuntu_image/version.txt', 'w', encoding='utf-8') as outfp:
+        print(__version__, file=outfp)
 
 
 setup(
@@ -47,17 +51,8 @@ setup(
     description='Construct snappy images out of a model assertion',
     author_email='snapcraft@lists.ubuntu.com',
     url='https://github.com/CanonicalLtd/ubuntu-image',
-    packages=['ubuntu_image', 'ubuntu_image.storeapi'],
+    packages=['ubuntu_image'],
     scripts=['ubuntu-image'],
-    install_requires=[
-        'guacamole',
-        'progressbar',
-        'pyxdg',
-        'requests',
-        'requests-oauthlib',
-        'requests-toolbelt',
-        'ssoclient',
-        ],
     entry_points={
         'flake8.extension': ['B40 = ubuntu_image.testing.flake8:ImportOrder'],
         },

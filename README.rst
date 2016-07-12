@@ -30,11 +30,6 @@ archive:
 
 * flake8-respect-noqa
 
-Do **not** use `progressbar <https://pypi.python.org/pypi/progressbar>`__ from
-PyPI because of this `upstream bug`_ (fixed in their repo, but not yet
-released or available in Ubuntu).  Just ``sudo apt install
-python3-progressbar`` instead.
-
 
 License
 =======
@@ -72,6 +67,3 @@ You can run individual tests like this::
 where *<pattern>* is a Python regular expression matching a test name, e.g.::
 
     $ tox -e py35 -- -P test_smoke
-
-
-.. _`upstream bug`: https://github.com/niltonvolpato/python-progressbar/issues/42
