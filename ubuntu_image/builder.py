@@ -3,6 +3,7 @@
 
 import os
 import shutil
+import logging
 
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, run
@@ -11,24 +12,38 @@ from ubuntu_image.state import State
 
 
 SPACE = ' '
+_logger = logging.getLogger('ubuntu-image')
 
 
 class BaseImageBuilder(State):
-    def __init__(self):
+    def __init__(self, *, keep=False):
         super().__init__()
         self._tmpdir = self.resources.enter_context(TemporaryDirectory())
-        self._next.append(self.populate_rootfs_contents)
+        self._keep = keep
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
         self.bootfs = None
         self.bootfs_size = 0
+        self._next.append(self.make_temporary_directories)
+
+    def make_temporary_directories(self):
+        self.rootfs = os.path.join(self._tmpdir, 'root')
+        self.bootfs = os.path.join(self._tmpdir, 'boot')
+        os.makedirs(self.rootfs)
+        os.makedirs(self.bootfs)
+        if self._keep:
+            _logger.info('Keeping temporary directory: {}'.format(
+                self._tmpdir))
+            # The only resource currently maintained is the
+            # TemporaryDirectory.  By popping this now, we ensure it won't get
+            # cleaned up during normal shutdown.  Do *not* close the returned
+            # ExitStack() or the temporary directory will get deleted, and
+            # even if we're not keeping it, it's way too early for that.
+            self.resources.pop_all()
+        self._next.append(self.populate_rootfs_contents)
 
     def populate_rootfs_contents(self):
-        # Create and populate a local directory containing the root file
-        # system contents.
-        self.rootfs = os.path.join(self._tmpdir, 'root')
-        os.makedirs(self.rootfs)
         # XXX For now just put some dummy contents there to verify the basic
         # approach.
         for path, contents in {
@@ -63,9 +78,6 @@ class BaseImageBuilder(State):
         self._next.append(self.populate_bootfs_contents)
 
     def populate_bootfs_contents(self):
-        # Create the boot file system contents.
-        self.bootfs = os.path.join(self._tmpdir, 'boot')
-        os.makedirs(self.bootfs)
         for path, contents in {
                 'other': 'other',
                 'boot/qux': 'boot qux',
@@ -148,3 +160,24 @@ class BaseImageBuilder(State):
         # temporary scratch directory is about to get removed.
         shutil.copy(self.disk_img, os.getcwd())
         self._next.append(self.close)
+
+
+class ModelAssertionBuilder(BaseImageBuilder):
+    def __init__(self, args):
+        self.args = args
+        super().__init__(args.keep)
+
+    def make_temporary_directories(self):
+        self.unpackdir = os.path.join(self._tmpdir, 'unpack')
+        os.makedirs(self.unpackdir)
+        super().make_temporary_directories()
+
+    def populate_rootfs_contents(self):
+        # Run `snap weld` on the model.assertion.  sudo is currently required
+        # in all cases, but eventually, it won't be necessary at least for
+        # UEFI support.
+        raw_cmd = 'sudo snap weld {} --root-dir={} --gadget-unpack-dir={} {}'
+        channel = ('' if self.args.channel is None
+                   else '--channel={}'.format(self.args.channel))
+        cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir)
+        run(cmd)

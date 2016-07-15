@@ -6,11 +6,16 @@ import logging
 import argparse
 
 from pkg_resources import resource_string as resource_bytes
+from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.i18n import _
 
 
-_logger = logging.getLogger("ubuntu-image")
-__version__ = resource_bytes('ubuntu_image', 'version.txt').decode('utf-8')
+_logger = logging.getLogger('ubuntu-image')
+try:
+    __version__ = resource_bytes('ubuntu_image', 'version.txt').decode('utf-8')
+except FileNotFoundError:
+    # Probably, setup.py hasn't been run yet to generate the version.txt.
+    __version__ = 'dev'
 PROGRAM = 'ubuntu-image'
 
 
@@ -24,6 +29,14 @@ def parseargs(argv=None):
     parser.add_argument('-d', '--debug',
                         default=False, action='store_true',
                         help=_('Enable debugging output'))
+    parser.add_argument('-k', '--keep',
+                        default=False, action='store_true',
+                        help=_('Keep (and print) temporary directories'))
+    parser.add_argument('-c', '--channel',
+                        default=None,
+                        help=_('For snap-based images, the channel to use'))
+    parser.add_argument('model-assertion', nargs=1,
+                        help=_('Path to the model assertion'))
     args = parser.parse_args(argv)
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
@@ -31,8 +44,15 @@ def parseargs(argv=None):
 
 
 def main(argv=None):
-    parseargs(argv)
-    return 0
+    args = parseargs(argv)
+    state_machine = ModelAssertionBuilder(args)
+    try:
+        list(state_machine)
+    except:
+        _logger.exception('Crash in state machine')
+        return 1
+    else:
+        return 0
 
 
 if __name__ == '__main__':                          # pragma: nocover
