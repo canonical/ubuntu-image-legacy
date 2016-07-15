@@ -165,7 +165,7 @@ class BaseImageBuilder(State):
 class ModelAssertionBuilder(BaseImageBuilder):
     def __init__(self, args):
         self.args = args
-        super().__init__(args.keep)
+        super().__init__(keep=args.keep)
 
     def make_temporary_directories(self):
         self.unpackdir = os.path.join(self._tmpdir, 'unpack')
@@ -181,3 +181,16 @@ class ModelAssertionBuilder(BaseImageBuilder):
                    else '--channel={}'.format(self.args.channel))
         cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir)
         run(cmd)
+        self._next.append(self.calculate_rootfs_size)
+
+    def populate_bootfs_contents(self):
+        # The --root-dir directory has a boot/ directory inside it.  The
+        # contents of this directory (but not the parent <root-dir>/boot
+        # directory itself) needs to be moved to the bootfs directory.  Leave
+        # <root-dir>/boot as a future mount point.
+        boot = os.path.join(self.rootfs, 'boot')
+        for filename in os.listdir(boot):
+            path = os.path.join(self.rootfs, filename)
+            shutil.copytree(path, self.bootfs)
+            shutil.rmtree(path)
+        self._next.append(self.calculate_rootfs_size)

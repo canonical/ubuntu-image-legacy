@@ -35,7 +35,9 @@ class TestMain(TestCase):
         with ExitStack() as resources:
             mock = resources.enter_context(
                 patch('ubuntu_image.__main__.logging.basicConfig'))
-            code = main(('--debug',))
+            # Prevent actual main() from running.
+            resources.enter_context(patch('ubuntu_image.__main__.main'))
+            code = main(('--debug', 'model.assertion'))
         self.assertEqual(code, 0)
         mock.assert_called_once_with(level=logging.DEBUG)
 
@@ -43,6 +45,8 @@ class TestMain(TestCase):
         with ExitStack() as resources:
             mock = resources.enter_context(
                 patch('ubuntu_image.__main__.logging.basicConfig'))
-            code = main(())
+            # Prevent actual main() from running.
+            resources.enter_context(patch('ubuntu_image.__main__.main'))
+            code = main(('model.assertion',))
         self.assertEqual(code, 0)
         mock.assert_not_called()
