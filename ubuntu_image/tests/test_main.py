@@ -50,3 +50,10 @@ class TestMain(TestCase):
             code = main(('model.assertion',))
         self.assertEqual(code, 0)
         mock.assert_not_called()
+
+    def test_state_machine_exception(self):
+        with patch('ubuntu_image.__main__.ModelAssertionBuilder.'
+                   'make_temporary_directories',
+                   side_effect=RuntimeError):
+            code = main(('model.assertion',))
+        self.assertEqual(code, 1)
