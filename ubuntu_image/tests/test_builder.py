@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from ubuntu_image.builder import BaseImageBuilder
 from ubuntu_image.helpers import run
 from unittest import TestCase
+from unittest.mock import patch
 
 
 NL = '\n'
@@ -64,6 +65,25 @@ class TestBaseImageBuilder(TestCase):
             with utf8open(os.path.join(state.bootfs, 'boot', 'qay')) as fp:
                 self.assertEqual(fp.read(), 'boot qay')
             self.assertEqual(state.bootfs_size, 31.5)
+
+    def test_keep_temporary_directories(self):
+        with ExitStack() as resources:
+            tmpdir_object = TemporaryDirectory()
+            tmpdir = resources.enter_context(tmpdir_object)
+            resources.enter_context(patch(
+                'ubuntu_image.builder.TemporaryDirectory',
+                return_value=tmpdir_object))
+            # Enter a new context just to manage the builder's resources.
+            with BaseImageBuilder(keep=True) as state:
+                state.run_thru('make_temporary_directories')
+                self.assertEqual(state.rootfs, os.path.join(tmpdir, 'root'))
+                self.assertEqual(state.bootfs, os.path.join(tmpdir, 'boot'))
+                self.assertTrue(os.path.exists(state.bootfs))
+                self.assertTrue(os.path.exists(state.rootfs))
+            # After we exit the builder's context, the temporary directories
+            # will still exist, because we passed in keep=True.
+            self.assertTrue(os.path.exists(state.bootfs))
+            self.assertTrue(os.path.exists(state.rootfs))
 
     def test_filesystems(self):
         with ExitStack() as resources:

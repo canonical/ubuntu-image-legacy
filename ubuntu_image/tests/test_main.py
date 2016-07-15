@@ -5,8 +5,14 @@ import logging
 from contextlib import ExitStack
 from io import StringIO
 from ubuntu_image.__main__ import main
+from ubuntu_image.builder import ModelAssertionBuilder
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import call, patch
+
+
+class CrashingModelAssertionBuilder(ModelAssertionBuilder):
+    def make_temporary_directories(self):
+        raise RuntimeError
 
 
 class TestMain(TestCase):
@@ -52,8 +58,13 @@ class TestMain(TestCase):
         mock.assert_not_called()
 
     def test_state_machine_exception(self):
-        with patch('ubuntu_image.__main__.ModelAssertionBuilder.'
-                   'make_temporary_directories',
-                   side_effect=RuntimeError):
+        with ExitStack() as resources:
+            resources.enter_context(patch(
+                'ubuntu_image.__main__.ModelAssertionBuilder',
+                CrashingModelAssertionBuilder))
+            mock = resources.enter_context(patch(
+                'ubuntu_image.__main__._logger.exception'))
             code = main(('model.assertion',))
-        self.assertEqual(code, 1)
+            self.assertEqual(code, 1)
+            self.assertEqual(
+                mock.call_args_list[-1], call('Crash in state machine'))
