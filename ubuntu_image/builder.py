@@ -179,8 +179,13 @@ class ModelAssertionBuilder(BaseImageBuilder):
         raw_cmd = 'sudo snap weld {} --root-dir={} --gadget-unpack-dir={} {}'
         channel = ('' if self.args.channel is None
                    else '--channel={}'.format(self.args.channel))
-        cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir)
+        cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir,
+                             self.args.model_assertion)
         run(cmd)
+        # XXX For testing purposes, these files can't be owned by root.  Blech
+        # blech blech.
+        run('chown -R {} {}'.format(os.getuid(), self.rootfs))
+        run('chown -R {} {}'.format(os.getuid(), self.unpackdir))
         self._next.append(self.calculate_rootfs_size)
 
     def populate_bootfs_contents(self):
@@ -190,7 +195,8 @@ class ModelAssertionBuilder(BaseImageBuilder):
         # <root-dir>/boot as a future mount point.
         boot = os.path.join(self.rootfs, 'boot')
         for filename in os.listdir(boot):
-            path = os.path.join(self.rootfs, filename)
-            shutil.copytree(path, self.bootfs)
-            shutil.rmtree(path)
-        self._next.append(self.calculate_rootfs_size)
+            src = os.path.join(boot, filename)
+            dst = os.path.join(self.bootfs, filename)
+            shutil.copytree(src, dst)
+            shutil.rmtree(src)
+        self._next.append(self.calculate_bootfs_size)

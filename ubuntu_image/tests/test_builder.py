@@ -3,8 +3,9 @@
 import os
 
 from contextlib import ExitStack, suppress
-from tempfile import TemporaryDirectory
-from ubuntu_image.builder import BaseImageBuilder
+from tempfile import NamedTemporaryFile, TemporaryDirectory
+from types import SimpleNamespace
+from ubuntu_image.builder import BaseImageBuilder, ModelAssertionBuilder
 from ubuntu_image.helpers import run
 from unittest import TestCase
 from unittest.mock import patch
@@ -143,3 +144,72 @@ Total free space is 790461 sectors (386.0 MiB)
 Number  Start (sector)    End (sector)  Size       Code  Name
    2           10240          141311   64.0 MiB    EF00  system-boot
    3          147456         7614463   3.6 GiB     8300  writable""")
+
+
+class TestModelAssertionBuilder(TestCase):
+    # XXX These tests relies on external resources, namely that the gadget and
+    # kernel snaps in this model assertion can actually be downloaded from the
+    # real store.  That's a test isolation bug and a potential source of test
+    # brittleness.  We should fix this.
+    #
+    # XXX These tests also requires root, because `snap weld` currently
+    # requires it.  mvo says this will be fixed.
+
+    def setUp(self):
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
+        fp = self._resources.enter_context(NamedTemporaryFile(
+            mode='w', encoding='utf-8'))
+        # There is trailing whitespace in this text and it is significant!
+        # We do a bogus interpolation to appease pyflakes.
+        print("""\
+type: model
+series: 16
+authority-id: my-brand
+brand-id: my-brand
+model: canonical-pc-amd64
+class: general
+allowed-modes: classic, developer
+required-snaps: {}
+architecture: amd64
+store: canonical
+gadget: canonical-pc
+kernel: canonical-pc-linux
+core: ubuntu-core
+timestamp: 2016-01-02T10:00:00-05:00
+body-length: 0
+
+openpgpg 2cln""".format(''), file=fp)
+        fp.flush()
+        self.model_assertion = fp.name
+
+    def test_fs_contents(self):
+        # Run the action model assertion builder through the steps needed to
+        # at least call `snap weld`.
+        args = SimpleNamespace(
+            channel='edge',
+            keep=False,
+            model_assertion=self.model_assertion,
+            )
+        state = self._resources.enter_context(ModelAssertionBuilder(args))
+        state.run_thru('calculate_bootfs_size')
+        # How does the root and boot file systems look?
+        files = [
+            '{boot}/grub/grub.cfg',
+            '{boot}/grub/grubenv',
+            '{root}/snap/',
+            '{root}/var/lib/snapd/seed/snaps/canonical-pc_6.snap',
+            '{root}/var/lib/snapd/seed/snaps'
+                '/canonical-pc-linux_30.snap.sideinfo',   # noqa
+            '{root}/var/lib/snapd/seed/snaps/canonical-pc_6.snap.sideinfo',
+            '{root}/var/lib/snapd/seed/snaps/ubuntu-core_138.snap',
+            '{root}/var/lib/snapd/seed/snaps/canonical-pc-linux_30.snap',
+            '{root}/var/lib/snapd/seed/snaps/ubuntu-core_138.snap.sideinfo',
+            '{root}/var/lib/snapd/snaps/canonical-pc-linux_30.snap',
+            '{root}/var/lib/snapd/snaps/ubuntu-core_138.snap',
+            ]
+        for path in files:
+            self.assertTrue(os.path.exists(path.format(
+                root=state.rootfs,
+                boot=state.bootfs,
+                )))
