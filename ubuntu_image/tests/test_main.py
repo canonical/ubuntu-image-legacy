@@ -15,6 +15,12 @@ class CrashingModelAssertionBuilder(ModelAssertionBuilder):
         raise RuntimeError
 
 
+class EarlyExitModelAssertionBuilder(ModelAssertionBuilder):
+    def populate_rootfs_contents(self):
+        # Do nothing, but let the state machine exit.
+        pass
+
+
 class TestMain(TestCase):
     def setUp(self):
         super().setUp()
@@ -41,6 +47,9 @@ class TestMain(TestCase):
         with ExitStack() as resources:
             mock = resources.enter_context(
                 patch('ubuntu_image.__main__.logging.basicConfig'))
+            resources.enter_context(patch(
+                'ubuntu_image.__main__.ModelAssertionBuilder',
+                EarlyExitModelAssertionBuilder))
             # Prevent actual main() from running.
             resources.enter_context(patch('ubuntu_image.__main__.main'))
             code = main(('--debug', 'model.assertion'))
@@ -51,6 +60,9 @@ class TestMain(TestCase):
         with ExitStack() as resources:
             mock = resources.enter_context(
                 patch('ubuntu_image.__main__.logging.basicConfig'))
+            resources.enter_context(patch(
+                'ubuntu_image.__main__.ModelAssertionBuilder',
+                EarlyExitModelAssertionBuilder))
             # Prevent actual main() from running.
             resources.enter_context(patch('ubuntu_image.__main__.main'))
             code = main(('model.assertion',))
