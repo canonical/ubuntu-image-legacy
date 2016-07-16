@@ -196,7 +196,7 @@ class BaseImageBuilder(State):
     def finish(self):
         # Copy the completed disk image to the current directory, since the
         # temporary scratch directory is about to get removed.
-        shutil.copy(self.disk_img, os.getcwd())
+        shutil.move(self.disk_img, os.getcwd())
         self._next.append(self.close)
 
 
