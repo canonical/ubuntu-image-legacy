@@ -2,8 +2,10 @@
 
 
 import os
+import re
 import shutil
 import logging
+import subprocess
 
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, run
@@ -26,6 +28,7 @@ class BaseImageBuilder(State):
         self.bootfs = None
         self.bootfs_size = 0
         self._next.append(self.make_temporary_directories)
+        self._mke2fs_dash_d = None
 
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self._tmpdir, 'root')
@@ -69,6 +72,27 @@ class BaseImageBuilder(State):
         # Fudge factor for incidentals.
         total *= 1.5
         return total
+
+    def _mke2fs_has_dash_d(self):
+        if self._mke2fs_dash_d is not None:
+            return self._mke2fs_dash_d
+
+        try:
+            results = subprocess.check_output(
+                ["mkfs.ext4", "-V"],
+                stderr=subprocess.STDOUT).decode('UTF-8')
+        except subprocess.CalledProcessError:
+            results = ''
+        match = re.match('mke2fs (\d+)\.(\d+)', results)
+        if not match:
+            self._mke2fs_dash_d = False
+        elif (int(match.groups()[0]) > 1 or
+              (int(match.groups()[0]) == 1 and
+               int(match.groups()[1]) >= 43)):
+            self._mek2fs_dash_d = True
+        else:
+            self._mke2fs_dash_d = False
+        return self._mke2fs_dash_d
 
     def calculate_rootfs_size(self):
         # Calculate the size of the root file system.  Basically, I'm trying
@@ -121,7 +145,21 @@ class BaseImageBuilder(State):
             env=dict(MTOOLS_SKIP_CHECK='1'))
         # The root partition needs to be ext4, which can only be populated at
         # creation time.
-        run('mkfs.ext4 {} -d {}'.format(self.root_img, self.rootfs))
+        if self._mke2fs_has_dash_d():
+            run('mkfs.ext4 {} -d {}'.format(self.root_img, self.rootfs))
+        else:
+            run('mkfs.ext4 {}'.format(self.root_img))
+            mountpoint = os.path.join(self._tmpdir, 'root-mount')
+            try:
+                os.makedirs(mountpoint)
+                run('sudo mount -oloop {} {}'.format(self.root_img,
+                                                     mountpoint))
+                # fixme: everything is terrible.
+                run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
+                      self.rootfs, mountpoint), shell=True)
+            finally:
+                run('sudo umount {}'.format(mountpoint))
+                os.rmdir(mountpoint)
         self._next.append(self.make_disk)
 
     def make_disk(self):
