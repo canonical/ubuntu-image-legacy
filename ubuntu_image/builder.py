@@ -222,8 +222,8 @@ class ModelAssertionBuilder(BaseImageBuilder):
         run(cmd)
         # XXX For testing purposes, these files can't be owned by root.  Blech
         # blech blech.
-        run('chown -R {} {}'.format(os.getuid(), self.rootfs))
-        run('chown -R {} {}'.format(os.getuid(), self.unpackdir))
+        run('sudo chown -R {} {}'.format(os.getuid(), self.rootfs))
+        run('sudo chown -R {} {}'.format(os.getuid(), self.unpackdir))
         self._next.append(self.calculate_rootfs_size)
 
     def populate_bootfs_contents(self):
