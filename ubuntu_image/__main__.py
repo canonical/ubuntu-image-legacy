@@ -35,7 +35,7 @@ def parseargs(argv=None):
     parser.add_argument('-c', '--channel',
                         default=None,
                         help=_('For snap-based images, the channel to use'))
-    parser.add_argument('model-assertion', nargs=1,
+    parser.add_argument('model_assertion',
                         help=_('Path to the model assertion'))
     args = parser.parse_args(argv)
     if args.debug:
