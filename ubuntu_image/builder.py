@@ -217,7 +217,8 @@ class ModelAssertionBuilder(BaseImageBuilder):
         raw_cmd = 'sudo snap weld {} --root-dir={} --gadget-unpack-dir={} {}'
         channel = ('' if self.args.channel is None
                    else '--channel={}'.format(self.args.channel))
-        cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir)
+        cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir,
+                             self.args.model_assertion)
         run(cmd)
         self._next.append(self.calculate_rootfs_size)
 
