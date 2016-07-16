@@ -54,7 +54,8 @@ class Image:
         :type blob_path: str
         """
         # Put together the dd command.
-        args = ['dd', 'of={}'.format(self.path), 'if={}'.format(blob_path)]
+        args = ['dd', 'of={}'.format(self.path), 'if={}'.format(blob_path),
+                'conv=sparse']
         for key, value in dd_args.items():
             args.append('{}={}'.format(key, value))
         # Run the command.  We'll capture stderr for logging purposes.
