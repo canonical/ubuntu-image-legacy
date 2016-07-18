@@ -52,8 +52,12 @@ def _mkfs_ext4(img_file, contents_dir):
 class BaseImageBuilder(State):
     def __init__(self, *, keep=False):
         super().__init__()
-        self._tmpdir = self.resources.enter_context(TemporaryDirectory())
-        self._keep = keep
+        tmpdir = TemporaryDirectory()
+        self._tmpdir = (tmpdir.name if keep
+                        else self.resources.enter_context(tmpdir))
+        if keep:
+            _logger.info(
+                'Keeping temporary directory: {}'.format(self._tmpdir))
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
@@ -66,15 +70,6 @@ class BaseImageBuilder(State):
         self.bootfs = os.path.join(self._tmpdir, 'boot')
         os.makedirs(self.rootfs)
         os.makedirs(self.bootfs)
-        if self._keep:
-            _logger.info('Keeping temporary directory: {}'.format(
-                self._tmpdir))
-            # The only resource currently maintained is the
-            # TemporaryDirectory.  By popping this now, we ensure it won't get
-            # cleaned up during normal shutdown.  Do *not* close the returned
-            # ExitStack() or the temporary directory will get deleted, and
-            # even if we're not keeping it, it's way too early for that.
-            self.resources.pop_all()
         self._next.append(self.populate_rootfs_contents)
 
     def populate_rootfs_contents(self):
@@ -190,8 +185,8 @@ class BaseImageBuilder(State):
         self._next.append(self.finish)
 
     def finish(self):
-        # Move the completed disk image to the current directory, since the
-        # temporary scratch directory is about to get removed.
+        # Move the completed disk image to the current directory, since
+        # the temporary scratch directory is about to get removed.
         shutil.move(self.disk_img, os.getcwd())
         self._next.append(self.close)
 
@@ -234,3 +229,20 @@ class ModelAssertionBuilder(BaseImageBuilder):
             shutil.copytree(src, dst)
             shutil.rmtree(src)
         self._next.append(self.calculate_bootfs_size)
+
+    def finish(self):
+        # Move the completed disk image to the current directory, since
+        # the temporary scratch directory is about to get removed.  Note
+        # that there's a potential race condition here; it's possible
+        # the Python bits will find a unique filename in the current
+        # directory, but before it moves the disk image there, some
+        # other process will beat us to it.  Oh well.  We could catch
+        # the shutil.Error that occurs, but we don't get a ton of
+        # information from that exception, so it's hard to know for sure
+        # that it's the equivalent of EEXIST without testing the error
+        # string, which I don't like doing.
+        here = (os.path.abspath(os.path.basename(self.disk_img))
+                if self.args.output is None
+                else self.args.output)
+        shutil.move(self.disk_img, here)
+        self._next.append(self.close)

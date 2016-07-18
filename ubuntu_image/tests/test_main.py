@@ -1,9 +1,11 @@
 """Test main execution."""
 
+import os
 import logging
 
 from contextlib import ExitStack
 from io import StringIO
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from ubuntu_image.__main__ import main
 from ubuntu_image.builder import ModelAssertionBuilder
 from unittest import TestCase
@@ -19,6 +21,14 @@ class EarlyExitModelAssertionBuilder(ModelAssertionBuilder):
     def populate_rootfs_contents(self):
         # Do nothing, but let the state machine exit.
         pass
+
+
+class DoNothingBuilder(ModelAssertionBuilder):
+    def populate_rootfs_contents(self):
+        self._next.append(self.calculate_rootfs_size)
+
+    def populate_bootfs_contents(self):
+        self._next.append(self.calculate_bootfs_size)
 
 
 class TestMain(TestCase):
@@ -80,3 +90,39 @@ class TestMain(TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(
                 mock.call_args_list[-1], call('Crash in state machine'))
+
+    def test_output(self):
+        with ExitStack() as resources:
+            resources.enter_context(
+                patch('ubuntu_image.__main__.logging.basicConfig'))
+            resources.enter_context(patch(
+                'ubuntu_image.__main__.ModelAssertionBuilder',
+                DoNothingBuilder))
+            fp = resources.enter_context(NamedTemporaryFile(
+                mode='w', encoding='utf-8'))
+            # There is trailing whitespace in this text and it is significant!
+            # We do a bogus interpolation to appease pyflakes.
+            print("""\
+type: model
+series: 16
+authority-id: my-brand
+brand-id: my-brand
+model: canonical-pc-amd64
+class: general
+allowed-modes: classic, developer
+required-snaps: {}
+architecture: amd64
+store: canonical
+gadget: canonical-pc
+kernel: canonical-pc-linux
+core: ubuntu-core
+timestamp: 2016-01-02T10:00:00-05:00
+body-length: 0
+
+openpgpg 2cln""".format(''), file=fp)
+            fp.flush()
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            imgfile = os.path.join(tmpdir, 'my-disk.img')
+            self.assertFalse(os.path.exists(imgfile))
+            main(('--output', imgfile, fp.name))
+            self.assertTrue(os.path.exists(imgfile))
