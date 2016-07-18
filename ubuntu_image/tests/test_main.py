@@ -5,8 +5,20 @@ import logging
 from contextlib import ExitStack
 from io import StringIO
 from ubuntu_image.__main__ import main
+from ubuntu_image.builder import ModelAssertionBuilder
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import call, patch
+
+
+class CrashingModelAssertionBuilder(ModelAssertionBuilder):
+    def make_temporary_directories(self):
+        raise RuntimeError
+
+
+class EarlyExitModelAssertionBuilder(ModelAssertionBuilder):
+    def populate_rootfs_contents(self):
+        # Do nothing, but let the state machine exit.
+        pass
 
 
 class TestMain(TestCase):
@@ -35,7 +47,12 @@ class TestMain(TestCase):
         with ExitStack() as resources:
             mock = resources.enter_context(
                 patch('ubuntu_image.__main__.logging.basicConfig'))
-            code = main(('--debug',))
+            resources.enter_context(patch(
+                'ubuntu_image.__main__.ModelAssertionBuilder',
+                EarlyExitModelAssertionBuilder))
+            # Prevent actual main() from running.
+            resources.enter_context(patch('ubuntu_image.__main__.main'))
+            code = main(('--debug', 'model.assertion'))
         self.assertEqual(code, 0)
         mock.assert_called_once_with(level=logging.DEBUG)
 
@@ -43,6 +60,23 @@ class TestMain(TestCase):
         with ExitStack() as resources:
             mock = resources.enter_context(
                 patch('ubuntu_image.__main__.logging.basicConfig'))
-            code = main(())
+            resources.enter_context(patch(
+                'ubuntu_image.__main__.ModelAssertionBuilder',
+                EarlyExitModelAssertionBuilder))
+            # Prevent actual main() from running.
+            resources.enter_context(patch('ubuntu_image.__main__.main'))
+            code = main(('model.assertion',))
         self.assertEqual(code, 0)
         mock.assert_not_called()
+
+    def test_state_machine_exception(self):
+        with ExitStack() as resources:
+            resources.enter_context(patch(
+                'ubuntu_image.__main__.ModelAssertionBuilder',
+                CrashingModelAssertionBuilder))
+            mock = resources.enter_context(patch(
+                'ubuntu_image.__main__._logger.exception'))
+            code = main(('model.assertion',))
+            self.assertEqual(code, 1)
+            self.assertEqual(
+                mock.call_args_list[-1], call('Crash in state machine'))

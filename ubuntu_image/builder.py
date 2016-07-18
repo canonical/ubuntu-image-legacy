@@ -3,7 +3,9 @@
 
 import os
 import shutil
+import logging
 
+from contextlib import ExitStack, contextmanager
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, run
 from ubuntu_image.image import Image
@@ -11,24 +13,71 @@ from ubuntu_image.state import State
 
 
 SPACE = ' '
+_logger = logging.getLogger('ubuntu-image')
+
+
+@contextmanager
+def mount(img):
+    with ExitStack() as resources:
+        tmpdir = resources.enter_context(TemporaryDirectory())
+        mountpoint = os.path.join(tmpdir, 'root-mount')
+        os.makedirs(mountpoint)
+        run('sudo mount -oloop {} {}'.format(img, mountpoint))
+        resources.callback(run, 'sudo umount {}'.format(mountpoint))
+        yield mountpoint
+
+
+def _mkfs_ext4(img_file, contents_dir):
+    """Encapsulate the `mkfs.ext4` invocation.
+
+    As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
+    you to populate the ext4 partition at creation time, with the
+    contents of an existing directory.  Unfortunately, we're targeting
+    Ubuntu 16.04, which has e2fsprogs 1.42.X without the -d flag.  In
+    that case, we have to sudo loop mount the ext4 file system and
+    populate it that way.  Which sucks because sudo.
+    """
+    proc = run('mkfs.ext4 {} -d {}'.format(img_file, contents_dir),
+               check=False)
+    if proc.returncode == 0:
+        # We have a new enough e2fsprogs, so we're done.
+        return
+    run('mkfs.ext4 {}'.format(img_file))
+    with mount(img_file) as mountpoint:
+        # fixme: everything is terrible.
+        run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
+            contents_dir, mountpoint), shell=True)
 
 
 class BaseImageBuilder(State):
-    def __init__(self):
+    def __init__(self, *, keep=False):
         super().__init__()
         self._tmpdir = self.resources.enter_context(TemporaryDirectory())
-        self._next.append(self.populate_rootfs_contents)
+        self._keep = keep
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
         self.bootfs = None
         self.bootfs_size = 0
+        self._next.append(self.make_temporary_directories)
+
+    def make_temporary_directories(self):
+        self.rootfs = os.path.join(self._tmpdir, 'root')
+        self.bootfs = os.path.join(self._tmpdir, 'boot')
+        os.makedirs(self.rootfs)
+        os.makedirs(self.bootfs)
+        if self._keep:
+            _logger.info('Keeping temporary directory: {}'.format(
+                self._tmpdir))
+            # The only resource currently maintained is the
+            # TemporaryDirectory.  By popping this now, we ensure it won't get
+            # cleaned up during normal shutdown.  Do *not* close the returned
+            # ExitStack() or the temporary directory will get deleted, and
+            # even if we're not keeping it, it's way too early for that.
+            self.resources.pop_all()
+        self._next.append(self.populate_rootfs_contents)
 
     def populate_rootfs_contents(self):
-        # Create and populate a local directory containing the root file
-        # system contents.
-        self.rootfs = os.path.join(self._tmpdir, 'root')
-        os.makedirs(self.rootfs)
         # XXX For now just put some dummy contents there to verify the basic
         # approach.
         for path, contents in {
@@ -63,9 +112,6 @@ class BaseImageBuilder(State):
         self._next.append(self.populate_bootfs_contents)
 
     def populate_bootfs_contents(self):
-        # Create the boot file system contents.
-        self.bootfs = os.path.join(self._tmpdir, 'boot')
-        os.makedirs(self.bootfs)
         for path, contents in {
                 'other': 'other',
                 'boot/qux': 'boot qux',
@@ -107,9 +153,9 @@ class BaseImageBuilder(State):
             )
         run('mcopy -i {} {} ::'.format(self.boot_img, sourcefiles),
             env=dict(MTOOLS_SKIP_CHECK='1'))
-        # The root partition needs to be ext4, which can only be populated at
-        # creation time.
-        run('mkfs.ext4 {} -d {}'.format(self.root_img, self.rootfs))
+        # The root partition needs to be ext4, which may or may not be
+        # populated at creation time, depending on the version of e2fsprogs.
+        _mkfs_ext4(self.root_img, self.rootfs)
         self._next.append(self.make_disk)
 
     def make_disk(self):
@@ -144,7 +190,47 @@ class BaseImageBuilder(State):
         self._next.append(self.finish)
 
     def finish(self):
-        # Copy the completed disk image to the current directory, since the
+        # Move the completed disk image to the current directory, since the
         # temporary scratch directory is about to get removed.
-        shutil.copy(self.disk_img, os.getcwd())
+        shutil.move(self.disk_img, os.getcwd())
         self._next.append(self.close)
+
+
+class ModelAssertionBuilder(BaseImageBuilder):
+    def __init__(self, args):
+        self.args = args
+        super().__init__(keep=args.keep)
+
+    def make_temporary_directories(self):
+        self.unpackdir = os.path.join(self._tmpdir, 'unpack')
+        os.makedirs(self.unpackdir)
+        super().make_temporary_directories()
+
+    def populate_rootfs_contents(self):
+        # Run `snap weld` on the model.assertion.  sudo is currently required
+        # in all cases, but eventually, it won't be necessary at least for
+        # UEFI support.
+        raw_cmd = 'sudo snap weld {} --root-dir={} --gadget-unpack-dir={} {}'
+        channel = ('' if self.args.channel is None
+                   else '--channel={}'.format(self.args.channel))
+        cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir,
+                             self.args.model_assertion)
+        run(cmd)
+        # XXX For testing purposes, these files can't be owned by root.  Blech
+        # blech blech.
+        run('sudo chown -R {} {}'.format(os.getuid(), self.rootfs))
+        run('sudo chown -R {} {}'.format(os.getuid(), self.unpackdir))
+        self._next.append(self.calculate_rootfs_size)
+
+    def populate_bootfs_contents(self):
+        # The --root-dir directory has a boot/ directory inside it.  The
+        # contents of this directory (but not the parent <root-dir>/boot
+        # directory itself) needs to be moved to the bootfs directory.  Leave
+        # <root-dir>/boot as a future mount point.
+        boot = os.path.join(self.rootfs, 'boot')
+        for filename in os.listdir(boot):
+            src = os.path.join(boot, filename)
+            dst = os.path.join(self.bootfs, filename)
+            shutil.copytree(src, dst)
+            shutil.rmtree(src)
+        self._next.append(self.calculate_bootfs_size)

@@ -4,3 +4,4 @@ build
 dist
 .coverage*
 htmlcov
+version.txt

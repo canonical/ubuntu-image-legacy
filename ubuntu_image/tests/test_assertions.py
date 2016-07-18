@@ -16,14 +16,18 @@ required-snaps: links
 # preinstalled-snaps: a, b
 # prefetched-snaps: docker
 body-size: 0
+
+openpgpg 2cln
 """
-# TODO: add a fake body and signature once the parser understands it
+# TODO: add a fake signature once the parser understands it.
 
 
 two_records_assertion = """
 type: model
 
 authority-id: nobody
+
+openpgpg 2cln
 """
 
 
