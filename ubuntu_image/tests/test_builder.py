@@ -1,10 +1,8 @@
 """Test image building."""
 
 import os
-import sys
 
 from contextlib import ExitStack, suppress
-from pprint import pprint
 from subprocess import CompletedProcess
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
@@ -15,9 +13,7 @@ from unittest.mock import patch
 
 
 NL = '\n'
-TRAVIS = 'TRAVIS_PULL_REQUEST' in os.environ
-
-pprint(os.environ, stream=sys.stderr)
+IN_TRAVIS = 'IN_TRAVIS' in os.environ
 
 
 # For convenience.
@@ -127,7 +123,7 @@ class TestBaseImageBuilder(TestCase):
             with utf8open(os.path.join(root_dir, 'baz', 'buz')) as fp:
                 self.assertEqual(fp.read(), 'some bazz buzz')
 
-    @skipIf(TRAVIS, 'cannot mount in a docker container')
+    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_filesystems_xenial(self):
         # Run the action model assertion builder through the steps needed to
         # at least call `snap weld`.  Mimic what happens on Ubuntu 16.04 where
@@ -225,7 +221,7 @@ openpgpg 2cln""".format(''), file=fp)
         fp.flush()
         self.model_assertion = fp.name
 
-    @skipIf(TRAVIS, 'cannot mount in a docker container')
+    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_fs_contents(self):
         # Run the action model assertion builder through the steps needed to
         # at least call `snap weld`.
