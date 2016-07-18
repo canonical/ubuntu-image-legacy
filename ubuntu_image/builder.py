@@ -129,7 +129,7 @@ class BaseImageBuilder(State):
         os.makedirs(self.images)
         # The image for the boot partition.
         self.boot_img = os.path.join(self.images, 'boot.img')
-        run('dd if=/dev/zero of={} count=0 bs=1GB seek=1'.format(
+        run('dd if=/dev/zero of={} count=0 bs=64M seek=1'.format(
             self.boot_img))
         run('mkfs.vfat {}'.format(self.boot_img))
         # The image for the root partition.
@@ -170,7 +170,6 @@ class BaseImageBuilder(State):
         #                 bs='1MiB', seek=4, count=1, conv='notrunc')
         # Create EFI system partition
         #
-        # TODO: switch to 512MiB as recommended by the standard
         image.partition(new='2:5MiB:+64MiB')
         image.partition(typecode='2:C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
         image.partition(change_name='2:system-boot')
