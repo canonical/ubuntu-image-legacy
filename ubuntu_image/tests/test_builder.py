@@ -3,6 +3,7 @@
 import os
 
 from contextlib import ExitStack, suppress
+from subprocess import CompletedProcess
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.builder import BaseImageBuilder, ModelAssertionBuilder
@@ -104,6 +105,41 @@ class TestBaseImageBuilder(TestCase):
                 self.assertEqual(fp.read(), 'boot qux')
             with utf8open(os.path.join(boot_dir, 'boot', 'qay')) as fp:
                 self.assertEqual(fp.read(), 'boot qay')
+            # The root file system is an ext4 file system.
+            root_dir = resources.enter_context(TemporaryDirectory())
+            run('debugfs -R "rdump / {}" {}'.format(root_dir, state.root_img),
+                shell=True)
+            self.assertEqual(
+                set(os.listdir(root_dir)),
+                {'foo', 'bar', 'baz', 'lost+found', 'boot'})
+            boot_mount = os.path.join(root_dir, 'boot')
+            self.assertTrue(os.path.isdir(boot_mount))
+            self.assertEqual(os.listdir(boot_mount), [])
+            with utf8open(os.path.join(root_dir, 'foo')) as fp:
+                self.assertEqual(fp.read(), 'this is foo')
+            with utf8open(os.path.join(root_dir, 'bar')) as fp:
+                self.assertEqual(fp.read(), 'this is bar')
+            with utf8open(os.path.join(root_dir, 'baz', 'buz')) as fp:
+                self.assertEqual(fp.read(), 'some bazz buzz')
+
+    def test_filesystems_xenial(self):
+        # Run the action model assertion builder through the steps needed to
+        # at least call `snap weld`.  Mimic what happens on Ubuntu 16.04 where
+        # mkfs.ext4 does not support the -d option.
+        #
+        # This isn't perfectly wonderful because we really should run the
+        # tests in Travis twice, once on Xenial and once on >Xenial, skipping
+        # the one that isn't appropriate rather than assuming >Xenial and
+        # mocking the Xenial case.
+        def no_dash_d(command, *, check=True, **args):
+            if command.startswith('mkfs.ext4') and '-d' in command.split():
+                return CompletedProcess([], 1, '', '')
+            return run(command, check=check, **args)
+        with ExitStack() as resources:
+            resources.enter_context(patch(
+                'ubuntu_image.builder.run', no_dash_d))
+            state = resources.enter_context(BaseImageBuilder())
+            state.run_thru('populate_filesystems')
             # The root file system is an ext4 file system.
             root_dir = resources.enter_context(TemporaryDirectory())
             run('debugfs -R "rdump / {}" {}'.format(root_dir, state.root_img),

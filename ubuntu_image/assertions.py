@@ -24,7 +24,11 @@ class Assertion:
         # XXX: This is a temporary stop-gap. The proper way to do this is to
         # invoke yet-unimplemented go executable that reads an assertion on
         # stdin, validates it and outputs the same assertion as JSON on stdout.
-        (fields, signature) = text.rsplit('\n\n', 1)
+        #
+        # XXX: At worst, we should probably use the stdlib email package
+        # parser and invoke it with a policy for field value assertions if
+        # necessary.
+        fields, signature = text.rsplit('\n\n', 1)
         records = load_rfc822_records(StringIO(fields))
         if len(records) != 1:
             raise ValueError('Expected exactly one assertion')

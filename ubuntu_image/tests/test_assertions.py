@@ -19,7 +19,7 @@ body-size: 0
 
 openpgpg 2cln
 """
-# TODO: add a fake signature once the parser understands it
+# TODO: add a fake signature once the parser understands it.
 
 
 two_records_assertion = """

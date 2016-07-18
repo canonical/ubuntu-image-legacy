@@ -2,11 +2,10 @@
 
 
 import os
-import re
 import shutil
 import logging
-import subprocess
 
+from contextlib import ExitStack, contextmanager
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, run
 from ubuntu_image.image import Image
@@ -15,6 +14,39 @@ from ubuntu_image.state import State
 
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
+
+
+@contextmanager
+def mount(img):
+    with ExitStack() as resources:
+        tmpdir = resources.enter_context(TemporaryDirectory())
+        mountpoint = os.path.join(tmpdir, 'root-mount')
+        os.makedirs(mountpoint)
+        run('sudo mount -oloop {} {}'.format(img, mountpoint))
+        resources.callback(run, 'sudo umount {}'.format(mountpoint))
+        yield mountpoint
+
+
+def _mkfs_ext4(img_file, contents_dir):
+    """Encapsulate the `mkfs.ext4` invocation.
+
+    As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
+    you to populate the ext4 partition at creation time, with the
+    contents of an existing directory.  Unfortunately, we're targeting
+    Ubuntu 16.04, which has e2fsprogs 1.42.X without the -d flag.  In
+    that case, we have to sudo loop mount the ext4 file system and
+    populate it that way.  Which sucks because sudo.
+    """
+    proc = run('mkfs.ext4 {} -d {}'.format(img_file, contents_dir),
+               check=False)
+    if proc.returncode == 0:
+        # We have a new enough e2fsprogs, so we're done.
+        return
+    run('mkfs.ext4 {}'.format(img_file))
+    with mount(img_file) as mountpoint:
+        # fixme: everything is terrible.
+        run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
+            contents_dir, mountpoint), shell=True)
 
 
 class BaseImageBuilder(State):
@@ -28,7 +60,6 @@ class BaseImageBuilder(State):
         self.bootfs = None
         self.bootfs_size = 0
         self._next.append(self.make_temporary_directories)
-        self._mke2fs_dash_d = None
 
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self._tmpdir, 'root')
@@ -72,27 +103,6 @@ class BaseImageBuilder(State):
         # Fudge factor for incidentals.
         total *= 1.5
         return total
-
-    def _mke2fs_has_dash_d(self):
-        if self._mke2fs_dash_d is not None:
-            return self._mke2fs_dash_d
-
-        try:
-            results = subprocess.check_output(
-                ["mkfs.ext4", "-V"],
-                stderr=subprocess.STDOUT).decode('UTF-8')
-        except subprocess.CalledProcessError:
-            results = ''
-        match = re.match('mke2fs (\d+)\.(\d+)', results)
-        if not match:
-            self._mke2fs_dash_d = False
-        elif (int(match.groups()[0]) > 1 or
-              (int(match.groups()[0]) == 1 and
-               int(match.groups()[1]) >= 43)):
-            self._mek2fs_dash_d = True
-        else:
-            self._mke2fs_dash_d = False
-        return self._mke2fs_dash_d
 
     def calculate_rootfs_size(self):
         # Calculate the size of the root file system.  Basically, I'm trying
@@ -143,23 +153,9 @@ class BaseImageBuilder(State):
             )
         run('mcopy -i {} {} ::'.format(self.boot_img, sourcefiles),
             env=dict(MTOOLS_SKIP_CHECK='1'))
-        # The root partition needs to be ext4, which can only be populated at
-        # creation time.
-        if self._mke2fs_has_dash_d():
-            run('mkfs.ext4 {} -d {}'.format(self.root_img, self.rootfs))
-        else:
-            run('mkfs.ext4 {}'.format(self.root_img))
-            mountpoint = os.path.join(self._tmpdir, 'root-mount')
-            try:
-                os.makedirs(mountpoint)
-                run('sudo mount -oloop {} {}'.format(self.root_img,
-                                                     mountpoint))
-                # fixme: everything is terrible.
-                run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
-                      self.rootfs, mountpoint), shell=True)
-            finally:
-                run('sudo umount {}'.format(mountpoint))
-                os.rmdir(mountpoint)
+        # The root partition needs to be ext4, which may or may not be
+        # populated at creation time, depending on the version of e2fsprogs.
+        _mkfs_ext4(self.root_img, self.rootfs)
         self._next.append(self.make_disk)
 
     def make_disk(self):
@@ -194,7 +190,7 @@ class BaseImageBuilder(State):
         self._next.append(self.finish)
 
     def finish(self):
-        # Copy the completed disk image to the current directory, since the
+        # Move the completed disk image to the current directory, since the
         # temporary scratch directory is about to get removed.
         shutil.move(self.disk_img, os.getcwd())
         self._next.append(self.close)

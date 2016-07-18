@@ -61,7 +61,7 @@ def transform(caught_excs, new_exc):
     return outer
 
 
-def run(command, **args):
+def run(command, *, check=True, **args):
     if 'shell' not in args:
         command = command.split()
     proc = subprocess_run(
@@ -69,7 +69,7 @@ def run(command, **args):
         stdout=PIPE, stderr=PIPE,
         universal_newlines=True,
         **args)
-    if proc.returncode != 0:
+    if check and proc.returncode != 0:
         sys.stderr.write(proc.stdout)
         sys.stderr.write(proc.stderr)
         proc.check_returncode()
