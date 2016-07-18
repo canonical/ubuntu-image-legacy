@@ -1,8 +1,10 @@
 """Test image building."""
 
 import os
+import sys
 
 from contextlib import ExitStack, suppress
+from pprint import pprint
 from subprocess import CompletedProcess
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
@@ -14,6 +16,8 @@ from unittest.mock import patch
 
 NL = '\n'
 TRAVIS = 'TRAVIS_PULL_REQUEST' in os.environ
+
+pprint(os.environ, stream=sys.stderr)
 
 
 # For convenience.
