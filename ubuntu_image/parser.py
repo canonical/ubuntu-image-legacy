@@ -44,7 +44,10 @@ def parse(stream):
     # subclasses, but for now there's enough cross-level requirements
     # that it makes that refactoring tricky.
     yaml = load(stream)
-    scheme = yaml['partition-scheme']
+    try:
+        scheme = yaml['partition-scheme']
+    except KeyError:
+        scheme = 'GPT'
     if scheme not in ('MBR', 'GPT'):
         raise ValueError(scheme)
     partitions = []
