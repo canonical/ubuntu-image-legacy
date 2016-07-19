@@ -44,10 +44,7 @@ def parse(stream):
     # subclasses, but for now there's enough cross-level requirements
     # that it makes that refactoring tricky.
     yaml = load(stream)
-    try:
-        scheme = yaml['partition-scheme']
-    except KeyError:
-        scheme = 'GPT'
+    scheme = yaml.get('partition-scheme', 'GPT')
     if scheme not in ('MBR', 'GPT'):
         raise ValueError(scheme)
     partitions = []
@@ -71,8 +68,8 @@ def parse(stream):
                     partition.get('type')))
             type_id = ('EF' if scheme == 'MBR'
                        else 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
-            # default size, which is more than big enough for all of the
-            # EFI executables that we might want to install.
+            # Default size, which is more than big enough for all of the EFI
+            # executables that we might want to install.
             if size is None:
                 size = '64M'
         elif role == 'raw':
