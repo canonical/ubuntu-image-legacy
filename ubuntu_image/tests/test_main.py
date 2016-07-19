@@ -91,18 +91,28 @@ class TestMain(TestCase):
             self.assertEqual(
                 mock.call_args_list[-1], call('Crash in state machine'))
 
-    def test_output(self):
-        with ExitStack() as resources:
-            resources.enter_context(
-                patch('ubuntu_image.__main__.logging.basicConfig'))
-            resources.enter_context(patch(
-                'ubuntu_image.__main__.ModelAssertionBuilder',
-                DoNothingBuilder))
-            fp = resources.enter_context(NamedTemporaryFile(
-                mode='w', encoding='utf-8'))
-            # There is trailing whitespace in this text and it is significant!
-            # We do a bogus interpolation to appease pyflakes.
-            print("""\
+
+class TestMainWithModel(TestCase):
+    def setUp(self):
+        super().setUp()
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
+        # Capture builtin print() output.
+        self._stdout = StringIO()
+        self._stderr = StringIO()
+        self._resources.enter_context(
+            patch('argparse._sys.stdout', self._stdout))
+        # Capture stderr since this is where argparse will spew to.
+        self._resources.enter_context(
+            patch('argparse._sys.stderr', self._stderr))
+        # Set up a few other useful things for these tests.
+        self._resources.enter_context(
+            patch('ubuntu_image.__main__.logging.basicConfig'))
+        fp = self._resources.enter_context(NamedTemporaryFile(
+            mode='w', encoding='utf-8'))
+        # There is trailing whitespace in this text and it is significant!
+        # We do a bogus interpolation to appease pyflakes.
+        print("""\
 type: model
 series: 16
 authority-id: my-brand
@@ -120,9 +130,49 @@ timestamp: 2016-01-02T10:00:00-05:00
 body-length: 0
 
 openpgpg 2cln""".format(''), file=fp)
-            fp.flush()
-            tmpdir = resources.enter_context(TemporaryDirectory())
-            imgfile = os.path.join(tmpdir, 'my-disk.img')
-            self.assertFalse(os.path.exists(imgfile))
-            main(('--output', imgfile, fp.name))
-            self.assertTrue(os.path.exists(imgfile))
+        fp.flush()
+        self.model_assertion = fp.name
+
+    def test_output(self):
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        self.assertFalse(os.path.exists(imgfile))
+        main(('--output', imgfile, self.model_assertion))
+        self.assertTrue(os.path.exists(imgfile))
+
+    def test_save_resume_implies_keep(self):
+        mock = self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.dump'))
+        main(('--until', 'make_temporary_directories', self.model_assertion))
+        args = mock.call_args[0][0]
+        self.assertTrue(args.keep)
+        main(('--thru', 'make_temporary_directories', self.model_assertion))
+        args = mock.call_args[0][0]
+        self.assertTrue(args.keep)
+
+    def test_resume_and_model_assertion(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('--resume', self.model_assertion))
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_no_resume_and_no_model_assertion(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('--until', 'whatever'))
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_save_resume(self):
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        main(('--until', 'prepare_filesystems',
+              '--channel', 'edge',
+              '--output', imgfile,
+              self.model_assertion))
+        self.assertTrue(os.path.exists(os.path.abspath('.ubuntu-image.pck')))
+        self.assertFalse(os.path.exists(imgfile))
+        main(('--resume',))
+        self.assertTrue(os.path.exists(imgfile))
