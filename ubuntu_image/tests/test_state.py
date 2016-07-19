@@ -1,6 +1,7 @@
 """Test the image creation workflow."""
 
 from contextlib import suppress
+from pickle import dumps, loads
 from ubuntu_image.state import State
 from unittest import TestCase
 from unittest.mock import patch
@@ -11,6 +12,15 @@ class MyState(State):
         super().__init__()
         self.accumulator = []
         self._next.append(self.first)
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        state['accumulator'] = self.accumulator
+        return state
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        self.accumulator = state['accumulator']
 
     def first(self):
         self.accumulator.append(1)
@@ -94,3 +104,12 @@ class TestState(TestCase):
             with suppress(RuntimeError):
                 state.run_until('not-a-state')
         self.assertEqual(state.x, 5)
+
+    def test_save_restore(self):
+        with MyState() as state:
+            state.run_until('second')
+            self.assertEqual(state.accumulator, [1])
+            pickle = dumps(state)
+        with loads(pickle) as new_state:
+            list(new_state)
+            self.assertEqual(new_state.accumulator, [1, 2, 3])

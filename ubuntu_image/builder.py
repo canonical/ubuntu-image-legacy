@@ -64,10 +64,45 @@ class BaseImageBuilder(State):
         self.rootfs_size = 0
         self.bootfs = None
         self.bootfs_size = 0
-        # currently unused in the base class, but defined because we should
+        self.images = None
+        self.boot_img = None
+        self.root_img = None
+        self.disk_img = None
+        # Currently unused in the base class, but defined because we should
         # use this same abstraction for non-snappy images.
         self.gadget = None
         self._next.append(self.make_temporary_directories)
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        state.update(
+            rootfs=self.rootfs,
+            rootfs_size=self.rootfs_size,
+            bootfs=self.bootfs,
+            bootfs_size=self.bootfs_size,
+            images=self.images,
+            boot_img=self.boot_img,
+            root_img=self.root_img,
+            disk_img=self.disk_img,
+            tmpdir=self._tmpdir,
+            )
+        return state
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        # Fail if the temporary directory no longer exists.
+        tmpdir = state['tmpdir']
+        if not os.path.isdir(tmpdir):
+            raise FileNotFoundError(tmpdir)
+        self._tmpdir = tmpdir
+        self.rootfs = state['rootfs']
+        self.rootfs_size = state['rootfs_size']
+        self.bootfs = state['bootfs']
+        self.bootfs_size = state['bootfs_size']
+        self.images = state['images']
+        self.boot_img = state['boot_img']
+        self.root_img = state['root_img']
+        self.disk_img = state['disk_img']
 
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self._tmpdir, 'root')
@@ -241,7 +276,21 @@ class BaseImageBuilder(State):
 class ModelAssertionBuilder(BaseImageBuilder):
     def __init__(self, args):
         self.args = args
+        self.unpackdir = None
         super().__init__(keep=args.keep)
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        state.update(
+            args=self.args,
+            unpackdir=self.unpackdir,
+            )
+        return state
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        self.args = state['args']
+        self.unpackdir = state['unpackdir']
 
     def make_temporary_directories(self):
         self.unpackdir = os.path.join(self._tmpdir, 'unpack')
