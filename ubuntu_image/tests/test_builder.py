@@ -3,6 +3,7 @@
 import os
 
 from contextlib import ExitStack, suppress
+from pickle import dumps, loads
 from subprocess import CompletedProcess
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
@@ -252,3 +253,47 @@ openpgpg 2cln""".format(''), file=fp)
                 root=state.rootfs,
                 boot=state.bootfs,
                 )))
+
+    def test_save_restore(self):
+        args = SimpleNamespace(
+            channel='edge',
+            keep=True,
+            model_assertion=self.model_assertion,
+            output=None,
+            )
+        with ModelAssertionBuilder(args) as state:
+            state.run_thru('calculate_bootfs_size')
+            rootfs = state.rootfs
+            bootfs = state.bootfs
+            pickle = dumps(state)
+        self.assertTrue(os.path.exists(rootfs))
+        self.assertTrue(os.path.exists(bootfs))
+        # The original state machine has been reclaimed.  Create a new one and
+        # run through a few more states, just to prove that pickling and
+        # unpickling all work.
+        with loads(pickle) as new_state:
+            self.assertEqual(rootfs, new_state.rootfs)
+            self.assertEqual(bootfs, new_state.bootfs)
+            new_state.run_thru('prepare_filesystem')
+        # The second state machine has been reclaimed.  Make sure everything
+        # we expect still exists.
+        self.assertTrue(os.path.exists(rootfs))
+        self.assertTrue(os.path.exists(bootfs))
+        self.assertTrue(os.path.isdir(new_state.images))
+        self.assertTrue(os.path.exists(new_state.boot_img))
+        self.assertTrue(os.path.exists(new_state.root_img))
+
+    def test_save_restore_no_keep(self):
+        args = SimpleNamespace(
+            channel='edge',
+            keep=False,
+            model_assertion=self.model_assertion,
+            output=None,
+            )
+        with ModelAssertionBuilder(args) as state:
+            state.run_thru('calculate_bootfs_size')
+            pickle = dumps(state)
+        # The original state machine has been reclaimed, but trying to create
+        # a new one results in an exception because the temporary directory
+        # has also been reclaimed.
+        self.assertRaises(FileNotFoundError, loads, pickle)
