@@ -38,6 +38,26 @@ def parseargs(argv=None):
     parser.add_argument('-o', '--output',
                         default=None,
                         help=_('The output file for the disk image'))
+    parser.add_argument('-u', '--until',
+                        default=None, metavar='STEP',
+                        help=_("""Run the state machine until the given STEP,
+                               non-inclusively.  STEP can be a  name or
+                               number.  Implies --keep.  The state will be
+                               saved in a .ubuntu-image.pck file in the current
+                               directory, and can be resumed with -r."""))
+    parser.add_argument('-t', '--thru',
+                        default=None, metavar='STEP',
+                        help=_("""Run the state machine through the given STEP,
+                               inclusively.  STEP can be a  name or
+                               number.  Implies --keep.  The state will be
+                               saved in a .ubuntu-image.pck file in the
+                               current directory and can be resumed
+                               with -r."""))
+    parser.add_argument('-r', '--resume',
+                        default=False, action='store_true',
+                        help=_("""Continue the state machine from the
+                               previously saved state.  It is an error if
+                               there is no previous state."""))
     parser.add_argument('model_assertion',
                         help=_('Path to the model assertion'))
     args = parser.parse_args(argv)

@@ -38,6 +38,23 @@ class State:
     def __iter__(self):
         return self
 
+    # We can't pickle the resources ExitStack, so if there's anything
+    # valuable in there, the subclass must override __getstate__() and
+    # __setstate__() as appropriate.
+
+    def __getstate__(self):
+        return dict(
+            state=[function.__name__ for function in self._next],
+            debug_step=self._debug_step,
+            )
+
+    def __setstate__(self, state):
+        self._next = deque()
+        for name in state['state']:
+            self._next.append(getattr(self, name))
+        self._debug_step = state['debug_step']
+        self.resources = ExitStack()
+
     def _pop(self):
         step = self._next.popleft()
         # step could be a partial or a method.
