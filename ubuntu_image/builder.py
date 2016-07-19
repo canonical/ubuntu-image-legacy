@@ -43,7 +43,7 @@ def _mkfs_ext4(img_file, contents_dir):
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
         return
-    run('mkfs.ext4 {}'.format(img_file))
+    run('mkfs.ext4 -L writable {}'.format(img_file))
     with mount(img_file) as mountpoint:
         # fixme: everything is terrible.
         run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
