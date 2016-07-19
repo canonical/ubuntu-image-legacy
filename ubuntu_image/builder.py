@@ -325,9 +325,12 @@ class ModelAssertionBuilder(BaseImageBuilder):
         # directory itself) needs to be moved to the bootfs directory.  Leave
         # <root-dir>/boot as a future mount point.
         boot = os.path.join(self.rootfs, 'boot')
+        # XXX: bad special-casing.  snap weld currently installs to /boot/grub,
+        # but we need to map this to /EFI/ubuntu.
+        os.makedirs(os.path.join(self.bootfs, 'EFI'), exist_ok=True)
         for filename in os.listdir(boot):
             src = os.path.join(boot, filename)
-            dst = os.path.join(self.bootfs, filename)
+            dst = os.path.join(self.bootfs, 'EFI', 'ubuntu')
             shutil.copytree(src, dst)
             shutil.rmtree(src)
         self._next.append(self.calculate_bootfs_size)
