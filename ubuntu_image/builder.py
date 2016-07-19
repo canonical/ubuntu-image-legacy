@@ -9,6 +9,7 @@ from contextlib import ExitStack, contextmanager
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, run
 from ubuntu_image.image import Image
+from ubuntu_image.parser import parse as parse_yaml
 from ubuntu_image.state import State
 
 
@@ -63,6 +64,9 @@ class BaseImageBuilder(State):
         self.rootfs_size = 0
         self.bootfs = None
         self.bootfs_size = 0
+        # currently unused in the base class, but defined because we should
+        # use this same abstraction for non-snappy images.
+        self.gadget = None
         self._next.append(self.make_temporary_directories)
 
     def make_temporary_directories(self):
@@ -214,6 +218,12 @@ class ModelAssertionBuilder(BaseImageBuilder):
         # blech blech.
         run('sudo chown -R {} {}'.format(os.getuid(), self.rootfs))
         run('sudo chown -R {} {}'.format(os.getuid(), self.unpackdir))
+        self._next.append(self.load_gadget_yaml)
+
+    def load_gadget_yaml(self):
+        yaml_file = os.path.join(self.unpackdir, 'meta', 'image.yaml')
+        with open(yaml_file, 'r', encoding='UTF-8') as fp:
+            self.gadget = parse_yaml(fp)
         self._next.append(self.calculate_rootfs_size)
 
     def populate_bootfs_contents(self):
