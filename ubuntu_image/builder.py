@@ -220,7 +220,7 @@ class BaseImageBuilder(State):
             image.partition(change_name='2:system-boot')
             image.copy_blob(self.boot_img,
                             bs='1M', seek=5, count=64, conv='notrunc')
-            part_id += 1
+            part_id += 2
         # Create main snappy writable partition
         # XXX: remove the fixed offset
         image.partition(new='{}:72MiB:+3646MiB'.format(part_id))
