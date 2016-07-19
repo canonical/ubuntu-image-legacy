@@ -8,8 +8,11 @@ from io import StringIO
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from ubuntu_image.__main__ import main
 from ubuntu_image.builder import ModelAssertionBuilder
-from unittest import TestCase
+from unittest import TestCase, skipIf
 from unittest.mock import call, patch
+
+
+IN_TRAVIS = 'IN_TRAVIS' in os.environ
 
 
 class CrashingModelAssertionBuilder(ModelAssertionBuilder):
@@ -165,6 +168,7 @@ openpgpg 2cln""".format(''), file=fp)
             main(('--until', 'whatever'))
         self.assertEqual(cm.exception.code, 2)
 
+    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_resume(self):
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         imgfile = os.path.join(tmpdir, 'my-disk.img')

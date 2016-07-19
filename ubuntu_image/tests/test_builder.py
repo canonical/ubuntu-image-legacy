@@ -254,6 +254,7 @@ openpgpg 2cln""".format(''), file=fp)
                 boot=state.bootfs,
                 )))
 
+    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_restore(self):
         args = SimpleNamespace(
             channel='edge',
@@ -283,6 +284,7 @@ openpgpg 2cln""".format(''), file=fp)
         self.assertTrue(os.path.exists(new_state.boot_img))
         self.assertTrue(os.path.exists(new_state.root_img))
 
+    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_restore_no_keep(self):
         args = SimpleNamespace(
             channel='edge',
