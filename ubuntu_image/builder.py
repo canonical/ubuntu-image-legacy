@@ -174,7 +174,7 @@ class BaseImageBuilder(State):
         image.partition(typecode='2:C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
         image.partition(change_name='2:system-boot')
         image.copy_blob(self.boot_img,
-                        bs='1MB', seek=4, count=64, conv='notrunc')
+                        bs='1MB', seek=5, count=64, conv='notrunc')
         # Create main snappy writable partition
         image.partition(new='3:72MiB:+3646MiB')
         image.partition(typecode='3:0FC63DAF-8483-4772-8E79-3D69D8477DE4')
