@@ -185,7 +185,7 @@ class BaseImageBuilder(State):
             os.path.join(self.bootfs, filename)
             for filename in os.listdir(self.bootfs)
             )
-        run('mcopy -i {} {} ::'.format(self.boot_img, sourcefiles),
+        run('mcopy -s -i {} {} ::'.format(self.boot_img, sourcefiles),
             env=dict(MTOOLS_SKIP_CHECK='1'))
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
