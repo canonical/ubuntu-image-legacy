@@ -1,11 +1,13 @@
 """Test image building."""
 
 import os
+import shutil
 
 from contextlib import ExitStack, suppress
+from pkg_resources import resource_filename
 from pickle import dumps, loads
 from subprocess import CompletedProcess
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.builder import BaseImageBuilder, ModelAssertionBuilder
 from ubuntu_image.helpers import run
@@ -20,6 +22,21 @@ IN_TRAVIS = 'IN_TRAVIS' in os.environ
 # For convenience.
 def utf8open(path):
     return open(path, 'r', encoding='utf-8')
+
+
+class XXXModelAssertionBuilder(ModelAssertionBuilder):
+    # We need this class because the current gadget snap we get from the store
+    # does not contain an image.yaml or grub files, although it (probably)
+    # will eventually.  For now, this copies sample files into the expected
+    # case, and should be used in tests which require that step.
+    def load_gadget_yaml(self):
+        shutil.copy(
+            resource_filename('ubuntu_image.tests.data', 'image.yaml'),
+            os.path.join(self.unpackdir, 'meta', 'image.yaml'))
+        shutil.copy(
+            resource_filename('ubuntu_image.tests.data', 'grubx64.efi'),
+            os.path.join(self.unpackdir, 'grubx64.efi'))
+        super().load_gadget_yaml()
 
 
 class TestBaseImageBuilder(TestCase):
@@ -197,30 +214,8 @@ class TestModelAssertionBuilder(TestCase):
     def setUp(self):
         self._resources = ExitStack()
         self.addCleanup(self._resources.close)
-        fp = self._resources.enter_context(NamedTemporaryFile(
-            mode='w', encoding='utf-8'))
-        # There is trailing whitespace in this text and it is significant!
-        # We do a bogus interpolation to appease pyflakes.
-        print("""\
-type: model
-series: 16
-authority-id: my-brand
-brand-id: my-brand
-model: canonical-pc-amd64
-class: general
-allowed-modes: classic, developer
-required-snaps: {}
-architecture: amd64
-store: canonical
-gadget: canonical-pc
-kernel: canonical-pc-linux
-core: ubuntu-core
-timestamp: 2016-01-02T10:00:00-05:00
-body-length: 0
-
-openpgpg 2cln""".format(''), file=fp)
-        fp.flush()
-        self.model_assertion = fp.name
+        self.model_assertion = resource_filename(
+            'ubuntu_image.tests.data', 'model.assertion')
 
     @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_fs_contents(self):
@@ -231,7 +226,7 @@ openpgpg 2cln""".format(''), file=fp)
             keep=False,
             model_assertion=self.model_assertion,
             )
-        state = self._resources.enter_context(ModelAssertionBuilder(args))
+        state = self._resources.enter_context(XXXModelAssertionBuilder(args))
         state.run_thru('calculate_bootfs_size')
         # How does the root and boot file systems look?
         files = [

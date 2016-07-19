@@ -5,7 +5,8 @@ import logging
 
 from contextlib import ExitStack
 from io import StringIO
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from pkg_resources import resource_filename
+from tempfile import TemporaryDirectory
 from ubuntu_image.__main__ import main
 from ubuntu_image.builder import ModelAssertionBuilder
 from unittest import TestCase, skipIf
@@ -111,30 +112,8 @@ class TestMainWithModel(TestCase):
         # Set up a few other useful things for these tests.
         self._resources.enter_context(
             patch('ubuntu_image.__main__.logging.basicConfig'))
-        fp = self._resources.enter_context(NamedTemporaryFile(
-            mode='w', encoding='utf-8'))
-        # There is trailing whitespace in this text and it is significant!
-        # We do a bogus interpolation to appease pyflakes.
-        print("""\
-type: model
-series: 16
-authority-id: my-brand
-brand-id: my-brand
-model: canonical-pc-amd64
-class: general
-allowed-modes: classic, developer
-required-snaps: {}
-architecture: amd64
-store: canonical
-gadget: canonical-pc
-kernel: canonical-pc-linux
-core: ubuntu-core
-timestamp: 2016-01-02T10:00:00-05:00
-body-length: 0
-
-openpgpg 2cln""".format(''), file=fp)
-        fp.flush()
-        self.model_assertion = fp.name
+        self.model_assertion = resource_filename(
+            'ubuntu_image.tests.data', 'model.assertion')
 
     def test_output(self):
         self._resources.enter_context(patch(

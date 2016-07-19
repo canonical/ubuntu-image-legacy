@@ -6,8 +6,9 @@ import shutil
 import logging
 
 from contextlib import ExitStack, contextmanager
+from operator import attrgetter
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB, run
+from ubuntu_image.helpers import GiB, MiB, run
 from ubuntu_image.image import Image
 from ubuntu_image.parser import parse as parse_yaml
 from ubuntu_image.state import State
@@ -197,7 +198,6 @@ class BaseImageBuilder(State):
             raise ValueError('DOS partition tables not yet supported')
         self.disk_img = os.path.join(self.images, 'disk.img')
         image = Image(self.disk_img, GiB(4))
-
         # Create BIOS boot partition
         #
         # The partition is 1MiB in size, as recommended by various
@@ -210,10 +210,11 @@ class BaseImageBuilder(State):
         # image.partition(change_name='1:grub')
         # image.copy_blob(self.boot_img,
         #                 bs='1MiB', seek=4, count=1, conv='notrunc')
+        #
         # Create EFI system partition
         #
         part_id = 1
-        offset = 4 * 1024 * 1024
+        offset = MiB(4)
         if self.gadget:
             # walk through all partitions, and write them to the disk image
             # at the lowest permissible offset.  We should not have any
@@ -223,7 +224,7 @@ class BaseImageBuilder(State):
             # order as part of checking for overlaps, so we should not need
             # to sort them here.
             for part in sorted(self.gadget.partitions,
-                                    key=lambda x: x.offset):
+                               key=attrgetter('offset')):
                 size = part.size
                 if not part.offset:
                     part.offset = offset
@@ -231,11 +232,11 @@ class BaseImageBuilder(State):
                 # that the offset and size are always multiples of 1MiB.  We
                 # should actually prefer multiples of 4MiB for optimal
                 # performance on modern disks.
-                partdef = '{}:{}M:+{}M'.format(part_id, offset // 1024 // 1024,
-                                               size // 1024 // 1024)
+                partdef = '{}:{}M:+{}M'.format(
+                    part_id, offset // MiB(1), size // MiB(1))
                 image.partition(new=partdef)
-                image.partition(typecode='{}:{}'.format(part_id,
-                                                        part.type_id))
+                image.partition(typecode='{}:{}'.format(
+                    part_id, part.type_id))
                 if part.role == 'ESP':
                     # XXX: this should be part of the parser defaults.
                     image.partition(change_name='{}:system-boot'
@@ -307,15 +308,11 @@ class ModelAssertionBuilder(BaseImageBuilder):
         cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir,
                              self.args.model_assertion)
         run(cmd)
-        # XXX For testing purposes, these files can't be owned by root.  Blech
-        # blech blech.
-        run('sudo chown -R {} {}'.format(os.getuid(), self.rootfs))
-        run('sudo chown -R {} {}'.format(os.getuid(), self.unpackdir))
         self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):
         yaml_file = os.path.join(self.unpackdir, 'meta', 'image.yaml')
-        with open(yaml_file, 'r', encoding='UTF-8') as fp:
+        with open(yaml_file, 'r', encoding='utf-8') as fp:
             self.gadget = parse_yaml(fp)
         self._next.append(self.calculate_rootfs_size)
 
@@ -360,3 +357,11 @@ class ModelAssertionBuilder(BaseImageBuilder):
                 else self.args.output)
         shutil.move(self.disk_img, here)
         self._next.append(self.close)
+
+    def close(self):
+        # XXX For testing purposes, these files can't be owned by root.  Blech
+        # blech blech.
+        run('sudo chown -R {} {}'.format(os.getuid(), self.rootfs))
+        run('sudo chown -R {} {}'.format(os.getuid(), self.bootfs))
+        run('sudo chown -R {} {}'.format(os.getuid(), self.unpackdir))
+        super().close()
