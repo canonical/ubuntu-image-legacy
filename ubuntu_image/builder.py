@@ -222,11 +222,11 @@ class BaseImageBuilder(State):
             # XXX: the parser should sort these partitions for us in disk
             # order as part of checking for overlaps, so we should not need
             # to sort them here.
-            for partition in sorted(self.gadget.partitions,
+            for part in sorted(self.gadget.partitions,
                                     key=lambda x: x.offset):
-                size = partition.size
-                if not partition.offset:
-                    partition.offset = offset
+                size = part.size
+                if not part.offset:
+                    part.offset = offset
                 # sgdisk takes either a sector or a KiB/MiB argument; assume
                 # that the offset and size are always multiples of 1MiB.  We
                 # should actually prefer multiples of 4MiB for optimal
@@ -235,8 +235,8 @@ class BaseImageBuilder(State):
                                                size // 1024 // 1024)
                 image.partition(new=partdef)
                 image.partition(typecode='{}:{}'.format(part_id,
-                                                        partition.type_id))
-                if partition.role == 'ESP':
+                                                        part.type_id))
+                if part.role == 'ESP':
                     # XXX: this should be part of the parser defaults.
                     image.partition(change_name='{}:system-boot'
                                                 .format(part_id))
@@ -244,9 +244,9 @@ class BaseImageBuilder(State):
                     # 1MiB.  (XXX: but this should be enforced elsewhere.)
                     image.copy_blob(self.boot_img,
                                     bs='1M', seek=offset // 1024 // 1024,
-                                    count=partition.size // 1024 // 1024,
+                                    count=part.size // 1024 // 1024,
                                     conv='notrunc')
-                offset = partition.offset + size
+                offset = part.offset + size
                 part_id += 1
         else:
             # XXX: there should be no 'else'
