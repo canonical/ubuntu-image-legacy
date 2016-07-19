@@ -158,8 +158,11 @@ class BaseImageBuilder(State):
         self._next.append(self.make_disk)
 
     def make_disk(self):
+        if self.gadget and self.gadget.scheme != 'GPT':
+            raise ValueError('DOS partition tables not yet supported')
         self.disk_img = os.path.join(self.images, 'disk.img')
         image = Image(self.disk_img, GiB(4))
+
         # Create BIOS boot partition
         #
         # The partition is 1MiB in size, as recommended by various
