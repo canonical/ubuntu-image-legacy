@@ -282,6 +282,15 @@ class ModelAssertionBuilder(BaseImageBuilder):
             shutil.copytree(src, dst)
             shutil.rmtree(src)
         self._next.append(self.calculate_bootfs_size)
+        for part in self.gadget.partitions:
+            if part.role == 'ESP':
+                for file in part.files:
+                    src = os.path.join(self.unpackdir, file[0])
+                    dst = os.path.join(self.bootfs, file[1])
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    shutil.copy(src, dst)
+                # XXX: there should only be one ESP
+                break
 
     def finish(self):
         # Move the completed disk image to the current directory, since
