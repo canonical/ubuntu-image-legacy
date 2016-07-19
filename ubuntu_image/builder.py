@@ -212,15 +212,56 @@ class BaseImageBuilder(State):
         #                 bs='1MiB', seek=4, count=1, conv='notrunc')
         # Create EFI system partition
         #
-        image.partition(new='2:5MiB:+64MiB')
-        image.partition(typecode='2:C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
-        image.partition(change_name='2:system-boot')
-        image.copy_blob(self.boot_img,
-                        bs='1M', seek=5, count=64, conv='notrunc')
+        part_id = 1
+        offset = 4 * 1024 * 1024
+        if self.gadget:
+            # walk through all partitions, and write them to the disk image
+            # at the lowest permissible offset.  We should not have any
+            # overlapping partitions, the parser should have already rejected
+            # such as invalid.
+            # XXX: the parser should sort these partitions for us in disk
+            # order as part of checking for overlaps, so we should not need
+            # to sort them here.
+            for partition in sorted(self.gadget.partitions,
+                                    key=lambda x: x.offset):
+                size = partition.size
+                if not partition.offset:
+                    partition.offset = offset
+                # sgdisk takes either a sector or a KiB/MiB argument; assume
+                # that the offset and size are always multiples of 1MiB.  We
+                # should actually prefer multiples of 4MiB for optimal
+                # performance on modern disks.
+                partdef = '{}:{}M:+{}M'.format(part_id, offset // 1024 // 1024,
+                                               size // 1024 // 1024)
+                image.partition(new=partdef)
+                image.partition(typecode='{}:{}'.format(part_id,
+                                                        partition.type_id))
+                if partition.role == 'ESP':
+                    # XXX: this should be part of the parser defaults.
+                    image.partition(change_name='{}:system-boot'
+                                                .format(part_id))
+                    # assume that the offset and size are always multiples of
+                    # 1MiB.  (XXX: but this should be enforced elsewhere.)
+                    image.copy_blob(self.boot_img,
+                                    bs='1M', seek=offset // 1024 // 1024,
+                                    count=partition.size // 1024 // 1024,
+                                    conv='notrunc')
+                offset = partition.offset + size
+                part_id += 1
+        else:
+            # XXX: there should be no 'else'
+            image.partition(new='2:5MiB:+64MiB')
+            image.partition(typecode='2:C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
+            image.partition(change_name='2:system-boot')
+            image.copy_blob(self.boot_img,
+                            bs='1M', seek=5, count=64, conv='notrunc')
+            part_id += 1
         # Create main snappy writable partition
-        image.partition(new='3:72MiB:+3646MiB')
-        image.partition(typecode='3:0FC63DAF-8483-4772-8E79-3D69D8477DE4')
-        image.partition(change_name='3:writable')
+        # XXX: remove the fixed offset
+        image.partition(new='{}:72MiB:+3646MiB'.format(part_id))
+        image.partition(typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'
+                                 .format(part_id))
+        image.partition(change_name='{}:writable'.format(part_id))
         image.copy_blob(self.root_img,
                         bs='1M', seek=72, count=3646, conv='notrunc')
         self._next.append(self.finish)
