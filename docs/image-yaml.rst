@@ -46,7 +46,7 @@ The YAML file has the following keys:
 
 partition-scheme
     Defines the type of supported partition tables. Legal values are ``MBR``
-    and ``GPT``.
+    and ``GPT``.  If not specified, the default is ``GPT``.
 
 partitions
     Defines a list of partitions present that must be present, their
