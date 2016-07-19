@@ -57,7 +57,7 @@ def main(argv=None):
     state_machine.rootfs    = os.path.join(args.input_dir, 'root')
     state_machine.bootfs    = os.path.join(args.input_dir, 'boot')
     state_machine._pop()
-    state_machine._next.append(state_machine.calculate_rootfs_size)
+    state_machine._next.append(state_machine.load_gadget_yaml)
 
     try:
         list(state_machine)
