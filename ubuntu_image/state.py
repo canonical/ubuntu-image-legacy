@@ -12,7 +12,7 @@ class State:
     def __init__(self):
         # Variables which manage state transitions.
         self._next = deque()
-        self._debug_step = 1
+        self._debug_step = 0
         # Manage all resources so they get cleaned up whenever the state
         # machine exits for any reason.
         self.resources = ExitStack()
@@ -84,9 +84,9 @@ class State:
         unless an exception occurrs, because execution can be continued.
         Call .close() explicitly to release the resources.
 
-        :param stop_after: Name of method to run the state machine
-            through.  In other words, the state machine runs until the
-            named method completes.
+        :param stop_after: Name or step number of the method to run the state
+            machine through.  In other words, the state machine runs until the
+            specified step completes.  Step numbers begin at 0.
         """
         while True:
             try:
@@ -99,9 +99,11 @@ class State:
             except:
                 self.close()
                 raise
-            self._debug_step += 1
-            if name == stop_after:
-                break
+            try:
+                if name == stop_after or self._debug_step == stop_after:
+                    break
+            finally:
+                self._debug_step += 1
 
     def run_until(self, stop_before):
         """Partially run the state machine.
@@ -111,9 +113,9 @@ class State:
         unless an exception occurs, because execution can be continued.
         Call .close() explicitly to release the resources.
 
-        :param stop_before: Name of method that the state machine is run
-            until the method is reached.  Unlike `run_thru()` the named
-            method is not run.
+        :param stop_before: Name or step number of method that the state
+            machine is run until the specified step is reached.  Unlike
+            `run_thru()` the step is not run.  Step numbers begin at 0.
         """
         while True:
             try:
@@ -121,7 +123,7 @@ class State:
             except (StopIteration, IndexError):
                 # We're done.
                 break
-            if name == stop_before:
+            if name == stop_before or self._debug_step == stop_before:
                 # Stop executing, but not before we push the last state back
                 # onto the deque.  Otherwise, resuming the state machine would
                 # skip this step.
