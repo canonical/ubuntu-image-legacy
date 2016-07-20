@@ -5,6 +5,7 @@ import logging
 
 from contextlib import ExitStack
 from io import StringIO
+from pickle import load
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
 from ubuntu_image.__main__ import main
@@ -157,3 +158,33 @@ class TestMainWithModel(TestCase):
         self.assertFalse(os.path.exists(imgfile))
         main(('--resume', '--workdir', workdir))
         self.assertTrue(os.path.exists(imgfile))
+
+    def test_until(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        main(('--until', 'populate_rootfs_contents',
+              '--channel', 'edge',
+              '--workdir', workdir,
+              self.model_assertion))
+        # The pickle file will tell us how far the state machine got.
+        with open(os.path.join(workdir, '.ubuntu-image.pck'), 'rb') as fp:
+            pickle_state = load(fp).__getstate__()
+        # This is the *next* state to execute.
+        self.assertEqual(pickle_state['state'], ['populate_rootfs_contents'])
+
+    def test_thru(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        main(('--thru', 'populate_rootfs_contents',
+              '--channel', 'edge',
+              '--workdir', workdir,
+              self.model_assertion))
+        # The pickle file will tell us how far the state machine got.
+        with open(os.path.join(workdir, '.ubuntu-image.pck'), 'rb') as fp:
+            pickle_state = load(fp).__getstate__()
+        # This is the *next* state to execute.
+        self.assertEqual(pickle_state['state'], ['calculate_rootfs_size'])
