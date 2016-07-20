@@ -9,6 +9,7 @@ from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
 from ubuntu_image.__main__ import main
 from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.tests.test_builder import XXXModelAssertionBuilder
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
 
@@ -16,18 +17,18 @@ from unittest.mock import call, patch
 IN_TRAVIS = 'IN_TRAVIS' in os.environ
 
 
-class CrashingModelAssertionBuilder(ModelAssertionBuilder):
+class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
     def make_temporary_directories(self):
         raise RuntimeError
 
 
-class EarlyExitModelAssertionBuilder(ModelAssertionBuilder):
+class EarlyExitModelAssertionBuilder(XXXModelAssertionBuilder):
     def populate_rootfs_contents(self):
         # Do nothing, but let the state machine exit.
         pass
 
 
-class DoNothingBuilder(ModelAssertionBuilder):
+class DoNothingBuilder(XXXModelAssertionBuilder):
     def populate_rootfs_contents(self):
         self._next.append(self.calculate_rootfs_size)
 
@@ -149,6 +150,9 @@ class TestMainWithModel(TestCase):
 
     @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_resume(self):
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            XXXModelAssertionBuilder))
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         imgfile = os.path.join(tmpdir, 'my-disk.img')
         main(('--until', 'prepare_filesystems',

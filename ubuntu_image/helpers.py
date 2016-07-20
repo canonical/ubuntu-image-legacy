@@ -62,10 +62,11 @@ def transform(caught_excs, new_exc):
 
 
 def run(command, *, check=True, **args):
-    if 'shell' not in args:
-        split_command = command.split()
+    runnable_command = (
+        command.split() if 'shell' not in args
+        else command)
     proc = subprocess_run(
-        split_command,
+        runnable_command,
         stdout=PIPE, stderr=PIPE,
         universal_newlines=True,
         **args)

@@ -36,6 +36,9 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'grubx64.efi'),
             os.path.join(self.unpackdir, 'grubx64.efi'))
+        shutil.copy(
+            resource_filename('ubuntu_image.tests.data', 'shim.efi.signed'),
+            os.path.join(self.unpackdir, 'shim.efi.signed'))
         super().load_gadget_yaml()
 
 
@@ -230,12 +233,16 @@ class TestModelAssertionBuilder(TestCase):
         state.run_thru('calculate_bootfs_size')
         # How does the root and boot file systems look?
         files = [
-            '{boot}/grub/grub.cfg',
-            '{boot}/grub/grubenv',
+            '{boot}/EFI/boot/bootx64.efi',
+            '{boot}/EFI/boot/grub.cfg',
+            '{boot}/EFI/boot/grubx64.efi',
+            '{boot}/EFI/ubuntu/grub.cfg',
+            '{boot}/EFI/ubuntu/grubenv',
+            '{root}/boot/',
             '{root}/snap/',
             '{root}/var/lib/snapd/seed/snaps/canonical-pc_6.snap',
             '{root}/var/lib/snapd/seed/snaps'
-                '/canonical-pc-linux_30.snap.sideinfo',   # noqa
+                '/canonical-pc-linux_30.snap.sideinfo',          # noqa
             '{root}/var/lib/snapd/seed/snaps/canonical-pc_6.snap.sideinfo',
             '{root}/var/lib/snapd/seed/snaps/ubuntu-core_138.snap',
             '{root}/var/lib/snapd/seed/snaps/canonical-pc-linux_30.snap',
@@ -243,11 +250,12 @@ class TestModelAssertionBuilder(TestCase):
             '{root}/var/lib/snapd/snaps/canonical-pc-linux_30.snap',
             '{root}/var/lib/snapd/snaps/ubuntu-core_138.snap',
             ]
-        for path in files:
-            self.assertTrue(os.path.exists(path.format(
+        for filename in files:
+            path = filename.format(
                 root=state.rootfs,
                 boot=state.bootfs,
-                )))
+                )
+            self.assertTrue(os.path.exists(path), path)
 
     @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_restore(self):
@@ -257,7 +265,7 @@ class TestModelAssertionBuilder(TestCase):
             model_assertion=self.model_assertion,
             output=None,
             )
-        with ModelAssertionBuilder(args) as state:
+        with XXXModelAssertionBuilder(args) as state:
             state.run_thru('calculate_bootfs_size')
             rootfs = state.rootfs
             bootfs = state.bootfs
@@ -287,7 +295,7 @@ class TestModelAssertionBuilder(TestCase):
             model_assertion=self.model_assertion,
             output=None,
             )
-        with ModelAssertionBuilder(args) as state:
+        with XXXModelAssertionBuilder(args) as state:
             state.run_thru('calculate_bootfs_size')
             pickle = dumps(state)
         # The original state machine has been reclaimed, but trying to create
