@@ -4,8 +4,8 @@ import os
 import shutil
 
 from contextlib import ExitStack, suppress
-from pkg_resources import resource_filename
 from pickle import dumps, loads
+from pkg_resources import resource_filename
 from subprocess import CompletedProcess
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace

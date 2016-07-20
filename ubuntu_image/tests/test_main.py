@@ -8,7 +8,6 @@ from io import StringIO
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
 from ubuntu_image.__main__ import main
-from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.tests.test_builder import XXXModelAssertionBuilder
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
