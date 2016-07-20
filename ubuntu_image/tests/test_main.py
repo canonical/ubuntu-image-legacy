@@ -125,18 +125,6 @@ class TestMainWithModel(TestCase):
         main(('--output', imgfile, self.model_assertion))
         self.assertTrue(os.path.exists(imgfile))
 
-    def test_save_resume_implies_keep(self):
-        mock = self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.dump'))
-        main(('--until', 'make_temporary_directories', self.model_assertion))
-        args = mock.call_args[0][0]
-        self.assertTrue(args.keep)
-        main(('--thru', 'make_temporary_directories', self.model_assertion))
-        args = mock.call_args[0][0]
-        self.assertTrue(args.keep)
-
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:
             main(('--resume', self.model_assertion))
@@ -147,18 +135,25 @@ class TestMainWithModel(TestCase):
             main(('--until', 'whatever'))
         self.assertEqual(cm.exception.code, 2)
 
+    def test_resume_without_workdir(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('--resume',))
+        self.assertEqual(cm.exception.code, 2)
+
     @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_resume(self):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             XXXModelAssertionBuilder))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(workdir, 'my-disk.img')
         main(('--until', 'prepare_filesystems',
               '--channel', 'edge',
+              '--workdir', workdir,
               '--output', imgfile,
               self.model_assertion))
-        self.assertTrue(os.path.exists(os.path.abspath('.ubuntu-image.pck')))
+        self.assertTrue(os.path.exists(os.path.join(
+            workdir, '.ubuntu-image.pck')))
         self.assertFalse(os.path.exists(imgfile))
-        main(('--resume',))
+        main(('--resume', '--workdir', workdir))
         self.assertTrue(os.path.exists(imgfile))

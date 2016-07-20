@@ -77,6 +77,8 @@ def parseargs(argv=None):
         parser.error('model assertion is not allowed with --resume')
     if not args.resume and args.model_assertion is None:
         parser.error('model assertion is required')
+    if args.resume and args.workdir is None:
+        parser.error('--resume requires --workdir')
     # --until and --thru can take an int.
     with suppress(ValueError, TypeError):
         args.thru = int(args.thru)
@@ -87,7 +89,11 @@ def parseargs(argv=None):
 
 def main(argv=None):
     args = parseargs(argv)
-    pickle_file = os.path.abspath('.ubuntu-image.pck')
+    if args.workdir:
+        os.makedirs(args.workdir, exist_ok=True)
+        pickle_file = os.path.join(args.workdir, '.ubuntu-image.pck')
+    else:
+        pickle_file = None
     if args.resume:
         with open(pickle_file, 'rb') as fp:
             state_machine = load(fp)
@@ -105,12 +111,9 @@ def main(argv=None):
         _logger.exception('Crash in state machine')
         return 1
     # Everything's done, now handle saving state if necessary.
-    if args.thru or args.until:
+    if pickle_file is not None:
         with open(pickle_file, 'wb') as fp:
             dump(state_machine, fp)
-    else:
-        with suppress(FileNotFoundError):
-            os.remove(pickle_file)
     return 0
 
 

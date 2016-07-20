@@ -90,22 +90,17 @@ class TestBaseImageBuilder(TestCase):
                 self.assertEqual(fp.read(), 'boot qay')
             self.assertEqual(state.bootfs_size, 31.5)
 
-    def test_keep_temporary_directories(self):
+    def test_workdir(self):
         with ExitStack() as resources:
-            tmpdir_object = TemporaryDirectory()
-            tmpdir = resources.enter_context(tmpdir_object)
-            resources.enter_context(patch(
-                'ubuntu_image.builder.TemporaryDirectory',
-                return_value=tmpdir_object))
+            workdir = resources.enter_context(TemporaryDirectory())
             # Enter a new context just to manage the builder's resources.
-            with BaseImageBuilder(keep=True) as state:
+            with BaseImageBuilder(workdir=workdir) as state:
                 state.run_thru('make_temporary_directories')
-                self.assertEqual(state.rootfs, os.path.join(tmpdir, 'root'))
-                self.assertEqual(state.bootfs, os.path.join(tmpdir, 'boot'))
+                self.assertEqual(state.rootfs, os.path.join(workdir, 'root'))
+                self.assertEqual(state.bootfs, os.path.join(workdir, 'boot'))
                 self.assertTrue(os.path.exists(state.bootfs))
                 self.assertTrue(os.path.exists(state.rootfs))
-            # After we exit the builder's context, the temporary directories
-            # will still exist, because we passed in keep=True.
+            # The workdir does not get deleted after the state machine exits.
             self.assertTrue(os.path.exists(state.bootfs))
             self.assertTrue(os.path.exists(state.rootfs))
 
@@ -226,7 +221,7 @@ class TestModelAssertionBuilder(TestCase):
         # at least call `snap weld`.
         args = SimpleNamespace(
             channel='edge',
-            keep=False,
+            workdir=None,
             model_assertion=self.model_assertion,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
@@ -259,9 +254,10 @@ class TestModelAssertionBuilder(TestCase):
 
     @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_restore(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
         args = SimpleNamespace(
             channel='edge',
-            keep=True,
+            workdir=workdir,
             model_assertion=self.model_assertion,
             output=None,
             )
@@ -291,7 +287,7 @@ class TestModelAssertionBuilder(TestCase):
     def test_save_restore_no_keep(self):
         args = SimpleNamespace(
             channel='edge',
-            keep=False,
+            workdir=None,
             model_assertion=self.model_assertion,
             output=None,
             )
