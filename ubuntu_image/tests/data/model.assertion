@@ -5,7 +5,7 @@ brand-id: my-brand
 model: canonical-pc-amd64
 class: general
 allowed-modes: classic, developer
-required-snaps: {}
+required-snaps: 
 architecture: amd64
 store: canonical
 gadget: canonical-pc

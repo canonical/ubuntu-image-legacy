@@ -43,4 +43,5 @@ class TestHelpers(TestCase):
                       return_value=FakeProc()))
             run('/bin/false')
         # stdout gets piped to stderr.
-        self.assertEqual(stderr.getvalue(), 'fake stdoutfake stderr')
+        self.assertEqual(stderr.getvalue(),
+                         'COMMAND FAILED: /bin/falsefake stdoutfake stderr')

@@ -81,6 +81,7 @@ class BaseImageBuilder(State):
             rootfs_size=self.rootfs_size,
             bootfs=self.bootfs,
             bootfs_size=self.bootfs_size,
+            gadget=self.gadget,
             images=self.images,
             boot_img=self.boot_img,
             root_img=self.root_img,
@@ -100,6 +101,7 @@ class BaseImageBuilder(State):
         self.rootfs_size = state['rootfs_size']
         self.bootfs = state['bootfs']
         self.bootfs_size = state['bootfs_size']
+        self.gadget = state['gadget']
         self.images = state['images']
         self.boot_img = state['boot_img']
         self.root_img = state['root_img']
@@ -308,6 +310,11 @@ class ModelAssertionBuilder(BaseImageBuilder):
         cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir,
                              self.args.model_assertion)
         run(cmd)
+        # XXX For testing purposes, these files can't be owned by root.  Blech
+        # blech blech.
+        run('sudo chown -R {} {}'.format(os.getuid(), self.rootfs))
+        run('sudo chown -R {} {}'.format(os.getuid(), self.bootfs))
+        run('sudo chown -R {} {}'.format(os.getuid(), self.unpackdir))
         self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):
@@ -359,9 +366,4 @@ class ModelAssertionBuilder(BaseImageBuilder):
         self._next.append(self.close)
 
     def close(self):
-        # XXX For testing purposes, these files can't be owned by root.  Blech
-        # blech blech.
-        run('sudo chown -R {} {}'.format(os.getuid(), self.rootfs))
-        run('sudo chown -R {} {}'.format(os.getuid(), self.bootfs))
-        run('sudo chown -R {} {}'.format(os.getuid(), self.unpackdir))
         super().close()
