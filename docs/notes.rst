@@ -1,25 +1,15 @@
 Building
 ========
 
-$ TMPDIR=$(pwd)/grab-output ./ubuntu-image -k -c edge -d \
-      amd64-generic-model.assertion -o disk.img
+$ ./ubuntu-image -w ../workdir -c edge -d -u load_gadget_yaml \
+  amd64-generic-mode.assertion
 
-the -k option will save the temp directory containing the output of snap
-weld.
+$ pushd ..
+$ bzr branch lp:~vorlon/snappy-hub/snappy-systems
+$ cp -a snappy-systems/generic-amd64/* workdir/unpack/
 
-$ mkdir -p input-dir
-$ mv grab-output/tmp*/root input-dir/root
-$ mv grab-output/tmp*/boot/* input-dir/root/boot
-$ unsquashfs -d input-dir/unpack canonical-pc_3.2_all.snap
-$ cp canonical-pc_3.2_all.snap input-dir/unpack
-
-This gives you an input-dir containing simulated output of 'snap weld'.
-
-Using <https://github.com/CanonicalLtd/ubuntu-image/tree/sideload>, you can
-then call 'ubuntu-image-finalize':
-
-$ ./ubuntu-image-finalize -i input-dir -c edge -d \
-	amd64-generic-model.assertion -o disk.img
+$ popd
+$ ./ubuntu-image -w ../workdir -d --resume
 
 
 Mounting
@@ -34,9 +24,9 @@ directly using UEFI by:
   $ sudo apt install ovmf
   $ cp /usr/share/OVMF/OVMF_VARS.fd /path/to/OVMF_VARS.fd
   $ qemu-system-x86_64 \
-      -drive file=/usr/share/OVMF/OVMF_CODE.fd,if=pflash,format=raw,unit=0,readonly=on \
-      -drive file=/path/to/OVMF_VARS.fd,if=pflash,format=raw,unit=1 \
-      disk.img
+    -drive file=/usr/share/OVMF/OVMF_CODE.fd,if=pflash,format=raw,unit=0,readonly=on \
+    -drive file=/path/to/OVMF_VARS.fd,if=pflash,format=raw,unit=1 \
+    disk.img
 
 
 That will let you boot as far as GRUB - it won't boot to userspace, because
