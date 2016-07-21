@@ -266,3 +266,24 @@ partitions:
         image_spec = parse(stream)
         self.assertEqual(len(image_spec.partitions), 1)
         self.assertEqual(image_spec.partitions[0].offset, MiB(1))
+
+    def test_default_ESP_size(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: ESP
+""")
+        image_spec = parse(stream)
+        partition = image_spec.partitions[0]
+        self.assertEqual(partition.size, MiB(64))
+
+    def test_explicit_ESP_size(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: ESP
+    size: 99M
+""")
+        image_spec = parse(stream)
+        partition = image_spec.partitions[0]
+        self.assertEqual(partition.size, MiB(99))

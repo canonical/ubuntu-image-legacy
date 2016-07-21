@@ -91,10 +91,10 @@ partitions
         (*optional*) Partition offset from the beginning of the image. Offset
         can be used to tweak the position of the first partition.
     size
-        (*optional*) Size of the partition.  If not specified, will be
-        automatically computed based on the size of contents, the partition
-        role, and any limits imposed by offsets specified for partitions
-        located after this one on the disk.
+        (*optional*) Size of the partition.  If not specified, 64M is used for
+        ESP role partitions, otherwise it will be automatically computed based
+        on the size of contents, the partition role, and any limits imposed by
+        offsets specified for partitions located after this one on the disk.
     fs-type
         Type of the filesystem to use. This can be only ``ext4`` or ``vfat``.
     files
