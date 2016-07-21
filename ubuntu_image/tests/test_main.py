@@ -36,6 +36,14 @@ class DoNothingBuilder(XXXModelAssertionBuilder):
         self._next.append(self.calculate_bootfs_size)
 
 
+class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):
+    def populate_rootfs_contents(self):
+        # Similar to above, but leave a trace that this method ran, so that we
+        # have something to positively test.
+        with open(os.path.join(self.workdir, 'success'), 'w'):
+            pass
+
+
 class TestMain(TestCase):
     def setUp(self):
         super().setUp()
@@ -188,3 +196,15 @@ class TestMainWithModel(TestCase):
             pickle_state = load(fp).__getstate__()
         # This is the *next* state to execute.
         self.assertEqual(pickle_state['state'], ['calculate_rootfs_size'])
+
+    def test_resume_loads_pickle(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            EarlyExitLeaveATraceAssertionBuilder))
+        main(('--until', 'populate_rootfs_contents',
+              '--workdir', workdir,
+              self.model_assertion))
+        self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
+        main(('--workdir', workdir, '--resume'))
+        self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))
