@@ -287,3 +287,17 @@ partitions:
         image_spec = parse(stream)
         partition = image_spec.partitions[0]
         self.assertEqual(partition.size, MiB(99))
+
+    def test_overlapping_partitions(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: ESP
+    size: 99M
+    offset: 5M
+  - role: raw
+    offset: 20M
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'overlapping partitions defined')
