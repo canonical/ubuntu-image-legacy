@@ -1,6 +1,7 @@
 """image.yaml parsing and validation."""
 
 
+from operator import attrgetter
 from ubuntu_image.helpers import as_size, transform
 from yaml import load
 
@@ -133,5 +134,18 @@ def parse(stream):
         # XXX "It is also an error for files in the list to overlap."
         partitions.append(PartitionSpec(
             name, role, guid, type_id, partition_offset, size, fs_type, files))
-    # XXX reject a yaml that defines overlapping partitions
+
+    partitions.sort(key=attrgetter('offset'))
+    min_offset = 0
+    for part in partitions:
+        # XXX certain offsets are illegal to specify because they overlap the
+        # partition table.  Should these limits be implemented here in the
+        # parser, or only in the partitioner code?
+        if not part.offset:
+            continue
+        if part.offset < min_offset:
+            raise ValueError('overlapping partitions defined')
+        if part.size:
+            min_offset = part.offset + part.size
+
     return ImageSpec(scheme, partitions)
