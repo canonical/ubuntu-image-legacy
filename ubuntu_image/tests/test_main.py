@@ -9,39 +9,12 @@ from pickle import load
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
 from ubuntu_image.__main__ import main
-from ubuntu_image.tests.test_builder import XXXModelAssertionBuilder
+from ubuntu_image.testing.helpers import (
+    CrashingModelAssertionBuilder, DoNothingBuilder,
+    EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
+    IN_TRAVIS, XXXModelAssertionBuilder)
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
-
-
-IN_TRAVIS = 'IN_TRAVIS' in os.environ
-
-
-class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
-    def make_temporary_directories(self):
-        raise RuntimeError
-
-
-class EarlyExitModelAssertionBuilder(XXXModelAssertionBuilder):
-    def populate_rootfs_contents(self):
-        # Do nothing, but let the state machine exit.
-        pass
-
-
-class DoNothingBuilder(XXXModelAssertionBuilder):
-    def populate_rootfs_contents(self):
-        self._next.append(self.calculate_rootfs_size)
-
-    def populate_bootfs_contents(self):
-        self._next.append(self.calculate_bootfs_size)
-
-
-class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):
-    def populate_rootfs_contents(self):
-        # Similar to above, but leave a trace that this method ran, so that we
-        # have something to positively test.
-        with open(os.path.join(self.workdir, 'success'), 'w'):
-            pass
 
 
 class TestMain(TestCase):
