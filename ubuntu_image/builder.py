@@ -275,9 +275,9 @@ class BaseImageBuilder(State):
 
 class ModelAssertionBuilder(BaseImageBuilder):
     def __init__(self, args):
+        super().__init__(workdir=args.workdir)
         self.args = args
         self.unpackdir = None
-        super().__init__(workdir=args.workdir)
 
     def __getstate__(self):
         state = super().__getstate__()

@@ -25,6 +25,8 @@ def utf8open(path):
 
 
 class XXXModelAssertionBuilder(ModelAssertionBuilder):
+    image_yaml = 'image.yaml'
+
     # We need this class because the current gadget snap we get from the store
     # does not contain an image.yaml or grub files, although it (probably)
     # will eventually.  For now, this copies sample files into the expected
@@ -32,7 +34,7 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
     def load_gadget_yaml(self):
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'image.yaml'),
-            os.path.join(self.unpackdir, 'meta', 'image.yaml'))
+            os.path.join(self.unpackdir, 'meta', self.image_yaml))
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'grubx64.efi'),
             os.path.join(self.unpackdir, 'grubx64.efi'))
@@ -40,6 +42,10 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
             resource_filename('ubuntu_image.tests.data', 'shim.efi.signed'),
             os.path.join(self.unpackdir, 'shim.efi.signed'))
         super().load_gadget_yaml()
+
+
+class YYYModelAssertionBuilder(XXXModelAssertionBuilder):
+    image_yaml = 'mbr-image.yaml'
 
 
 class TestBaseImageBuilder(TestCase):
@@ -298,3 +304,21 @@ class TestModelAssertionBuilder(TestCase):
         # a new one results in an exception because the temporary directory
         # has also been reclaimed.
         self.assertRaises(FileNotFoundError, loads, pickle)
+
+    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
+    def test_make_disk_mbr(self):
+        args = SimpleNamespace(
+            channel='edge',
+            workdir=None,
+            model_assertion=self.model_assertion,
+            output=None,
+            )
+        with YYYModelAssertionBuilder(args) as state:
+            state.run_until('load_gadget_yaml')
+            shutil.copy(
+                resource_filename('ubuntu_image.tests.data', 'mbr-image.yaml'),
+                os.path.join(state.unpackdir, 'meta', 'image.yaml'))
+            with self.assertRaises(ValueError) as cm:
+                state.run_thru('make_disk')
+            self.assertEqual(
+                str(cm.exception), 'DOS partition tables not yet supported')

@@ -42,6 +42,14 @@ def parseargs(argv=None):
                         default='input-dir',
                         help=_('Input tree to process, containing root and '
                                + 'gadget subdirs'))
+    parser.add_argument('-w', '--workdir',
+                        default=None,
+                        help=_("""The working directory in which to download
+                        and unpack all the source files for the image.  This
+                        directory can exist or not, and it is not removed
+                        after this program exits.  If not given, a temporary
+                        working directory is used instead, which *is* deleted
+                        after this program exits."""))
     parser.add_argument('model_assertion',
                         help=_('Path to the model assertion'))
     args = parser.parse_args(argv)
