@@ -9,37 +9,20 @@ from pkg_resources import resource_filename
 from subprocess import CompletedProcess
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from ubuntu_image.builder import BaseImageBuilder, ModelAssertionBuilder
-from ubuntu_image.helpers import run
+from ubuntu_image.builder import BaseImageBuilder
+from ubuntu_image.helpers import MiB, run
+from ubuntu_image.testing.helpers import (
+    DoNothingBuilder, IN_TRAVIS, XXXModelAssertionBuilder)
 from unittest import TestCase, skipIf
 from unittest.mock import patch
 
 
 NL = '\n'
-IN_TRAVIS = 'IN_TRAVIS' in os.environ
 
 
 # For convenience.
 def utf8open(path):
     return open(path, 'r', encoding='utf-8')
-
-
-class XXXModelAssertionBuilder(ModelAssertionBuilder):
-    # We need this class because the current gadget snap we get from the store
-    # does not contain an image.yaml or grub files, although it (probably)
-    # will eventually.  For now, this copies sample files into the expected
-    # case, and should be used in tests which require that step.
-    def load_gadget_yaml(self):
-        shutil.copy(
-            resource_filename('ubuntu_image.tests.data', 'image.yaml'),
-            os.path.join(self.unpackdir, 'meta', 'image.yaml'))
-        shutil.copy(
-            resource_filename('ubuntu_image.tests.data', 'grubx64.efi'),
-            os.path.join(self.unpackdir, 'grubx64.efi'))
-        shutil.copy(
-            resource_filename('ubuntu_image.tests.data', 'shim.efi.signed'),
-            os.path.join(self.unpackdir, 'shim.efi.signed'))
-        super().load_gadget_yaml()
 
 
 class TestBaseImageBuilder(TestCase):
@@ -90,22 +73,17 @@ class TestBaseImageBuilder(TestCase):
                 self.assertEqual(fp.read(), 'boot qay')
             self.assertEqual(state.bootfs_size, 31.5)
 
-    def test_keep_temporary_directories(self):
+    def test_workdir(self):
         with ExitStack() as resources:
-            tmpdir_object = TemporaryDirectory()
-            tmpdir = resources.enter_context(tmpdir_object)
-            resources.enter_context(patch(
-                'ubuntu_image.builder.TemporaryDirectory',
-                return_value=tmpdir_object))
+            workdir = resources.enter_context(TemporaryDirectory())
             # Enter a new context just to manage the builder's resources.
-            with BaseImageBuilder(keep=True) as state:
+            with BaseImageBuilder(workdir=workdir) as state:
                 state.run_thru('make_temporary_directories')
-                self.assertEqual(state.rootfs, os.path.join(tmpdir, 'root'))
-                self.assertEqual(state.bootfs, os.path.join(tmpdir, 'boot'))
+                self.assertEqual(state.rootfs, os.path.join(workdir, 'root'))
+                self.assertEqual(state.bootfs, os.path.join(workdir, 'boot'))
                 self.assertTrue(os.path.exists(state.bootfs))
                 self.assertTrue(os.path.exists(state.rootfs))
-            # After we exit the builder's context, the temporary directories
-            # will still exist, because we passed in keep=True.
+            # The workdir does not get deleted after the state machine exits.
             self.assertTrue(os.path.exists(state.bootfs))
             self.assertTrue(os.path.exists(state.rootfs))
 
@@ -226,7 +204,7 @@ class TestModelAssertionBuilder(TestCase):
         # at least call `snap weld`.
         args = SimpleNamespace(
             channel='edge',
-            keep=False,
+            workdir=None,
             model_assertion=self.model_assertion,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
@@ -257,48 +235,80 @@ class TestModelAssertionBuilder(TestCase):
                 )
             self.assertTrue(os.path.exists(path), path)
 
-    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
-    def test_save_restore(self):
+    def test_no_workdir_exception(self):
         args = SimpleNamespace(
             channel='edge',
-            keep=True,
+            workdir=None,
             model_assertion=self.model_assertion,
             output=None,
             )
         with XXXModelAssertionBuilder(args) as state:
-            state.run_thru('calculate_bootfs_size')
-            rootfs = state.rootfs
-            bootfs = state.bootfs
-            pickle = dumps(state)
-        self.assertTrue(os.path.exists(rootfs))
-        self.assertTrue(os.path.exists(bootfs))
-        # The original state machine has been reclaimed.  Create a new one and
-        # run through a few more states, just to prove that pickling and
-        # unpickling all work.
-        with loads(pickle) as new_state:
-            self.assertEqual(rootfs, new_state.rootfs)
-            self.assertEqual(bootfs, new_state.bootfs)
-            new_state.run_thru('prepare_filesystem')
-        # The second state machine has been reclaimed.  Make sure everything
-        # we expect still exists.
-        self.assertTrue(os.path.exists(rootfs))
-        self.assertTrue(os.path.exists(bootfs))
-        self.assertTrue(os.path.isdir(new_state.images))
-        self.assertTrue(os.path.exists(new_state.boot_img))
-        self.assertTrue(os.path.exists(new_state.root_img))
+            state.run_until('make_temporary_directories')
+        pickle_data = dumps(state)
+        self.assertRaises(FileNotFoundError, loads, pickle_data)
 
-    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
-    def test_save_restore_no_keep(self):
+    def test_make_disk_no_dos_partitions_yet(self):
         args = SimpleNamespace(
             channel='edge',
-            keep=False,
+            workdir=None,
             model_assertion=self.model_assertion,
             output=None,
             )
-        with XXXModelAssertionBuilder(args) as state:
-            state.run_thru('calculate_bootfs_size')
-            pickle = dumps(state)
-        # The original state machine has been reclaimed, but trying to create
-        # a new one results in an exception because the temporary directory
-        # has also been reclaimed.
-        self.assertRaises(FileNotFoundError, loads, pickle)
+        with ExitStack() as resources:
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.gadget = SimpleNamespace(scheme='MBR')
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Be quiet.
+            resources.enter_context(patch('ubuntu_image.state.log.exception'))
+            cm = resources.enter_context(self.assertRaises(ValueError))
+            list(state)
+            self.assertEqual(str(cm.exception),
+                             'DOS partition tables not yet supported')
+
+
+class TestShortCircuitBuilder(TestCase):
+    def setUp(self):
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
+        self._workdir = self._resources.enter_context(TemporaryDirectory())
+        self.model_assertion = resource_filename(
+            'ubuntu_image.tests.data', 'model.assertion')
+        self.args = SimpleNamespace(
+            channel='edge',
+            workdir=self._workdir,
+            model_assertion=self.model_assertion,
+            output=None,
+            )
+
+    def test_save_restore(self):
+        # Create a short-circuited state machine we can jump right to.
+        state = self._resources.enter_context(DoNothingBuilder(self.args))
+        state._next.pop()
+        state._next.append(state.calculate_rootfs_size)
+        state.rootfs = os.path.join(self._workdir, 'rootfs')
+        os.makedirs(state.rootfs)
+        with open(os.path.join(state.rootfs, 'dummy'), 'wb') as fp:
+            fp.write(b'x' * 150)
+        pickle_data = dumps(state)
+        self.assertEqual(state.rootfs_size, 0)
+        with loads(pickle_data) as new_state:
+            next(new_state)
+        # 150 * 1.5
+        self.assertEqual(new_state.rootfs_size, 225)
+
+    def test_load_gadget_yaml(self):
+        state = self._resources.enter_context(DoNothingBuilder(self.args))
+        state._next.pop()
+        state._next.append(state.load_gadget_yaml)
+        state.unpackdir = os.path.join(self._workdir, 'unpackdir')
+        metadir = os.path.join(state.unpackdir, 'meta')
+        os.makedirs(metadir)
+        shutil.copy(
+            resource_filename('ubuntu_image.tests.data', 'image.yaml'),
+            os.path.join(metadir, 'image.yaml'))
+        self.assertIsNone(state.gadget)
+        next(state)
+        self.assertIsNotNone(state.gadget)
+        self.assertEqual(state.gadget.partitions[0].size, MiB(50))

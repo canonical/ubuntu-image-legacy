@@ -5,34 +5,16 @@ import logging
 
 from contextlib import ExitStack
 from io import StringIO
+from pickle import load
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
 from ubuntu_image.__main__ import main
-from ubuntu_image.tests.test_builder import XXXModelAssertionBuilder
+from ubuntu_image.testing.helpers import (
+    CrashingModelAssertionBuilder, DoNothingBuilder,
+    EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
+    IN_TRAVIS, XXXModelAssertionBuilder)
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
-
-
-IN_TRAVIS = 'IN_TRAVIS' in os.environ
-
-
-class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
-    def make_temporary_directories(self):
-        raise RuntimeError
-
-
-class EarlyExitModelAssertionBuilder(XXXModelAssertionBuilder):
-    def populate_rootfs_contents(self):
-        # Do nothing, but let the state machine exit.
-        pass
-
-
-class DoNothingBuilder(XXXModelAssertionBuilder):
-    def populate_rootfs_contents(self):
-        self._next.append(self.calculate_rootfs_size)
-
-    def populate_bootfs_contents(self):
-        self._next.append(self.calculate_bootfs_size)
 
 
 class TestMain(TestCase):
@@ -125,18 +107,6 @@ class TestMainWithModel(TestCase):
         main(('--output', imgfile, self.model_assertion))
         self.assertTrue(os.path.exists(imgfile))
 
-    def test_save_resume_implies_keep(self):
-        mock = self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.dump'))
-        main(('--until', 'make_temporary_directories', self.model_assertion))
-        args = mock.call_args[0][0]
-        self.assertTrue(args.keep)
-        main(('--thru', 'make_temporary_directories', self.model_assertion))
-        args = mock.call_args[0][0]
-        self.assertTrue(args.keep)
-
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:
             main(('--resume', self.model_assertion))
@@ -147,18 +117,67 @@ class TestMainWithModel(TestCase):
             main(('--until', 'whatever'))
         self.assertEqual(cm.exception.code, 2)
 
+    def test_resume_without_workdir(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('--resume',))
+        self.assertEqual(cm.exception.code, 2)
+
     @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_resume(self):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             XXXModelAssertionBuilder))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(workdir, 'my-disk.img')
         main(('--until', 'prepare_filesystems',
               '--channel', 'edge',
+              '--workdir', workdir,
               '--output', imgfile,
               self.model_assertion))
-        self.assertTrue(os.path.exists(os.path.abspath('.ubuntu-image.pck')))
+        self.assertTrue(os.path.exists(os.path.join(
+            workdir, '.ubuntu-image.pck')))
         self.assertFalse(os.path.exists(imgfile))
-        main(('--resume',))
+        main(('--resume', '--workdir', workdir))
         self.assertTrue(os.path.exists(imgfile))
+
+    def test_until(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        main(('--until', 'populate_rootfs_contents',
+              '--channel', 'edge',
+              '--workdir', workdir,
+              self.model_assertion))
+        # The pickle file will tell us how far the state machine got.
+        with open(os.path.join(workdir, '.ubuntu-image.pck'), 'rb') as fp:
+            pickle_state = load(fp).__getstate__()
+        # This is the *next* state to execute.
+        self.assertEqual(pickle_state['state'], ['populate_rootfs_contents'])
+
+    def test_thru(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        main(('--thru', 'populate_rootfs_contents',
+              '--channel', 'edge',
+              '--workdir', workdir,
+              self.model_assertion))
+        # The pickle file will tell us how far the state machine got.
+        with open(os.path.join(workdir, '.ubuntu-image.pck'), 'rb') as fp:
+            pickle_state = load(fp).__getstate__()
+        # This is the *next* state to execute.
+        self.assertEqual(pickle_state['state'], ['calculate_rootfs_size'])
+
+    def test_resume_loads_pickle(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            EarlyExitLeaveATraceAssertionBuilder))
+        main(('--until', 'populate_rootfs_contents',
+              '--workdir', workdir,
+              self.model_assertion))
+        self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
+        main(('--workdir', workdir, '--resume'))
+        self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))

@@ -52,14 +52,12 @@ def _mkfs_ext4(img_file, contents_dir):
 
 
 class BaseImageBuilder(State):
-    def __init__(self, *, keep=False):
+    def __init__(self, workdir=None):
         super().__init__()
-        tmpdir = TemporaryDirectory()
-        self._tmpdir = (tmpdir.name if keep
-                        else self.resources.enter_context(tmpdir))
-        if keep:
-            _logger.info(
-                'Keeping temporary directory: {}'.format(self._tmpdir))
+        if workdir is None:
+            self.workdir = self.resources.enter_context(TemporaryDirectory())
+        else:
+            self.workdir = workdir
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
@@ -86,17 +84,16 @@ class BaseImageBuilder(State):
             boot_img=self.boot_img,
             root_img=self.root_img,
             disk_img=self.disk_img,
-            tmpdir=self._tmpdir,
+            workdir=self.workdir,
             )
         return state
 
     def __setstate__(self, state):
         super().__setstate__(state)
         # Fail if the temporary directory no longer exists.
-        tmpdir = state['tmpdir']
-        if not os.path.isdir(tmpdir):
-            raise FileNotFoundError(tmpdir)
-        self._tmpdir = tmpdir
+        self.workdir = state['workdir']
+        if not os.path.isdir(self.workdir):
+            raise FileNotFoundError(self.workdir)
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
         self.bootfs = state['bootfs']
@@ -108,8 +105,8 @@ class BaseImageBuilder(State):
         self.disk_img = state['disk_img']
 
     def make_temporary_directories(self):
-        self.rootfs = os.path.join(self._tmpdir, 'root')
-        self.bootfs = os.path.join(self._tmpdir, 'boot')
+        self.rootfs = os.path.join(self.workdir, 'root')
+        self.bootfs = os.path.join(self.workdir, 'boot')
         os.makedirs(self.rootfs)
         os.makedirs(self.bootfs)
         self._next.append(self.populate_rootfs_contents)
@@ -167,7 +164,7 @@ class BaseImageBuilder(State):
         self._next.append(self.prepare_filesystems)
 
     def prepare_filesystems(self):
-        self.images = os.path.join(self._tmpdir, '.images')
+        self.images = os.path.join(self.workdir, '.images')
         os.makedirs(self.images)
         # The image for the boot partition.
         self.boot_img = os.path.join(self.images, 'boot.img')
@@ -278,9 +275,9 @@ class BaseImageBuilder(State):
 
 class ModelAssertionBuilder(BaseImageBuilder):
     def __init__(self, args):
+        super().__init__(workdir=args.workdir)
         self.args = args
         self.unpackdir = None
-        super().__init__(keep=args.keep)
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -296,7 +293,7 @@ class ModelAssertionBuilder(BaseImageBuilder):
         self.unpackdir = state['unpackdir']
 
     def make_temporary_directories(self):
-        self.unpackdir = os.path.join(self._tmpdir, 'unpack')
+        self.unpackdir = os.path.join(self.workdir, 'unpack')
         os.makedirs(self.unpackdir)
         super().make_temporary_directories()
 
