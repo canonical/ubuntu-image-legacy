@@ -32,12 +32,17 @@ def parseargs(argv=None):
     parser.add_argument('-d', '--debug',
                         default=False, action='store_true',
                         help=_('Enable debugging output'))
-    parser.add_argument('-k', '--keep',
-                        default=False, action='store_true',
-                        help=_('Keep (and print) temporary directories'))
     parser.add_argument('-c', '--channel',
                         default=None,
                         help=_('For snap-based images, the channel to use'))
+    parser.add_argument('-w', '--workdir',
+                        default=None,
+                        help=_("""The working directory in which to download
+                        and unpack all the source files for the image.  This
+                        directory can exist or not, and it is not removed
+                        after this program exits.  If not given, a temporary
+                        working directory is used instead, which *is* deleted
+                        after this program exits."""))
     parser.add_argument('-o', '--output',
                         default=None,
                         help=_('The output file for the disk image'))
@@ -53,34 +58,42 @@ def parseargs(argv=None):
                        default=None, metavar='STEP',
                        help=_("""Run the state machine until the given STEP,
                        non-inclusively.  STEP can be a name or number.
-                       Implies --keep.  The state will be saved in a
-                       .ubuntu-image.pck file in the current directory, and
-                       can be resumed with -r."""))
+                       The state will be saved in a .ubuntu-image.pck file in
+                       the working directory, and can be resumed with -r.  Use
+                       -w if you want to resume the process later."""))
     group.add_argument('-t', '--thru',
                        default=None, metavar='STEP',
                        help=_("""Run the state machine through the given STEP,
-                       inclusively.  STEP can be a name or number.  Implies
-                       --keep.  The state will be saved in a .ubuntu-image.pck
-                       file in the current directory and can be resumed with
-                       -r."""))
+                       inclusively.  STEP can be a name or number.  The state
+                       will be saved in a .ubuntu-image.pck file in the
+                       working directory and can be resumed with -r.  Use -w
+                       if you want to resume the process later."""))
     args = parser.parse_args(argv)
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
-    # --thru and --until imply --keep
-    if args.thru or args.until:
-        args.keep = True
     # The model assertion argument is required unless --resume is given, in
     # which case it cannot be given.
     if args.resume and args.model_assertion:
         parser.error('model assertion is not allowed with --resume')
     if not args.resume and args.model_assertion is None:
         parser.error('model assertion is required')
+    if args.resume and args.workdir is None:
+        parser.error('--resume requires --workdir')
+    # --until and --thru can take an int.
+    with suppress(ValueError, TypeError):
+        args.thru = int(args.thru)
+    with suppress(ValueError, TypeError):
+        args.until = int(args.until)
     return args
 
 
 def main(argv=None):
     args = parseargs(argv)
-    pickle_file = os.path.abspath('.ubuntu-image.pck')
+    if args.workdir:
+        os.makedirs(args.workdir, exist_ok=True)
+        pickle_file = os.path.join(args.workdir, '.ubuntu-image.pck')
+    else:
+        pickle_file = None
     if args.resume:
         with open(pickle_file, 'rb') as fp:
             state_machine = load(fp)
@@ -98,12 +111,9 @@ def main(argv=None):
         _logger.exception('Crash in state machine')
         return 1
     # Everything's done, now handle saving state if necessary.
-    if args.thru or args.until:
+    if pickle_file is not None:
         with open(pickle_file, 'wb') as fp:
             dump(state_machine, fp)
-    else:
-        with suppress(FileNotFoundError):
-            os.remove(pickle_file)
     return 0
 
 

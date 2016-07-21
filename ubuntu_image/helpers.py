@@ -62,14 +62,16 @@ def transform(caught_excs, new_exc):
 
 
 def run(command, *, check=True, **args):
-    if 'shell' not in args:
-        command = command.split()
+    runnable_command = (
+        command.split() if 'shell' not in args
+        else command)
     proc = subprocess_run(
-        command,
+        runnable_command,
         stdout=PIPE, stderr=PIPE,
         universal_newlines=True,
         **args)
     if check and proc.returncode != 0:
+        sys.stderr.write('COMMAND FAILED: {}'.format(command))
         sys.stderr.write(proc.stdout)
         sys.stderr.write(proc.stderr)
         proc.check_returncode()

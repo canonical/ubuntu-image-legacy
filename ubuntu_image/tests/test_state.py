@@ -56,9 +56,19 @@ class TestState(TestCase):
         state.run_thru('second')
         self.assertEqual(state.accumulator, [1, 2])
 
+    def test_run_thru_step_number(self):
+        state = MyState()
+        state.run_thru(1)
+        self.assertEqual(state.accumulator, [1, 2])
+
     def test_run_until(self):
         state = MyState()
         state.run_until('second')
+        self.assertEqual(state.accumulator, [1])
+
+    def test_run_until_step_number(self):
+        state = MyState()
+        state.run_until(1)
         self.assertEqual(state.accumulator, [1])
 
     def test_run_to_completion(self):

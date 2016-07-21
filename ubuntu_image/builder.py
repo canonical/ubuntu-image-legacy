@@ -6,9 +6,11 @@ import shutil
 import logging
 
 from contextlib import ExitStack, contextmanager
+from operator import attrgetter
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB, run
+from ubuntu_image.helpers import GiB, MiB, run
 from ubuntu_image.image import Image
+from ubuntu_image.parser import parse as parse_yaml
 from ubuntu_image.state import State
 
 
@@ -37,12 +39,12 @@ def _mkfs_ext4(img_file, contents_dir):
     that case, we have to sudo loop mount the ext4 file system and
     populate it that way.  Which sucks because sudo.
     """
-    proc = run('mkfs.ext4 {} -d {}'.format(img_file, contents_dir),
+    proc = run('mkfs.ext4 -L writable {} -d {}'.format(img_file, contents_dir),
                check=False)
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
         return
-    run('mkfs.ext4 {}'.format(img_file))
+    run('mkfs.ext4 -L writable {}'.format(img_file))
     with mount(img_file) as mountpoint:
         # fixme: everything is terrible.
         run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
@@ -50,14 +52,12 @@ def _mkfs_ext4(img_file, contents_dir):
 
 
 class BaseImageBuilder(State):
-    def __init__(self, *, keep=False):
+    def __init__(self, workdir=None):
         super().__init__()
-        tmpdir = TemporaryDirectory()
-        self._tmpdir = (tmpdir.name if keep
-                        else self.resources.enter_context(tmpdir))
-        if keep:
-            _logger.info(
-                'Keeping temporary directory: {}'.format(self._tmpdir))
+        if workdir is None:
+            self.workdir = self.resources.enter_context(TemporaryDirectory())
+        else:
+            self.workdir = workdir
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
@@ -67,6 +67,9 @@ class BaseImageBuilder(State):
         self.boot_img = None
         self.root_img = None
         self.disk_img = None
+        # Currently unused in the base class, but defined because we should
+        # use this same abstraction for non-snappy images.
+        self.gadget = None
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -76,33 +79,34 @@ class BaseImageBuilder(State):
             rootfs_size=self.rootfs_size,
             bootfs=self.bootfs,
             bootfs_size=self.bootfs_size,
+            gadget=self.gadget,
             images=self.images,
             boot_img=self.boot_img,
             root_img=self.root_img,
             disk_img=self.disk_img,
-            tmpdir=self._tmpdir,
+            workdir=self.workdir,
             )
         return state
 
     def __setstate__(self, state):
         super().__setstate__(state)
         # Fail if the temporary directory no longer exists.
-        tmpdir = state['tmpdir']
-        if not os.path.isdir(tmpdir):
-            raise FileNotFoundError(tmpdir)
-        self._tmpdir = tmpdir
+        self.workdir = state['workdir']
+        if not os.path.isdir(self.workdir):
+            raise FileNotFoundError(self.workdir)
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
         self.bootfs = state['bootfs']
         self.bootfs_size = state['bootfs_size']
+        self.gadget = state['gadget']
         self.images = state['images']
         self.boot_img = state['boot_img']
         self.root_img = state['root_img']
         self.disk_img = state['disk_img']
 
     def make_temporary_directories(self):
-        self.rootfs = os.path.join(self._tmpdir, 'root')
-        self.bootfs = os.path.join(self._tmpdir, 'boot')
+        self.rootfs = os.path.join(self.workdir, 'root')
+        self.bootfs = os.path.join(self.workdir, 'boot')
         os.makedirs(self.rootfs)
         os.makedirs(self.bootfs)
         self._next.append(self.populate_rootfs_contents)
@@ -160,7 +164,7 @@ class BaseImageBuilder(State):
         self._next.append(self.prepare_filesystems)
 
     def prepare_filesystems(self):
-        self.images = os.path.join(self._tmpdir, '.images')
+        self.images = os.path.join(self.workdir, '.images')
         os.makedirs(self.images)
         # The image for the boot partition.
         self.boot_img = os.path.join(self.images, 'boot.img')
@@ -181,7 +185,7 @@ class BaseImageBuilder(State):
             os.path.join(self.bootfs, filename)
             for filename in os.listdir(self.bootfs)
             )
-        run('mcopy -i {} {} ::'.format(self.boot_img, sourcefiles),
+        run('mcopy -s -i {} {} ::'.format(self.boot_img, sourcefiles),
             env=dict(MTOOLS_SKIP_CHECK='1'))
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
@@ -189,6 +193,8 @@ class BaseImageBuilder(State):
         self._next.append(self.make_disk)
 
     def make_disk(self):
+        if self.gadget and self.gadget.scheme != 'GPT':
+            raise ValueError('DOS partition tables not yet supported')
         self.disk_img = os.path.join(self.images, 'disk.img')
         image = Image(self.disk_img, GiB(4))
         # Create BIOS boot partition
@@ -203,17 +209,59 @@ class BaseImageBuilder(State):
         # image.partition(change_name='1:grub')
         # image.copy_blob(self.boot_img,
         #                 bs='1MiB', seek=4, count=1, conv='notrunc')
+        #
         # Create EFI system partition
         #
-        image.partition(new='2:5MiB:+64MiB')
-        image.partition(typecode='2:C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
-        image.partition(change_name='2:system-boot')
-        image.copy_blob(self.boot_img,
-                        bs='1M', seek=5, count=64, conv='notrunc')
+        part_id = 1
+        offset = MiB(4)
+        if self.gadget:
+            # walk through all partitions, and write them to the disk image
+            # at the lowest permissible offset.  We should not have any
+            # overlapping partitions, the parser should have already rejected
+            # such as invalid.
+            # XXX: the parser should sort these partitions for us in disk
+            # order as part of checking for overlaps, so we should not need
+            # to sort them here.
+            for part in sorted(self.gadget.partitions,
+                               key=attrgetter('offset')):
+                size = part.size
+                if not part.offset:
+                    part.offset = offset
+                # sgdisk takes either a sector or a KiB/MiB argument; assume
+                # that the offset and size are always multiples of 1MiB.  We
+                # should actually prefer multiples of 4MiB for optimal
+                # performance on modern disks.
+                partdef = '{}:{}M:+{}M'.format(
+                    part_id, offset // MiB(1), size // MiB(1))
+                image.partition(new=partdef)
+                image.partition(typecode='{}:{}'.format(
+                    part_id, part.type_id))
+                if part.role == 'ESP':
+                    # XXX: this should be part of the parser defaults.
+                    image.partition(change_name='{}:system-boot'
+                                                .format(part_id))
+                    # assume that the offset and size are always multiples of
+                    # 1MiB.  (XXX: but this should be enforced elsewhere.)
+                    image.copy_blob(self.boot_img,
+                                    bs='1M', seek=offset // 1024 // 1024,
+                                    count=part.size // 1024 // 1024,
+                                    conv='notrunc')
+                offset = part.offset + size
+                part_id += 1
+        else:
+            # XXX: there should be no 'else'
+            image.partition(new='2:5MiB:+64MiB')
+            image.partition(typecode='2:C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
+            image.partition(change_name='2:system-boot')
+            image.copy_blob(self.boot_img,
+                            bs='1M', seek=5, count=64, conv='notrunc')
+            part_id += 2
         # Create main snappy writable partition
-        image.partition(new='3:72MiB:+3646MiB')
-        image.partition(typecode='3:0FC63DAF-8483-4772-8E79-3D69D8477DE4')
-        image.partition(change_name='3:writable')
+        # XXX: remove the fixed offset
+        image.partition(new='{}:72MiB:+3646MiB'.format(part_id))
+        image.partition(typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'
+                                 .format(part_id))
+        image.partition(change_name='{}:writable'.format(part_id))
         image.copy_blob(self.root_img,
                         bs='1M', seek=72, count=3646, conv='notrunc')
         self._next.append(self.finish)
@@ -227,9 +275,9 @@ class BaseImageBuilder(State):
 
 class ModelAssertionBuilder(BaseImageBuilder):
     def __init__(self, args):
+        super().__init__(workdir=args.workdir)
         self.args = args
         self.unpackdir = None
-        super().__init__(keep=args.keep)
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -245,7 +293,7 @@ class ModelAssertionBuilder(BaseImageBuilder):
         self.unpackdir = state['unpackdir']
 
     def make_temporary_directories(self):
-        self.unpackdir = os.path.join(self._tmpdir, 'unpack')
+        self.unpackdir = os.path.join(self.workdir, 'unpack')
         os.makedirs(self.unpackdir)
         super().make_temporary_directories()
 
@@ -262,7 +310,14 @@ class ModelAssertionBuilder(BaseImageBuilder):
         # XXX For testing purposes, these files can't be owned by root.  Blech
         # blech blech.
         run('sudo chown -R {} {}'.format(os.getuid(), self.rootfs))
+        run('sudo chown -R {} {}'.format(os.getuid(), self.bootfs))
         run('sudo chown -R {} {}'.format(os.getuid(), self.unpackdir))
+        self._next.append(self.load_gadget_yaml)
+
+    def load_gadget_yaml(self):
+        yaml_file = os.path.join(self.unpackdir, 'meta', 'image.yaml')
+        with open(yaml_file, 'r', encoding='utf-8') as fp:
+            self.gadget = parse_yaml(fp)
         self._next.append(self.calculate_rootfs_size)
 
     def populate_bootfs_contents(self):
@@ -271,12 +326,24 @@ class ModelAssertionBuilder(BaseImageBuilder):
         # directory itself) needs to be moved to the bootfs directory.  Leave
         # <root-dir>/boot as a future mount point.
         boot = os.path.join(self.rootfs, 'boot')
+        # XXX: bad special-casing.  snap weld currently installs to /boot/grub,
+        # but we need to map this to /EFI/ubuntu.
+        os.makedirs(os.path.join(self.bootfs, 'EFI'), exist_ok=True)
         for filename in os.listdir(boot):
             src = os.path.join(boot, filename)
-            dst = os.path.join(self.bootfs, filename)
+            dst = os.path.join(self.bootfs, 'EFI', 'ubuntu')
             shutil.copytree(src, dst)
             shutil.rmtree(src)
         self._next.append(self.calculate_bootfs_size)
+        for part in self.gadget.partitions:
+            if part.role == 'ESP':
+                for file in part.files:
+                    src = os.path.join(self.unpackdir, file[0])
+                    dst = os.path.join(self.bootfs, file[1])
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    shutil.copy(src, dst)
+                # XXX: there should only be one ESP
+                break
 
     def finish(self):
         # Move the completed disk image to the current directory, since
@@ -294,3 +361,6 @@ class ModelAssertionBuilder(BaseImageBuilder):
                 else self.args.output)
         shutil.move(self.disk_img, here)
         self._next.append(self.close)
+
+    def close(self):
+        super().close()

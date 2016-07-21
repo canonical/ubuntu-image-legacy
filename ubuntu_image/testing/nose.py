@@ -86,6 +86,4 @@ class NosePlugin(Plugin):
 
     def stopTest(self, event):
         with suppress(FileNotFoundError):
-            os.remove('.ubuntu-image.pck')
-        with suppress(FileNotFoundError):
             os.remove('disk.img')

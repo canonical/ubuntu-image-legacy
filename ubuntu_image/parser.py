@@ -44,7 +44,7 @@ def parse(stream):
     # subclasses, but for now there's enough cross-level requirements
     # that it makes that refactoring tricky.
     yaml = load(stream)
-    scheme = yaml['partition-scheme']
+    scheme = yaml.get('partition-scheme', 'GPT')
     if scheme not in ('MBR', 'GPT'):
         raise ValueError(scheme)
     partitions = []
@@ -68,6 +68,10 @@ def parse(stream):
                     partition.get('type')))
             type_id = ('EF' if scheme == 'MBR'
                        else 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
+            # Default size, which is more than big enough for all of the EFI
+            # executables that we might want to install.
+            if size is None:
+                size = '64M'
         elif role == 'raw':
             if fs_type is not None:
                 raise ValueError(
@@ -129,4 +133,5 @@ def parse(stream):
         # XXX "It is also an error for files in the list to overlap."
         partitions.append(PartitionSpec(
             name, role, guid, type_id, partition_offset, size, fs_type, files))
+    # XXX reject a yaml that defines overlapping partitions
     return ImageSpec(scheme, partitions)
