@@ -29,8 +29,7 @@ directly using UEFI by:
     disk.img
 
 
-That will let you boot as far as GRUB - it won't boot to userspace, because
-of the aforementioned problem with root filesystem layout.
+That should let you boot the snappy system to userspace.
 
 Booting a VM with SecureBoot requires more work again - basically, getting
 an OVMF_VARS.fd with the right data inside.  We have a TODO this cycle to
