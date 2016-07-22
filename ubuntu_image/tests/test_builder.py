@@ -3,11 +3,11 @@
 import os
 import shutil
 
-from contextlib import ExitStack, suppress
+from contextlib import ExitStack
 from pickle import dumps, loads
 from pkg_resources import resource_filename
 from subprocess import CompletedProcess
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.builder import BaseImageBuilder
 from ubuntu_image.helpers import MiB, run
@@ -28,9 +28,9 @@ def utf8open(path):
 class TestBaseImageBuilder(TestCase):
     maxDiff = None
 
-    def tearDown(self):
-        with suppress(FileNotFoundError):
-            os.remove('disk.img')
+    def setUp(self):
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
 
     def test_rootfs(self):
         with BaseImageBuilder() as state:
@@ -74,53 +74,51 @@ class TestBaseImageBuilder(TestCase):
             self.assertEqual(state.bootfs_size, 31.5)
 
     def test_workdir(self):
-        with ExitStack() as resources:
-            workdir = resources.enter_context(TemporaryDirectory())
-            # Enter a new context just to manage the builder's resources.
-            with BaseImageBuilder(workdir=workdir) as state:
-                state.run_thru('make_temporary_directories')
-                self.assertEqual(state.rootfs, os.path.join(workdir, 'root'))
-                self.assertEqual(state.bootfs, os.path.join(workdir, 'boot'))
-                self.assertTrue(os.path.exists(state.bootfs))
-                self.assertTrue(os.path.exists(state.rootfs))
-            # The workdir does not get deleted after the state machine exits.
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        # Enter a new context just to manage the builder's resources.
+        with BaseImageBuilder(workdir=workdir) as state:
+            state.run_thru('make_temporary_directories')
+            self.assertEqual(state.rootfs, os.path.join(workdir, 'root'))
+            self.assertEqual(state.bootfs, os.path.join(workdir, 'boot'))
             self.assertTrue(os.path.exists(state.bootfs))
             self.assertTrue(os.path.exists(state.rootfs))
+        # The workdir does not get deleted after the state machine exits.
+        self.assertTrue(os.path.exists(state.bootfs))
+        self.assertTrue(os.path.exists(state.rootfs))
 
     def test_filesystems(self):
-        with ExitStack() as resources:
-            state = resources.enter_context(BaseImageBuilder())
-            state.run_thru('populate_filesystems')
-            boot_dir = resources.enter_context(TemporaryDirectory())
-            # The boot file system is a VFAT file system.
-            run('mcopy -s -i {} :: {}'.format(state.boot_img, boot_dir),
-                env=dict(MTOOLS_SKIP_CHECK='1'))
-            self.assertEqual(set(os.listdir(boot_dir)), {'boot', 'other'})
-            self.assertEqual(
-                set(os.listdir(os.path.join(boot_dir, 'boot'))),
-                {'qay', 'qux'})
-            with utf8open(os.path.join(boot_dir, 'other')) as fp:
-                self.assertEqual(fp.read(), 'other')
-            with utf8open(os.path.join(boot_dir, 'boot', 'qux')) as fp:
-                self.assertEqual(fp.read(), 'boot qux')
-            with utf8open(os.path.join(boot_dir, 'boot', 'qay')) as fp:
-                self.assertEqual(fp.read(), 'boot qay')
-            # The root file system is an ext4 file system.
-            root_dir = resources.enter_context(TemporaryDirectory())
-            run('debugfs -R "rdump / {}" {}'.format(root_dir, state.root_img),
-                shell=True)
-            self.assertEqual(
-                set(os.listdir(root_dir)),
-                {'foo', 'bar', 'baz', 'lost+found', 'boot'})
-            boot_mount = os.path.join(root_dir, 'boot')
-            self.assertTrue(os.path.isdir(boot_mount))
-            self.assertEqual(os.listdir(boot_mount), [])
-            with utf8open(os.path.join(root_dir, 'foo')) as fp:
-                self.assertEqual(fp.read(), 'this is foo')
-            with utf8open(os.path.join(root_dir, 'bar')) as fp:
-                self.assertEqual(fp.read(), 'this is bar')
-            with utf8open(os.path.join(root_dir, 'baz', 'buz')) as fp:
-                self.assertEqual(fp.read(), 'some bazz buzz')
+        state = self._resources.enter_context(BaseImageBuilder())
+        state.run_thru('populate_filesystems')
+        boot_dir = self._resources.enter_context(TemporaryDirectory())
+        # The boot file system is a VFAT file system.
+        run('mcopy -s -i {} :: {}'.format(state.boot_img, boot_dir),
+            env=dict(MTOOLS_SKIP_CHECK='1'))
+        self.assertEqual(set(os.listdir(boot_dir)), {'boot', 'other'})
+        self.assertEqual(
+            set(os.listdir(os.path.join(boot_dir, 'boot'))),
+            {'qay', 'qux'})
+        with utf8open(os.path.join(boot_dir, 'other')) as fp:
+            self.assertEqual(fp.read(), 'other')
+        with utf8open(os.path.join(boot_dir, 'boot', 'qux')) as fp:
+            self.assertEqual(fp.read(), 'boot qux')
+        with utf8open(os.path.join(boot_dir, 'boot', 'qay')) as fp:
+            self.assertEqual(fp.read(), 'boot qay')
+        # The root file system is an ext4 file system.
+        root_dir = self._resources.enter_context(TemporaryDirectory())
+        run('debugfs -R "rdump / {}" {}'.format(root_dir, state.root_img),
+            shell=True)
+        self.assertEqual(
+            set(os.listdir(root_dir)),
+            {'foo', 'bar', 'baz', 'lost+found', 'boot'})
+        boot_mount = os.path.join(root_dir, 'boot')
+        self.assertTrue(os.path.isdir(boot_mount))
+        self.assertEqual(os.listdir(boot_mount), [])
+        with utf8open(os.path.join(root_dir, 'foo')) as fp:
+            self.assertEqual(fp.read(), 'this is foo')
+        with utf8open(os.path.join(root_dir, 'bar')) as fp:
+            self.assertEqual(fp.read(), 'this is bar')
+        with utf8open(os.path.join(root_dir, 'baz', 'buz')) as fp:
+            self.assertEqual(fp.read(), 'some bazz buzz')
 
     @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_filesystems_xenial(self):
@@ -136,42 +134,49 @@ class TestBaseImageBuilder(TestCase):
             if command.startswith('mkfs.ext4') and '-d' in command.split():
                 return CompletedProcess([], 1, '', '')
             return run(command, check=check, **args)
-        with ExitStack() as resources:
-            resources.enter_context(patch(
-                'ubuntu_image.builder.run', no_dash_d))
-            state = resources.enter_context(BaseImageBuilder())
-            state.run_thru('populate_filesystems')
-            # The root file system is an ext4 file system.
-            root_dir = resources.enter_context(TemporaryDirectory())
-            run('debugfs -R "rdump / {}" {}'.format(root_dir, state.root_img),
-                shell=True)
-            self.assertEqual(
-                set(os.listdir(root_dir)),
-                {'foo', 'bar', 'baz', 'lost+found', 'boot'})
-            boot_mount = os.path.join(root_dir, 'boot')
-            self.assertTrue(os.path.isdir(boot_mount))
-            self.assertEqual(os.listdir(boot_mount), [])
-            with utf8open(os.path.join(root_dir, 'foo')) as fp:
-                self.assertEqual(fp.read(), 'this is foo')
-            with utf8open(os.path.join(root_dir, 'bar')) as fp:
-                self.assertEqual(fp.read(), 'this is bar')
-            with utf8open(os.path.join(root_dir, 'baz', 'buz')) as fp:
-                self.assertEqual(fp.read(), 'some bazz buzz')
+        self._resources.enter_context(patch(
+            'ubuntu_image.builder.run', no_dash_d))
+        state = self._resources.enter_context(BaseImageBuilder())
+        state.run_thru('populate_filesystems')
+        # The root file system is an ext4 file system.
+        root_dir = self._resources.enter_context(TemporaryDirectory())
+        run('debugfs -R "rdump / {}" {}'.format(root_dir, state.root_img),
+            shell=True)
+        self.assertEqual(
+            set(os.listdir(root_dir)),
+            {'foo', 'bar', 'baz', 'lost+found', 'boot'})
+        boot_mount = os.path.join(root_dir, 'boot')
+        self.assertTrue(os.path.isdir(boot_mount))
+        self.assertEqual(os.listdir(boot_mount), [])
+        with utf8open(os.path.join(root_dir, 'foo')) as fp:
+            self.assertEqual(fp.read(), 'this is foo')
+        with utf8open(os.path.join(root_dir, 'bar')) as fp:
+            self.assertEqual(fp.read(), 'this is bar')
+        with utf8open(os.path.join(root_dir, 'baz', 'buz')) as fp:
+            self.assertEqual(fp.read(), 'some bazz buzz')
 
     def test_finish(self):
-        with ExitStack() as resources:
-            state = resources.enter_context(BaseImageBuilder())
-            list(state)
-            self.assertTrue(os.path.exists('disk.img'))
-            self.assertFalse(os.path.exists(state.root_img))
-            self.assertFalse(os.path.exists(state.boot_img))
-        proc = run('sgdisk --print disk.img')
-        # The disk identifier (GUID) is variable so remove that line.
-        output = proc.stdout.splitlines()
-        del output[2]
+        output = self._resources.enter_context(NamedTemporaryFile())
+        state = self._resources.enter_context(
+            BaseImageBuilder(output=output.name))
+        list(state)
+        self.assertTrue(os.path.exists(output.name))
+        self.assertFalse(os.path.exists(state.root_img))
+        self.assertFalse(os.path.exists(state.boot_img))
+        proc = run('sgdisk --print {}'.format(output.name))
+        # The disk image file name and identifier (GUID) can vary so remove
+        # and check those lines separate.
+        stdout = proc.stdout.splitlines()
+        self.assertRegex(
+            stdout[0],
+            'Disk [a-zA-Z0-9_/]+: 8388608 sectors, 4.0 GiB')
+        self.assertRegex(
+            stdout[2],
+            'Disk identifier \(GUID\): [-A-Z0-9]+')
+        del stdout[2]
+        del stdout[0]
         self.assertMultiLineEqual(
-                NL.join(output), """\
-Disk disk.img: 8388608 sectors, 4.0 GiB
+                NL.join(stdout), """\
 Logical sector size: 512 bytes
 Partition table holds up to 128 entries
 First usable sector is 34, last usable sector is 8388574
@@ -202,9 +207,11 @@ class TestModelAssertionBuilder(TestCase):
     def test_fs_contents(self):
         # Run the action model assertion builder through the steps needed to
         # at least call `snap weld`.
+        output = self._resources.enter_context(NamedTemporaryFile())
         args = SimpleNamespace(
             channel='edge',
             workdir=None,
+            output=output,
             model_assertion=self.model_assertion,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))

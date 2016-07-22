@@ -52,12 +52,17 @@ def _mkfs_ext4(img_file, contents_dir):
 
 
 class BaseImageBuilder(State):
-    def __init__(self, workdir=None):
+    def __init__(self, workdir=None, output=None):
         super().__init__()
         if workdir is None:
             self.workdir = self.resources.enter_context(TemporaryDirectory())
         else:
             self.workdir = workdir
+        # Where the disk.img file ends up.
+        self.output = (
+            os.path.join(self.workdir, 'disk.img')
+            if output is None
+            else output)
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
@@ -84,6 +89,7 @@ class BaseImageBuilder(State):
             boot_img=self.boot_img,
             root_img=self.root_img,
             disk_img=self.disk_img,
+            output=self.output,
             workdir=self.workdir,
             )
         return state
@@ -103,6 +109,7 @@ class BaseImageBuilder(State):
         self.boot_img = state['boot_img']
         self.root_img = state['root_img']
         self.disk_img = state['disk_img']
+        self.output = state['output']
 
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self.workdir, 'root')
@@ -267,15 +274,20 @@ class BaseImageBuilder(State):
         self._next.append(self.finish)
 
     def finish(self):
-        # Move the completed disk image to the current directory, since
-        # the temporary scratch directory is about to get removed.
-        shutil.move(self.disk_img, os.getcwd())
+        # Move the completed disk image to destination location, since the
+        # temporary scratch directory is about to get removed.
+        shutil.move(self.disk_img, self.output)
         self._next.append(self.close)
 
 
 class ModelAssertionBuilder(BaseImageBuilder):
     def __init__(self, args):
-        super().__init__(workdir=args.workdir)
+        # Where should the image file end up?
+        output = (
+            os.path.abspath('disk.img')
+            if args.output is None
+            else args.output)
+        super().__init__(workdir=args.workdir, output=output)
         self.args = args
         self.unpackdir = None
 
@@ -348,23 +360,3 @@ class ModelAssertionBuilder(BaseImageBuilder):
                     shutil.copy(src, dst)
                 # XXX: there should only be one ESP
                 break
-
-    def finish(self):
-        # Move the completed disk image to the current directory, since
-        # the temporary scratch directory is about to get removed.  Note
-        # that there's a potential race condition here; it's possible
-        # the Python bits will find a unique filename in the current
-        # directory, but before it moves the disk image there, some
-        # other process will beat us to it.  Oh well.  We could catch
-        # the shutil.Error that occurs, but we don't get a ton of
-        # information from that exception, so it's hard to know for sure
-        # that it's the equivalent of EEXIST without testing the error
-        # string, which I don't like doing.
-        here = (os.path.abspath(os.path.basename(self.disk_img))
-                if self.args.output is None
-                else self.args.output)
-        shutil.move(self.disk_img, here)
-        self._next.append(self.close)
-
-    def close(self):
-        super().close()

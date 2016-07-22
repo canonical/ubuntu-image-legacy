@@ -8,7 +8,6 @@ import os
 import re
 import doctest
 
-from contextlib import suppress
 from nose2.events import Plugin
 from pkg_resources import resource_filename
 
@@ -83,7 +82,3 @@ class NosePlugin(Plugin):
 
     # def stopTest(self, event):
     #     import sys; print('^^^^^', event.test, file=sys.stderr)
-
-    def stopTest(self, event):
-        with suppress(FileNotFoundError):
-            os.remove('disk.img')

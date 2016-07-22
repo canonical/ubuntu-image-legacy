@@ -80,7 +80,8 @@ class TestState(TestCase):
         state = MyBrokenState()
         with patch('ubuntu_image.state.log.exception') as mock:
             self.assertRaises(RuntimeError, list, state)
-        mock.assert_called_once_with('uncaught exception in state machine')
+        mock.assert_called_once_with(
+            'uncaught exception in state machine step: [1] second')
 
     def test_context_manager(self):
         with MyState() as state:
