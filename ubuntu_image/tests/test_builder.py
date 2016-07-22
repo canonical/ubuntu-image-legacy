@@ -230,7 +230,7 @@ class TestModelAssertionBuilder(TestCase):
             ]
         for filename in files:
             path = filename.format(
-                root=state.rootfs,
+                root=os.path.join(state.rootfs, 'system-data'),
                 boot=state.bootfs,
                 )
             self.assertTrue(os.path.exists(path), path)

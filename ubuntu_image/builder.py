@@ -304,7 +304,11 @@ class ModelAssertionBuilder(BaseImageBuilder):
         raw_cmd = 'sudo snap weld {} --root-dir={} --gadget-unpack-dir={} {}'
         channel = ('' if self.args.channel is None
                    else '--channel={}'.format(self.args.channel))
-        cmd = raw_cmd.format(channel, self.rootfs, self.unpackdir,
+        # 'snap weld' doesn't currently create a full filesystem tree for us,
+        # only the pieces relative to the /system-data/ directory; so create
+        # this subdir.
+        snap_root = os.path.join(self.rootfs, 'system-data')
+        cmd = raw_cmd.format(channel, snap_root, self.unpackdir,
                              self.args.model_assertion)
         run(cmd)
         # XXX For testing purposes, these files can't be owned by root.  Blech
@@ -325,7 +329,7 @@ class ModelAssertionBuilder(BaseImageBuilder):
         # contents of this directory (but not the parent <root-dir>/boot
         # directory itself) needs to be moved to the bootfs directory.  Leave
         # <root-dir>/boot as a future mount point.
-        boot = os.path.join(self.rootfs, 'boot')
+        boot = os.path.join(self.rootfs, 'system-data/boot')
         # XXX: bad special-casing.  snap weld currently installs to /boot/grub,
         # but we need to map this to /EFI/ubuntu.
         os.makedirs(os.path.join(self.bootfs, 'EFI'), exist_ok=True)
