@@ -72,7 +72,9 @@ class State:
             self.close()
             raise StopIteration from None
         except:
-            log.exception('uncaught exception in state machine')
+            log.exception(
+                'uncaught exception in state machine step: [{}] {}'.format(
+                    self._debug_step, name))
             self.close()
             raise
 
