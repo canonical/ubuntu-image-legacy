@@ -39,8 +39,9 @@ def _mkfs_ext4(img_file, contents_dir):
     that case, we have to sudo loop mount the ext4 file system and
     populate it that way.  Which sucks because sudo.
     """
-    proc = run('mkfs.ext4 -L writable -O -metadata_csum {} -d {}'.format(img_file, contents_dir),
-               check=False)
+    cmd = 'mkfs.ext4 -L writable -O -metadata_csum {} -d {}'.format(
+        img_file, contents_dir)
+    proc = run(cmd, check=False)
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
         return

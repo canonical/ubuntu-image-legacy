@@ -1,9 +1,11 @@
 """Test image building."""
 
 import os
+import re
 import shutil
 
 from contextlib import ExitStack
+from itertools import product
 from pickle import dumps, loads
 from pkg_resources import resource_filename
 from subprocess import CompletedProcess
@@ -18,6 +20,7 @@ from unittest.mock import patch
 
 
 NL = '\n'
+COMMASPACE = ', '
 
 
 # For convenience.
@@ -225,22 +228,50 @@ class TestModelAssertionBuilder(TestCase):
             '{boot}/EFI/ubuntu/grubenv',
             '{root}/boot/',
             '{root}/snap/',
-            '{root}/var/lib/snapd/seed/snaps/canonical-pc_6.snap',
-            '{root}/var/lib/snapd/seed/snaps'
-                '/canonical-pc-linux_30.snap.sideinfo',          # noqa
-            '{root}/var/lib/snapd/seed/snaps/canonical-pc_6.snap.sideinfo',
-            '{root}/var/lib/snapd/seed/snaps/ubuntu-core_138.snap',
-            '{root}/var/lib/snapd/seed/snaps/canonical-pc-linux_30.snap',
-            '{root}/var/lib/snapd/seed/snaps/ubuntu-core_138.snap.sideinfo',
-            '{root}/var/lib/snapd/snaps/canonical-pc-linux_30.snap',
-            '{root}/var/lib/snapd/snaps/ubuntu-core_138.snap',
             ]
+        root = os.path.join(state.rootfs, 'system-data')
         for filename in files:
             path = filename.format(
-                root=os.path.join(state.rootfs, 'system-data'),
+                root=root,
                 boot=state.bootfs,
                 )
             self.assertTrue(os.path.exists(path), path)
+        # 2016-08-01 barry@ubuntu.com: Since these tests currently use real
+        # data, the snap version numbers may change.  Until we use test data
+        # (sideloaded) do regexp matches against specific snap file names.
+        seeds_path = os.path.join(root, 'var', 'lib', 'snapd', 'seed', 'snaps')
+        snaps = set(os.listdir(seeds_path))
+        seed_patterns = [
+            '^canonical-pc_[0-9]+.snap$',
+            '^canonical-pc-linux_[0-9]+.snap.sideinfo$',
+            '^canonical-pc_[0-9]+.snap.sideinfo$',
+            '^ubuntu-core_[0-9]+.snap$',
+            '^canonical-pc-linux_[0-9]+.snap$',
+            '^ubuntu-core_[0-9]+.snap.sideinfo$',
+            '^canonical-pc-linux_[0-9]+.snap$',
+            '^ubuntu-core_[0-9]+.snap$',
+            ]
+        # Make sure every file matches a pattern and every pattern matches a
+        # file.
+        patterns_matched = set()
+        files_matched = set()
+        matches = []
+        for pattern, snap in product(seed_patterns, snaps):
+            if pattern in patterns_matched or snap in files_matched:
+                continue
+            if re.match(pattern, snap):
+                matches.append((pattern, snap))
+                patterns_matched.add(pattern)
+                files_matched.add(snap)
+        patterns_unmatched = set(seed_patterns) - patterns_matched
+        files_unmatched = snaps - files_matched
+        self.assertEqual(
+            len(patterns_unmatched), 0,
+            'Unmatched patterns: {}'.format(COMMASPACE.join(
+                patterns_unmatched)))
+        self.assertEqual(
+            len(files_unmatched), 0,
+            'Unmatched files: {}'.format(COMMASPACE.join(files_unmatched)))
 
     def test_no_workdir_exception(self):
         args = SimpleNamespace(
