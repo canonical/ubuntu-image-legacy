@@ -20,7 +20,7 @@ _logger = logging.getLogger('ubuntu-image')
 
 @contextmanager
 def mount(img):
-    with ExitStack() as resources:
+    with ExitStack() as resources:                  # pragma: notravis
         tmpdir = resources.enter_context(TemporaryDirectory())
         mountpoint = os.path.join(tmpdir, 'root-mount')
         os.makedirs(mountpoint)
@@ -39,13 +39,14 @@ def _mkfs_ext4(img_file, contents_dir):
     that case, we have to sudo loop mount the ext4 file system and
     populate it that way.  Which sucks because sudo.
     """
-    proc = run('mkfs.ext4 -L writable -O -metadata_csum {} -d {}'.format(img_file, contents_dir),
-               check=False)
-    if proc.returncode == 0:
+    cmd = 'mkfs.ext4 -L writable -O -metadata_csum {} -d {}'.format(
+        img_file, contents_dir)
+    proc = run(cmd, check=False)
+    if proc.returncode == 0:                           # pragma: notravis
         # We have a new enough e2fsprogs, so we're done.
         return
-    run('mkfs.ext4 -L writable {}'.format(img_file))
-    with mount(img_file) as mountpoint:
+    run('mkfs.ext4 -L writable {}'.format(img_file))   # pragma: notravis
+    with mount(img_file) as mountpoint:                # pragma: notravis
         # fixme: everything is terrible.
         run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
             contents_dir, mountpoint), shell=True)
@@ -229,10 +230,10 @@ class BaseImageBuilder(State):
             # XXX: the parser should sort these partitions for us in disk
             # order as part of checking for overlaps, so we should not need
             # to sort them here.
-            for part in sorted(self.gadget.partitions,
+            for part in sorted(self.gadget.partitions,   # pragma: notravis
                                key=attrgetter('offset')):
                 size = part.size
-                if not part.offset:
+                if not part.offset:                      # pragma: notravis
                     part.offset = offset
                 # sgdisk takes either a sector or a KiB/MiB argument; assume
                 # that the offset and size are always multiples of 1MiB.  We
@@ -243,7 +244,7 @@ class BaseImageBuilder(State):
                 image.partition(new=partdef)
                 image.partition(typecode='{}:{}'.format(
                     part_id, part.type_id))
-                if part.role == 'ESP':
+                if part.role == 'ESP':                   # pragma: notravis
                     # XXX: this should be part of the parser defaults.
                     image.partition(change_name='{}:system-boot'
                                                 .format(part_id))
@@ -309,7 +310,7 @@ class ModelAssertionBuilder(BaseImageBuilder):
         os.makedirs(self.unpackdir)
         super().make_temporary_directories()
 
-    def populate_rootfs_contents(self):
+    def populate_rootfs_contents(self):             # pragma: notravis
         # Run `snap weld` on the model.assertion.  sudo is currently required
         # in all cases, but eventually, it won't be necessary at least for
         # UEFI support.
@@ -336,7 +337,7 @@ class ModelAssertionBuilder(BaseImageBuilder):
             self.gadget = parse_yaml(fp)
         self._next.append(self.calculate_rootfs_size)
 
-    def populate_bootfs_contents(self):
+    def populate_bootfs_contents(self):             # pragma: notravis
         # The --root-dir directory has a boot/ directory inside it.  The
         # contents of this directory (but not the parent <root-dir>/boot
         # directory itself) needs to be moved to the bootfs directory.  Leave

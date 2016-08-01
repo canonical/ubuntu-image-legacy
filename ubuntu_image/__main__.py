@@ -16,7 +16,7 @@ from ubuntu_image.i18n import _
 _logger = logging.getLogger('ubuntu-image')
 try:
     __version__ = resource_bytes('ubuntu_image', 'version.txt').decode('utf-8')
-except FileNotFoundError:                           # pragma: no cover
+except FileNotFoundError:                           # pragma: nocover
     # Probably, setup.py hasn't been run yet to generate the version.txt.
     __version__ = 'dev'
 PROGRAM = 'ubuntu-image'
