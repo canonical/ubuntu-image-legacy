@@ -5,7 +5,7 @@ bootloader: u-boot         # or grub; this tells snapd whether to create grubenv
 volumes:                      # each volume is a distinct disk image
     name-of-the-image:   # XXX: figure out size limit if we want to write this somewhere (MBR, GPT?)
          - name: sbl1
-           type: DEA0BA2C-CBDD-4805-B4F9-F428251C3E98 # 
+           type: DEA0BA2C-CBDD-4805-B4F9-F428251C3E98 #
            offset: 512
            data: sbl1.mbn
         - name: foxy
@@ -33,7 +33,7 @@ volumes:                      # each volume is a distinct disk image
           type: dump
           data: foo.img
           offset: foo+50
-       - 
+       -
 
     name-of-the-other-image:
          - name: writable
@@ -44,4 +44,3 @@ volumes:                      # each volume is a distinct disk image
 Example: grub
 
 Example: beaglebone
-
