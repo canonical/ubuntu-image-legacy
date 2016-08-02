@@ -1,8 +1,26 @@
-"""image.yaml parsing and validation."""
-
+"""YAML parsing and validation."""
 
 from ubuntu_image.helpers import as_size, transform
+from uuid import UUID
+from voluptuous import Any, Coerce, Optional, Required, Schema
 from yaml import load
+
+
+GadgetYAML = Schema({
+    Required('platform'): str,
+    Required('bootloader'): Any('u-boot', 'grub'),
+    Optional('volumes'): Schema({
+        str: [
+            Schema({
+                Required('name'): str,
+                Required('type'): Any('vfat', 'raw', 'ext4', Coerce(UUID)),
+                'offset': Coerce(as_size),
+                'size': Coerce(as_size),
+                'data': str,
+                })
+            ]
+        }),
+    })
 
 
 class PartitionSpec:
