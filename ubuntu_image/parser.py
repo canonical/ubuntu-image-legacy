@@ -14,9 +14,10 @@ GadgetYAML = Schema({
             Schema({
                 Required('name'): str,
                 Required('type'): Any('vfat', 'raw', 'ext4', Coerce(UUID)),
-                'offset': Coerce(as_size),
-                'size': Coerce(as_size),
-                'data': str,
+                Optional('offset'): Coerce(as_size),
+                Optional('size'): Coerce(as_size),
+                Optional('data'): str,
+                Optional('content'): list,
                 })
             ]
         }),
