@@ -77,6 +77,23 @@ class NosePlugin(Plugin):
         test.shortDescription = lambda: None
         event.extraTests.append(test)
 
+    def startTestRun(self, event):
+        # Create a mock for the `sudo snap weld` command.  This is an
+        # expensive command which hits the actual snap store.  We want this to
+        # run at least once so we know our tests are valid.  We can cache the
+        # results in a test-suite-wide temporary directory and simulate future
+        # calls by just recursively copying the contents to the specified
+        # directories.
+        #
+        # It's a bit more complicated than that though, because it's possible
+        # that the channel and model.assertion will be different, so we need
+        # to make the cache dependent on those values.
+        #
+        # Finally, to enable full end-to-end tests, check an environment
+        # variable to see if the mocking should even be done.  This way, we
+        # can make our Travis-CI job do at least one real end-to-end test.
+        pass
+
     # def startTest(self, event):
     #     import sys; print('vvvvv', event.test, file=sys.stderr)
 
