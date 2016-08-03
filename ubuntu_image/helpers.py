@@ -28,6 +28,11 @@ def straight_up_bytes(count):
 
 
 def as_size(size):
+    # Check for int-ness and just return what you get if so.  YAML parsers
+    # will turn values like '108' into ints automatically, but voluptuous will
+    # always try to coerce the value to an as_size.
+    if isinstance(size, int):
+        return size
     mo = re.match('(\d+)([a-zA-Z]*)', size)
     assert mo is not None, 'Invalid size: {}'.format(size)
     size_in_bytes = mo.group(1)

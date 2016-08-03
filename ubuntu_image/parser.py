@@ -1,9 +1,49 @@
 """image.yaml parsing and validation."""
 
-
+from enum import Enum
 from operator import attrgetter
-from ubuntu_image.helpers import as_size, transform
+from ubuntu_image.helpers import MiB, as_size, transform
+from uuid import UUID
+from voluptuous import (
+    All, Any, Coerce, Invalid, Match, Optional, Required, Schema, Upper)
 from yaml import load
+
+
+ImageYAML = Schema({
+    Optional('partition-scheme', default='GPT'): Any('GPT', 'MBR'),
+    Required('partitions'): [
+        Schema({
+            Optional('name'): str,
+            Required('role'): Any('ESP', 'raw', 'custom'),
+            Optional('fs-type'): Any('ext4', 'vfat'),
+            Optional('guid'): Coerce(UUID),
+            Optional('type'): All(Upper, Match('^[a-z0-9A-Z0-9]{2}$')),
+            Optional('offset'): Coerce(as_size),
+            Optional('size'): Coerce(as_size),
+            Optional('files'): [
+                Schema({
+                    Required('source'): str,
+                    Optional('dest'): str,
+                    Optional('offset'): Coerce(as_size),
+                    })
+                ],
+            })],
+    })
+
+
+class ESPTypeID(Enum):
+    MBR = 'EF'
+    GPT = 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B'
+
+
+class RawTypeID(Enum):
+    MBR = 'DA'
+    GPT = '21686148-6449-6E6F-744E-656564454649'
+
+
+class CustomTypeID(Enum):
+    MBR = '83'
+    GPT = '0FC63DAF-8483-4772-8E79-3D69D8477DE4'
 
 
 class PartitionSpec:
@@ -25,7 +65,7 @@ class ImageSpec:
         self.partitions = partitions
 
 
-@transform(KeyError, ValueError)
+@transform((KeyError, Invalid), ValueError)
 def parse(stream):
     """Parse the YAML read from the stream.
 
@@ -40,16 +80,14 @@ def parse(stream):
     :rtype: ImageSpec
     :raises ValueError: If the schema is violated.
     """
-    # For now, all the logic and constraints are codified in this
-    # function.  At some point it may make sense to refactor that into
-    # subclasses, but for now there's enough cross-level requirements
-    # that it makes that refactoring tricky.
+    # Do the basic schema validation steps.  There some interdependencies that
+    # require post-validation.  E.g. you cannot define the fs-type if the role
+    # is ESP.
     yaml = load(stream)
-    scheme = yaml.get('partition-scheme', 'GPT')
-    if scheme not in ('MBR', 'GPT'):
-        raise ValueError(scheme)
+    validated = ImageYAML(yaml)
+    scheme = validated['partition-scheme']
     partitions = []
-    for partition in yaml['partitions']:
+    for partition in validated['partitions']:
         name = partition.get('name')
         role = partition['role']
         guid = partition.get('guid')
@@ -67,42 +105,28 @@ def parse(stream):
             if partition.get('type') is not None:
                 raise ValueError('Invalid explicit type id: {}'.format(
                     partition.get('type')))
-            type_id = ('EF' if scheme == 'MBR'
-                       else 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
+            type_id = ESPTypeID[scheme].value
             # Default size, which is more than big enough for all of the EFI
             # executables that we might want to install.
             if size is None:
-                size = '64M'
+                size = MiB(64)
         elif role == 'raw':
             if fs_type is not None:
                 raise ValueError(
                     'No fs-type allowed for raw partitions: {}'.format(
                         fs_type))
-            type_id = ('DA' if scheme == 'MBR'
-                       else '21686148-6449-6E6F-744E-656564454649')
+            type_id = RawTypeID[scheme].value
         elif role == 'custom':
-            fs_type = partition.get('fs-type')
             if fs_type is None:
                 raise ValueError('fs-type is required')
-            elif fs_type not in ('vfat', 'ext4'):
-                raise ValueError('Invalid fs-type: {}'.format(fs_type))
-            type_id = ('83' if scheme == 'MBR'
-                       else '0FC63DAF-8483-4772-8E79-3D69D8477DE4')
+            type_id = CustomTypeID[scheme].value
         else:
-            raise ValueError('Bad role: {}'.format(role))
+            raise AssertionError('Should never get here!')   # pragma: nocover
         # Sanity check other values.
         if scheme == 'MBR':
             guid = None
             # Allow MBRs to override the partition type identifier.
             type_id = partition.get('type', type_id)
-        if partition_offset is not None:
-            # If there is no unit suffix, then the YAML parser will have
-            # already converted it to an integer, which we'll interpret
-            # as a byte count.
-            if not isinstance(partition_offset, int):
-                partition_offset = as_size(partition_offset)
-        if size is not None:
-            size = as_size(size)
         # Handle files.
         files = []
         offset_defaulted = False
@@ -117,11 +141,6 @@ def parse(stream):
                         raise ValueError('Only one default offset allowed')
                     offset = 0
                     offset_defaulted = True
-                else:
-                    # Similar to above, if there was no unit suffix,
-                    # offset will already be an integer.
-                    if not isinstance(offset, int):
-                        offset = as_size(offset)
                 files.append((source, offset))
             else:
                 if 'offset' in section:
@@ -134,7 +153,6 @@ def parse(stream):
         # XXX "It is also an error for files in the list to overlap."
         partitions.append(PartitionSpec(
             name, role, guid, type_id, partition_offset, size, fs_type, files))
-
     partitions.sort(key=attrgetter('offset'))
     min_offset = 0
     for part in partitions:
@@ -147,5 +165,4 @@ def parse(stream):
             raise ValueError('overlapping partitions defined')
         if part.size:
             min_offset = part.offset + part.size
-
     return ImageSpec(scheme, partitions)
