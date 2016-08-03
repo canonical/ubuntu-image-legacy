@@ -9,25 +9,21 @@ from voluptuous import (
 from yaml import load
 
 
-ImageYAML = Schema({
-    Optional('partition-scheme', default='GPT'): Any('GPT', 'MBR'),
-    Required('partitions'): [
-        Schema({
-            Optional('name'): str,
-            Required('role'): Any('ESP', 'raw', 'custom'),
-            Optional('fs-type'): Any('ext4', 'vfat'),
-            Optional('guid'): Coerce(UUID),
-            Optional('type'): All(Upper, Match('^[a-z0-9A-Z0-9]{2}$')),
-            Optional('offset'): Coerce(as_size),
-            Optional('size'): Coerce(as_size),
-            Optional('files'): [
-                Schema({
-                    Required('source'): str,
-                    Optional('dest'): str,
-                    Optional('offset'): Coerce(as_size),
-                    })
-                ],
-            })],
+GadgetYAML = Schema({
+    Required('platform'): str,
+    Required('bootloader'): Any('u-boot', 'grub'),
+    Optional('volumes'): Schema({
+        str: [
+            Schema({
+                Required('name'): str,
+                Required('type'): Any('vfat', 'raw', 'ext4', Coerce(UUID)),
+                Optional('offset'): Coerce(as_size),
+                Optional('size'): Coerce(as_size),
+                Optional('data'): str,
+                Optional('content'): list,
+                })
+            ]
+        }),
     })
 
 
