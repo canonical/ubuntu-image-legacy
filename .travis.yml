@@ -32,4 +32,4 @@ python:
 before_install:
   - docker build -f .dockerfile -t foundations/xenial:v6 .
 script:
-    - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v6 /bin/sh -c "cd /root/code; git pull; mk-build-deps --remove --install --tool \"/usr/bin/apt-get -y\"; IN_TRAVIS=travis tox" || docker run --detach=false foundations/xenial:v6 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; mk-build-deps --remove --install --tool \"/usr/bin/apt-get -y\"; IN_TRAVIS=travis tox"'
+    - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v6 /bin/sh -c "cd /root/code; git pull; mk-build-deps --remove --install --tool \"/usr/bin/apt-get -y\"; IN_TRAVIS=travis UBUNTUIMAGE_MOCK_SNAP=1 tox" || docker run --detach=false foundations/xenial:v6 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; mk-build-deps --remove --install --tool \"/usr/bin/apt-get -y\"; IN_TRAVIS=travis UBUNTUIAGE_MOCK_SNAP=1 tox"'

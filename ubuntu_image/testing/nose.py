@@ -9,6 +9,7 @@ import re
 import shutil
 import doctest
 
+from contextlib import ExitStack
 from nose2.events import Plugin
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
@@ -29,19 +30,25 @@ def teardown(testobj):
 
 
 class WeldMock:
-    def __init__(self, tempdir):
-        self._tempdir = tempdir
-        self._patcher = patch('ubuntu_image.helpers.weld', self.run)
+    def __init__(self, tmpdir):
+        self._tmpdir = tmpdir
+        self._patcher = patch('ubuntu_image.builder.weld', self.run)
 
     def run(self, model_assertion, root_dir, unpack_dir, channel=None):
-        run_tmp = os.path.join(self._tempdir, '{}.{}'.format(
-            model_assertion,
+        run_tmp = os.path.join(self._tmpdir, '{}.{}'.format(
+            os.path.basename(model_assertion),
             'default' if channel is None else channel))
         tmp_root = os.path.join(run_tmp, 'root')
         tmp_unpack = os.path.join(run_tmp, 'unpack')
         if not os.path.isdir(run_tmp):
-            os.makedirs(run_tmp)
+            os.makedirs(tmp_root)
+            os.makedirs(tmp_unpack)
             weld(model_assertion, tmp_root, tmp_unpack, channel)
+        # copytree() requires that the destination directories do not exist.
+        # Since this code only ever executes during the test suite, and even
+        # though only when mocking `snap` for speed, this is always safe.
+        shutil.rmtree(root_dir, ignore_errors=True)
+        shutil.rmtree(unpack_dir, ignore_errors=True)
         shutil.copytree(tmp_root, root_dir)
         shutil.copytree(tmp_unpack, unpack_dir)
 
@@ -121,7 +128,17 @@ class NosePlugin(Plugin):
         # Finally, to enable full end-to-end tests, check an environment
         # variable to see if the mocking should even be done.  This way, we
         # can make our Travis-CI job do at least one real end-to-end test.
-        pass
+        self.resources = ExitStack()
+        # How should we mock `snap weld`?  For now, it's a binary choice, but
+        # I was thinking it might be useful to have another level where we'd
+        # mock `snap weld` entirely and just use sample data.
+        should_we_mock = os.environ.get('UBUNTUIMAGE_MOCK_SNAP')
+        if should_we_mock:
+            tmpdir = self.resources.enter_context(TemporaryDirectory())
+            self.resources.enter_context(WeldMock(tmpdir))
+
+    def stopTestRun(self, event):
+        self.resources.close()
 
     # def startTest(self, event):
     #     import sys; print('vvvvv', event.test, file=sys.stderr)
