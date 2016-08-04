@@ -14,7 +14,7 @@ from hashlib import sha256
 from nose2.events import Plugin
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import weld
+from ubuntu_image.helpers import as_bool, weld
 from unittest.mock import patch
 
 
@@ -138,7 +138,8 @@ class NosePlugin(Plugin):
         # How should we mock `snap weld`?  For now, it's a binary choice, but
         # I was thinking it might be useful to have another level where we'd
         # mock `snap weld` entirely and just use sample data.
-        should_we_mock = os.environ.get('UBUNTUIMAGE_MOCK_SNAP')
+        should_we_mock = as_bool(
+            os.environ.get('UBUNTUIMAGE_MOCK_SNAP', 'yes'))
         if should_we_mock:
             tmpdir = self.resources.enter_context(TemporaryDirectory())
             self.resources.enter_context(WeldMock(tmpdir))

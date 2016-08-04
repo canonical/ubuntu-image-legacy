@@ -10,6 +10,7 @@ from subprocess import PIPE, run as subprocess_run
 __all__ = [
     'GiB',
     'MiB',
+    'as_bool',
     'as_size',
     'run',
     'transform',
@@ -23,6 +24,26 @@ def GiB(count):
 
 def MiB(count):
     return count * 2**20
+
+
+def as_bool(value):
+    if value.lower() in {
+            'no',
+            'false',
+            '0',
+            'disable',
+            'disabled',
+            }:
+        return False
+    if value.lower() in {
+            'yes',
+            'true',
+            '1',
+            'enable',
+            'enabled',
+            }:
+        return True
+    raise ValueError(value)
 
 
 def straight_up_bytes(count):
