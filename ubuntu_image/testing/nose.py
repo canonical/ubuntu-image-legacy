@@ -10,6 +10,7 @@ import shutil
 import doctest
 
 from contextlib import ExitStack
+from hashlib import sha256
 from nose2.events import Plugin
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
@@ -35,9 +36,14 @@ class WeldMock:
         self._patcher = patch('ubuntu_image.builder.weld', self.run)
 
     def run(self, model_assertion, root_dir, unpack_dir, channel=None):
-        run_tmp = os.path.join(self._tmpdir, '{}.{}'.format(
-            os.path.basename(model_assertion),
-            'default' if channel is None else channel))
+        # Hash the contents of the model.assertion file + the channel name and
+        # use that in the cache directory name.  This is more accurate than
+        # using the model.assertion basename.
+        with open(model_assertion, 'rb') as fp:
+            checksum = sha256(fp.read())
+        checksum.update(
+            ('default' if channel is None else channel).encode('utf-8'))
+        run_tmp = os.path.join(self._tmpdir, checksum.hexdigest())
         tmp_root = os.path.join(run_tmp, 'root')
         tmp_unpack = os.path.join(run_tmp, 'unpack')
         if not os.path.isdir(run_tmp):
