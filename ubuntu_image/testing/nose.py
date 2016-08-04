@@ -6,10 +6,14 @@
 
 import os
 import re
+import shutil
 import doctest
 
 from nose2.events import Plugin
 from pkg_resources import resource_filename
+from tempfile import TemporaryDirectory
+from ubuntu_image.helpers import weld
+from unittest.mock import patch
 
 
 FLAGS = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE | doctest.REPORT_NDIFF
@@ -22,6 +26,31 @@ def setup(testobj):
 
 def teardown(testobj):
     """Global doctest teardown."""
+
+
+class WeldMock:
+    def __init__(self, tempdir):
+        self._tempdir = tempdir
+        self._patcher = patch('ubuntu_image.helpers.weld', self.run)
+
+    def run(self, model_assertion, root_dir, unpack_dir, channel=None):
+        run_tmp = os.path.join(self._tempdir, '{}.{}'.format(
+            model_assertion,
+            'default' if channel is None else channel))
+        tmp_root = os.path.join(run_tmp, 'root')
+        tmp_unpack = os.path.join(run_tmp, 'unpack')
+        if not os.path.isdir(run_tmp):
+            os.makedirs(run_tmp)
+            weld(model_assertion, tmp_root, tmp_unpack, channel)
+        shutil.copytree(tmp_root, root_dir)
+        shutil.copytree(tmp_unpack, unpack_dir)
+
+    def __enter__(self):
+        self._patcher.start()
+
+    def __exit__(self, *args):
+        self._patcher.stop()
+        return False
 
 
 class NosePlugin(Plugin):
