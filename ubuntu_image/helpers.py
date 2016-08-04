@@ -1,5 +1,6 @@
 """Useful helper functions."""
 
+import os
 import re
 import sys
 
@@ -9,9 +10,11 @@ from subprocess import PIPE, run as subprocess_run
 __all__ = [
     'GiB',
     'MiB',
+    'as_bool',
     'as_size',
     'run',
     'transform',
+    'weld',
     ]
 
 
@@ -23,11 +26,36 @@ def MiB(count):
     return count * 2**20
 
 
+def as_bool(value):
+    if value.lower() in {
+            'no',
+            'false',
+            '0',
+            'disable',
+            'disabled',
+            }:
+        return False
+    if value.lower() in {
+            'yes',
+            'true',
+            '1',
+            'enable',
+            'enabled',
+            }:
+        return True
+    raise ValueError(value)
+
+
 def straight_up_bytes(count):
     return count
 
 
 def as_size(size):
+    # Check for int-ness and just return what you get if so.  YAML parsers
+    # will turn values like '108' into ints automatically, but voluptuous will
+    # always try to coerce the value to an as_size.
+    if isinstance(size, int):
+        return size
     mo = re.match('(\d+)([a-zA-Z]*)', size)
     assert mo is not None, 'Invalid size: {}'.format(size)
     size_in_bytes = mo.group(1)
@@ -76,3 +104,16 @@ def run(command, *, check=True, **args):
         sys.stderr.write(proc.stderr)
         proc.check_returncode()
     return proc
+
+
+def weld(model_assertion, root_dir, unpack_dir, channel=None):
+    raw_cmd = 'sudo snap weld {} --root-dir={} --gadget-unpack-dir={} {}'
+    cmd = raw_cmd.format(
+        '' if channel is None else '--channel={}'.format(channel),
+        root_dir,
+        unpack_dir,
+        model_assertion)
+    run(cmd)
+    # XXX For testing purposes, these files can't be owned by root.
+    run('sudo chown -R {} {}'.format(os.getuid(), root_dir))
+    run('sudo chown -R {} {}'.format(os.getuid(), unpack_dir))

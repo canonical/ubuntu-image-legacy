@@ -3,7 +3,7 @@
 
 from contextlib import ExitStack
 from io import StringIO
-from ubuntu_image.helpers import GiB, MiB, as_size, run, transform
+from ubuntu_image.helpers import GiB, MiB, as_bool, as_size, run, transform
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -45,3 +45,9 @@ class TestHelpers(TestCase):
         # stdout gets piped to stderr.
         self.assertEqual(stderr.getvalue(),
                          'COMMAND FAILED: /bin/falsefake stdoutfake stderr')
+
+    def test_as_bool(self):
+        for value in {'no', 'False', '0', 'DISABLE', 'DiSaBlEd'}:
+            self.assertFalse(as_bool(value), value)
+        for value in {'YES', 'tRUE', '1', 'eNaBlE', 'enabled'}:
+            self.assertTrue(as_bool(value), value)

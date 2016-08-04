@@ -40,9 +40,8 @@ partitions:
             ])
 
     def test_bad_scheme(self):
-        with self.assertRaises(ValueError) as cm:
-            parse(StringIO('partition-scheme: XXX\n'))
-        self.assertEqual(str(cm.exception), 'XXX')
+        self.assertRaises(
+            ValueError, parse, StringIO('partition-scheme: XXX\n'))
 
     def test_raw_mbr(self):
         stream = StringIO("""\
@@ -182,9 +181,7 @@ partition-scheme: MBR
 partitions:
   - role: with-the-punches
 """)
-        with self.assertRaises(ValueError) as cm:
-            parse(stream)
-        self.assertEqual(str(cm.exception), 'Bad role: with-the-punches')
+        self.assertRaises(ValueError, parse, stream)
 
     def test_explicit_fs_type_for_esp(self):
         stream = StringIO("""\
@@ -202,11 +199,9 @@ partitions:
 partition-scheme: MBR
 partitions:
   - role: ESP
-    guid: abcdef
+    guid: 00000000-0000-0000-0000-000000abcdef
 """)
-        with self.assertRaises(ValueError) as cm:
-            parse(stream)
-        self.assertEqual(str(cm.exception), 'Invalid explicit guid: abcdef')
+        self.assertRaises(ValueError, parse, stream)
 
     def test_explicit_type_for_esp(self):
         stream = StringIO("""\
@@ -239,9 +234,7 @@ partitions:
   - role: custom
     fs-type: zfs
 """)
-        with self.assertRaises(ValueError) as cm:
-            parse(stream)
-        self.assertEqual(str(cm.exception), 'Invalid fs-type: zfs')
+        self.assertRaises(ValueError, parse, stream)
 
     def test_partition_offset(self):
         stream = StringIO("""\
@@ -287,3 +280,17 @@ partitions:
         image_spec = parse(stream)
         partition = image_spec.partitions[0]
         self.assertEqual(partition.size, MiB(99))
+
+    def test_overlapping_partitions(self):
+        stream = StringIO("""\
+partition-scheme: MBR
+partitions:
+  - role: ESP
+    size: 99M
+    offset: 5M
+  - role: raw
+    offset: 20M
+""")
+        with self.assertRaises(ValueError) as cm:
+            parse(stream)
+        self.assertEqual(str(cm.exception), 'overlapping partitions defined')
