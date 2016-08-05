@@ -8,7 +8,7 @@ import logging
 from contextlib import ExitStack, contextmanager
 from operator import attrgetter
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB, MiB, run, weld
+from ubuntu_image.helpers import GiB, MiB, run, snap
 from ubuntu_image.image import Image
 from ubuntu_image.parser import parse as parse_yaml
 from ubuntu_image.state import State
@@ -52,18 +52,27 @@ def _mkfs_ext4(img_file, contents_dir):
             contents_dir, mountpoint), shell=True)
 
 
-class BaseImageBuilder(State):
-    def __init__(self, workdir=None, output=None):
+class ModelAssertionBuilder(State):
+    def __init__(self, args):
         super().__init__()
-        if workdir is None:
-            self.workdir = self.resources.enter_context(TemporaryDirectory())
-        else:
-            self.workdir = workdir
+        # The working directory will contain several bits as we stitch
+        # everything together.  It will contain the final disk image file
+        # (unless output is given).  It will contain an unpack/ directory
+        # which is where `snap prepare-image` will put its contents.  It will
+        # contain a system-data/ directory which containing everything needed
+        # for the final root file system (e.g. an empty boot/ mount point, the
+        # snap/ directory and a var/ hierarchy containing snaps and
+        # sideinfos), and it will contain a boot/ directory with the grub
+        # files.
+        self.workdir = (
+            self.resources.enter_context(TemporaryDirectory())
+            if args.workdir is None
+            else args.workdir)
         # Where the disk.img file ends up.
         self.output = (
             os.path.join(self.workdir, 'disk.img')
-            if output is None
-            else output)
+            if args.output is None
+            else args.output)
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
@@ -73,68 +82,76 @@ class BaseImageBuilder(State):
         self.boot_img = None
         self.root_img = None
         self.disk_img = None
-        # Currently unused in the base class, but defined because we should
-        # use this same abstraction for non-snappy images.
         self.gadget = None
+        self.args = args
+        self.unpackdir = None
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
         state = super().__getstate__()
         state.update(
-            rootfs=self.rootfs,
-            rootfs_size=self.rootfs_size,
+            args=self.args,
+            boot_img=self.boot_img,
             bootfs=self.bootfs,
             bootfs_size=self.bootfs_size,
+            disk_img=self.disk_img,
             gadget=self.gadget,
             images=self.images,
-            boot_img=self.boot_img,
-            root_img=self.root_img,
-            disk_img=self.disk_img,
             output=self.output,
-            workdir=self.workdir,
+            root_img=self.root_img,
+            rootfs=self.rootfs,
+            rootfs_size=self.rootfs_size,
+            unpackdir=self.unpackdir,
             )
         return state
 
     def __setstate__(self, state):
         super().__setstate__(state)
-        # Fail if the temporary directory no longer exists.
-        self.workdir = state['workdir']
-        if not os.path.isdir(self.workdir):
-            raise FileNotFoundError(self.workdir)
-        self.rootfs = state['rootfs']
-        self.rootfs_size = state['rootfs_size']
+        self.args = state['args']
+        self.boot_img = state['boot_img']
         self.bootfs = state['bootfs']
         self.bootfs_size = state['bootfs_size']
+        self.disk_img = state['disk_img']
         self.gadget = state['gadget']
         self.images = state['images']
-        self.boot_img = state['boot_img']
-        self.root_img = state['root_img']
-        self.disk_img = state['disk_img']
         self.output = state['output']
+        self.root_img = state['root_img']
+        self.rootfs = state['rootfs']
+        self.rootfs_size = state['rootfs_size']
+        self.unpackdir = state['unpackdir']
 
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self.workdir, 'root')
         self.bootfs = os.path.join(self.workdir, 'boot')
+        self.unpackdir = os.path.join(self.workdir, 'unpack')
         os.makedirs(self.rootfs)
         os.makedirs(self.bootfs)
+        # Despite the documentation, `snap prepare-image` doesn't create the
+        # gadget/ directory.
+        os.makedirs(os.path.join(self.unpackdir, 'gadget'))
+        self._next.append(self.prepare_image)
+
+    def prepare_image(self):
+        # Run `snap prepare-image` on the model.assertion.  sudo is currently
+        # required in all cases, but eventually, it won't be necessary at
+        # least for UEFI support.
+        snap(self.args.model_assertion, self.unpackdir, self.args.channel)
+        self._next.append(self.load_gadget_yaml)
+
+    def load_gadget_yaml(self):
+        yaml_file = os.path.join(
+            self.unpackdir, 'gadget', 'meta', 'image.yaml')
+        with open(yaml_file, 'r', encoding='utf-8') as fp:
+            self.gadget = parse_yaml(fp)
         self._next.append(self.populate_rootfs_contents)
 
     def populate_rootfs_contents(self):
-        # XXX For now just put some dummy contents there to verify the basic
-        # approach.
-        for path, contents in {
-                'foo': 'this is foo',
-                'bar': 'this is bar',
-                'baz/buz': 'some bazz buzz',
-                }.items():
-            rooted_path = os.path.join(self.rootfs, path)
-            dirname = os.path.dirname(path)
-            if len(dirname) > 0:
-                os.makedirs(os.path.dirname(rooted_path), exist_ok=True)
-            with open(rooted_path, 'w', encoding='utf-8') as fp:
-                fp.write(contents)
-        # Mount point for /boot.
-        os.mkdir(os.path.join(self.rootfs, 'boot'))
+        src = os.path.join(self.unpackdir, 'image')
+        dst = os.path.join(self.rootfs, 'system-data')
+        shutil.move(os.path.join(src, 'snap'), os.path.join(dst, 'snap'))
+        shutil.move(os.path.join(src, 'var'), os.path.join(dst, 'var'))
+        # This is just a mount point.
+        os.makedirs(os.path.join(src, 'boot'))
         self._next.append(self.calculate_rootfs_size)
 
     def _calculate_dirsize(self, path):
@@ -154,17 +171,26 @@ class BaseImageBuilder(State):
         self._next.append(self.populate_bootfs_contents)
 
     def populate_bootfs_contents(self):
-        for path, contents in {
-                'other': 'other',
-                'boot/qux': 'boot qux',
-                'boot/qay': 'boot qay',
-                }.items():
-            booted_path = os.path.join(self.bootfs, path)
-            dirname = os.path.dirname(path)
-            if len(dirname) > 0:
-                os.makedirs(os.path.dirname(booted_path), exist_ok=True)
-            with open(booted_path, 'w', encoding='utf-8') as fp:
-                fp.write(contents)
+        # The unpack directory has a boot/ directory inside it.  The contents
+        # of this directory (but not the parent <unpack>/boot directory
+        # itself) needs to be moved to the bootfs directory.
+        boot = os.path.join(self.unpackdir, 'image', 'boot')
+        # XXX: bad special-casing.  `snap prepare-image` currently installs to
+        # /boot/grub, but we need to map this to /EFI/ubuntu.
+        os.makedirs(os.path.join(self.bootfs, 'EFI'), exist_ok=True)
+        for filename in os.listdir(boot):
+            src = os.path.join(boot, filename)
+            dst = os.path.join(self.bootfs, 'EFI', 'ubuntu', filename)
+            shutil.move(src, dst)
+        for part in self.gadget.partitions:
+            if part.role == 'ESP':
+                for file in part.files:
+                    src = os.path.join(self.unpackdir, file[0])
+                    dst = os.path.join(self.bootfs, file[1])
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    shutil.copy(src, dst)
+                # XXX: there should only be one ESP
+                break
         self._next.append(self.calculate_bootfs_size)
 
     def calculate_bootfs_size(self):
@@ -279,78 +305,3 @@ class BaseImageBuilder(State):
         # temporary scratch directory is about to get removed.
         shutil.move(self.disk_img, self.output)
         self._next.append(self.close)
-
-
-class ModelAssertionBuilder(BaseImageBuilder):
-    def __init__(self, args):
-        # Where should the image file end up?
-        output = (
-            os.path.abspath('disk.img')
-            if args.output is None
-            else args.output)
-        super().__init__(workdir=args.workdir, output=output)
-        self.args = args
-        self.unpackdir = None
-
-    def __getstate__(self):
-        state = super().__getstate__()
-        state.update(
-            args=self.args,
-            unpackdir=self.unpackdir,
-            )
-        return state
-
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        self.args = state['args']
-        self.unpackdir = state['unpackdir']
-
-    def make_temporary_directories(self):
-        self.unpackdir = os.path.join(self.workdir, 'unpack')
-        os.makedirs(self.unpackdir)
-        super().make_temporary_directories()
-
-    def populate_rootfs_contents(self):             # pragma: notravis
-        # Run `snap weld` on the model.assertion.  sudo is currently required
-        # in all cases, but eventually, it won't be necessary at least for
-        # UEFI support.
-        #
-        # 'snap weld' doesn't currently create a full filesystem tree for us,
-        # only the pieces relative to the /system-data/ directory; so create
-        # this subdir.
-        snap_root = os.path.join(self.rootfs, 'system-data')
-        weld(self.args.model_assertion,
-             snap_root, self.unpackdir,
-             self.args.channel)
-        self._next.append(self.load_gadget_yaml)
-
-    def load_gadget_yaml(self):
-        yaml_file = os.path.join(self.unpackdir, 'meta', 'image.yaml')
-        with open(yaml_file, 'r', encoding='utf-8') as fp:
-            self.gadget = parse_yaml(fp)
-        self._next.append(self.calculate_rootfs_size)
-
-    def populate_bootfs_contents(self):             # pragma: notravis
-        # The --root-dir directory has a boot/ directory inside it.  The
-        # contents of this directory (but not the parent <root-dir>/boot
-        # directory itself) needs to be moved to the bootfs directory.  Leave
-        # <root-dir>/boot as a future mount point.
-        boot = os.path.join(self.rootfs, 'system-data/boot')
-        # XXX: bad special-casing.  snap weld currently installs to /boot/grub,
-        # but we need to map this to /EFI/ubuntu.
-        os.makedirs(os.path.join(self.bootfs, 'EFI'), exist_ok=True)
-        for filename in os.listdir(boot):
-            src = os.path.join(boot, filename)
-            dst = os.path.join(self.bootfs, 'EFI', 'ubuntu')
-            shutil.copytree(src, dst)
-            shutil.rmtree(src)
-        self._next.append(self.calculate_bootfs_size)
-        for part in self.gadget.partitions:
-            if part.role == 'ESP':
-                for file in part.files:
-                    src = os.path.join(self.unpackdir, file[0])
-                    dst = os.path.join(self.bootfs, file[1])
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    shutil.copy(src, dst)
-                # XXX: there should only be one ESP
-                break

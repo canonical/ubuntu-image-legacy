@@ -13,8 +13,8 @@ __all__ = [
     'as_bool',
     'as_size',
     'run',
+    'snap',
     'transform',
-    'weld',
     ]
 
 
@@ -106,14 +106,15 @@ def run(command, *, check=True, **args):
     return proc
 
 
-def weld(model_assertion, root_dir, unpack_dir, channel=None):
-    raw_cmd = 'sudo snap weld {} --root-dir={} --gadget-unpack-dir={} {}'
+def snap(model_assertion, root_dir, channel=None):
+    raw_cmd = 'sudo snap prepare-image {} {} {}'
+    # XXX `snap prepare-image` currently requires that the gadget subdirectory
+    # be created, despite the documentation.
+    os.makedirs(os.path.join(root_dir, 'gadget'), exist_ok=True)
     cmd = raw_cmd.format(
         '' if channel is None else '--channel={}'.format(channel),
-        root_dir,
-        unpack_dir,
-        model_assertion)
+        model_assertion,
+        root_dir)
     run(cmd)
     # XXX For testing purposes, these files can't be owned by root.
     run('sudo chown -R {} {}'.format(os.getuid(), root_dir))
-    run('sudo chown -R {} {}'.format(os.getuid(), unpack_dir))

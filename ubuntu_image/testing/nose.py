@@ -14,7 +14,7 @@ from hashlib import sha256
 from nose2.events import Plugin
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import as_bool, weld
+from ubuntu_image.helpers import as_bool, snap
 from unittest.mock import patch
 
 
@@ -33,9 +33,9 @@ def teardown(testobj):
 class WeldMock:
     def __init__(self, tmpdir):
         self._tmpdir = tmpdir
-        self._patcher = patch('ubuntu_image.builder.weld', self.run)
+        self._patcher = patch('ubuntu_image.builder.snap', self.run)
 
-    def run(self, model_assertion, root_dir, unpack_dir, channel=None):
+    def run(self, model_assertion, root_dir, channel=None):
         # Hash the contents of the model.assertion file + the channel name and
         # use that in the cache directory name.  This is more accurate than
         # using the model.assertion basename.
@@ -45,18 +45,14 @@ class WeldMock:
             ('default' if channel is None else channel).encode('utf-8'))
         run_tmp = os.path.join(self._tmpdir, checksum.hexdigest())
         tmp_root = os.path.join(run_tmp, 'root')
-        tmp_unpack = os.path.join(run_tmp, 'unpack')
         if not os.path.isdir(run_tmp):
             os.makedirs(tmp_root)
-            os.makedirs(tmp_unpack)
-            weld(model_assertion, tmp_root, tmp_unpack, channel)
+            snap(model_assertion, tmp_root, channel)
         # copytree() requires that the destination directories do not exist.
         # Since this code only ever executes during the test suite, and even
         # though only when mocking `snap` for speed, this is always safe.
         shutil.rmtree(root_dir, ignore_errors=True)
-        shutil.rmtree(unpack_dir, ignore_errors=True)
         shutil.copytree(tmp_root, root_dir)
-        shutil.copytree(tmp_unpack, unpack_dir)
 
     def __enter__(self):
         self._patcher.start()
@@ -120,7 +116,7 @@ class NosePlugin(Plugin):
         event.extraTests.append(test)
 
     def startTestRun(self, event):
-        # Create a mock for the `sudo snap weld` command.  This is an
+        # Create a mock for the `sudo snap prepare-image` command.  This is an
         # expensive command which hits the actual snap store.  We want this to
         # run at least once so we know our tests are valid.  We can cache the
         # results in a test-suite-wide temporary directory and simulate future
@@ -135,9 +131,10 @@ class NosePlugin(Plugin):
         # variable to see if the mocking should even be done.  This way, we
         # can make our Travis-CI job do at least one real end-to-end test.
         self.resources = ExitStack()
-        # How should we mock `snap weld`?  For now, it's a binary choice, but
-        # I was thinking it might be useful to have another level where we'd
-        # mock `snap weld` entirely and just use sample data.
+        # How should we mock `snap prepare-image`?  For now, it's a binary
+        # choice, but I was thinking it might be useful to have another level
+        # where we'd mock `snap prepare-image` entirely and just use sample
+        # data.
         should_we_mock = as_bool(
             os.environ.get('UBUNTUIMAGE_MOCK_SNAP', 'yes'))
         if should_we_mock:
