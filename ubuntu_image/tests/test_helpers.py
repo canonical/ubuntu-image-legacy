@@ -51,3 +51,4 @@ class TestHelpers(TestCase):
             self.assertFalse(as_bool(value), value)
         for value in {'YES', 'tRUE', '1', 'eNaBlE', 'enabled'}:
             self.assertTrue(as_bool(value), value)
+        self.assertRaises(ValueError, as_bool, 'anything else')
