@@ -151,7 +151,7 @@ class ModelAssertionBuilder(State):
         shutil.move(os.path.join(src, 'snap'), os.path.join(dst, 'snap'))
         shutil.move(os.path.join(src, 'var'), os.path.join(dst, 'var'))
         # This is just a mount point.
-        os.makedirs(os.path.join(src, 'boot'))
+        os.makedirs(os.path.join(dst, 'boot'))
         self._next.append(self.calculate_rootfs_size)
 
     def _calculate_dirsize(self, path):
@@ -184,9 +184,9 @@ class ModelAssertionBuilder(State):
             shutil.move(src, dst)
         for part in self.gadget.partitions:
             if part.role == 'ESP':
-                for file in part.files:
-                    src = os.path.join(self.unpackdir, file[0])
-                    dst = os.path.join(self.bootfs, file[1])
+                for src_filename, dst_filename in part.files:
+                    src = os.path.join(self.unpackdir, 'gadget', src_filename)
+                    dst = os.path.join(self.bootfs, dst_filename)
                     os.makedirs(os.path.dirname(dst), exist_ok=True)
                     shutil.copy(src, dst)
                 # XXX: there should only be one ESP

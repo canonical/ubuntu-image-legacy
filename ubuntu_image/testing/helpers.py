@@ -18,10 +18,12 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
     # will eventually.  For now, this copies sample files into the expected
     # case, and should be used in tests which require that step.
     def load_gadget_yaml(self):
-        gadget_dir = os.path.join(self.rootfs, 'gadget')
+        gadget_dir = os.path.join(self.unpackdir, 'gadget')
+        meta_dir = os.path.join(gadget_dir, 'meta')
+        os.makedirs(meta_dir, exist_ok=True)
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'image.yaml'),
-            os.path.join(gadget_dir, 'meta', self.image_yaml))
+            os.path.join(meta_dir, self.image_yaml))
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'grubx64.efi'),
             os.path.join(gadget_dir, 'grubx64.efi'))
