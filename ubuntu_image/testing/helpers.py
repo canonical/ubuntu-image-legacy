@@ -50,7 +50,7 @@ class EarlyExitModelAssertionBuilder(XXXModelAssertionBuilder):
 
 class DoNothingBuilder(XXXModelAssertionBuilder):
     def prepare_image(self):
-        self._next.append(self.calculate_rootfs_size)
+        self._next.append(self.load_gadget_yaml)
 
     def populate_bootfs_contents(self):
         self._next.append(self.calculate_bootfs_size)

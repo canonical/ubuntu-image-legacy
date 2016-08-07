@@ -174,10 +174,10 @@ class ModelAssertionBuilder(State):
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
-        boot = os.path.join(self.unpackdir, 'image', 'boot')
+        boot = os.path.join(self.unpackdir, 'image', 'boot', 'grub')
         # XXX: bad special-casing.  `snap prepare-image` currently installs to
         # /boot/grub, but we need to map this to /EFI/ubuntu.
-        os.makedirs(os.path.join(self.bootfs, 'EFI'), exist_ok=True)
+        os.makedirs(os.path.join(self.bootfs, 'EFI', 'ubuntu'), exist_ok=True)
         for filename in os.listdir(boot):
             src = os.path.join(boot, filename)
             dst = os.path.join(self.bootfs, 'EFI', 'ubuntu', filename)
