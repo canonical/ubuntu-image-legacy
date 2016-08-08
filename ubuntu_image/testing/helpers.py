@@ -33,10 +33,6 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
         super().load_gadget_yaml()
 
 
-class YYYModelAssertionBuilder(XXXModelAssertionBuilder):
-    image_yaml = 'mbr-image.yaml'
-
-
 class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
     def make_temporary_directories(self):
         raise RuntimeError
@@ -51,6 +47,9 @@ class EarlyExitModelAssertionBuilder(XXXModelAssertionBuilder):
 class DoNothingBuilder(XXXModelAssertionBuilder):
     def prepare_image(self):
         self._next.append(self.load_gadget_yaml)
+
+    def populate_rootfs_contents(self):
+        self._next.append(self.calculate_rootfs_size)
 
     def populate_bootfs_contents(self):
         self._next.append(self.calculate_bootfs_size)
