@@ -6,7 +6,7 @@ import re
 from contextlib import ExitStack
 from itertools import product
 from pkg_resources import resource_filename
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.testing.helpers import IN_TRAVIS, XXXModelAssertionBuilder
 from unittest import TestCase, skipIf
@@ -124,3 +124,47 @@ class TestModelAssertionBuilder(TestCase):
             list(state)
             self.assertEqual(str(cm.exception),
                              'DOS partition tables not yet supported')
+
+    def test_no_partitions(self):
+        args = SimpleNamespace(
+            channel='edge',
+            workdir=None,
+            model_assertion=self.model_assertion,
+            output=None,
+            )
+        with ExitStack() as resources:
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            os.makedirs(os.path.join(state.unpackdir, 'image', 'boot', 'grub'))
+            state.bootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(scheme='GPT')
+            state.gadget.partitions = []
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            next(state)
+            # The only thing in the bootfs should be the EFI subdirectory.
+            self.assertEqual(os.listdir(state.bootfs), ['EFI'])
+
+    def test_no_esp_parts(self):
+        args = SimpleNamespace(
+            channel='edge',
+            workdir=None,
+            model_assertion=self.model_assertion,
+            output=None,
+            )
+        with ExitStack() as resources:
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            os.makedirs(os.path.join(state.unpackdir, 'image', 'boot', 'grub'))
+            state.bootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(scheme='GPT')
+            state.gadget.partitions = [SimpleNamespace(role='raw')]
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            next(state)
+            # The only thing in the bootfs should be the EFI subdirectory.
+            self.assertEqual(os.listdir(state.bootfs), ['EFI'])

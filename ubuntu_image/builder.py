@@ -227,7 +227,7 @@ class ModelAssertionBuilder(State):
         self._next.append(self.make_disk)
 
     def make_disk(self):
-        if self.gadget and self.gadget.scheme != 'GPT':
+        if self.gadget.scheme != 'GPT':
             raise ValueError('DOS partition tables not yet supported')
         self.disk_img = os.path.join(self.images, 'disk.img')
         image = Image(self.disk_img, GiB(4))
@@ -248,48 +248,39 @@ class ModelAssertionBuilder(State):
         #
         part_id = 1
         offset = MiB(4)
-        if self.gadget:
-            # walk through all partitions, and write them to the disk image
-            # at the lowest permissible offset.  We should not have any
-            # overlapping partitions, the parser should have already rejected
-            # such as invalid.
-            # XXX: the parser should sort these partitions for us in disk
-            # order as part of checking for overlaps, so we should not need
-            # to sort them here.
-            for part in sorted(self.gadget.partitions,   # pragma: notravis
-                               key=attrgetter('offset')):
-                size = part.size
-                if not part.offset:                      # pragma: notravis
-                    part.offset = offset
-                # sgdisk takes either a sector or a KiB/MiB argument; assume
-                # that the offset and size are always multiples of 1MiB.  We
-                # should actually prefer multiples of 4MiB for optimal
-                # performance on modern disks.
-                partdef = '{}:{}M:+{}M'.format(
-                    part_id, offset // MiB(1), size // MiB(1))
-                image.partition(new=partdef)
-                image.partition(typecode='{}:{}'.format(
-                    part_id, part.type_id))
-                if part.role == 'ESP':                   # pragma: notravis
-                    # XXX: this should be part of the parser defaults.
-                    image.partition(change_name='{}:system-boot'
-                                                .format(part_id))
-                    # assume that the offset and size are always multiples of
-                    # 1MiB.  (XXX: but this should be enforced elsewhere.)
-                    image.copy_blob(self.boot_img,
-                                    bs='1M', seek=offset // 1024 // 1024,
-                                    count=part.size // 1024 // 1024,
-                                    conv='notrunc')
-                offset = part.offset + size
-                part_id += 1
-        else:
-            # XXX: there should be no 'else'
-            image.partition(new='2:5MiB:+64MiB')
-            image.partition(typecode='2:C12A7328-F81F-11D2-BA4B-00A0C93EC93B')
-            image.partition(change_name='2:system-boot')
-            image.copy_blob(self.boot_img,
-                            bs='1M', seek=5, count=64, conv='notrunc')
-            part_id += 2
+        # Walk through all partitions and write them to the disk image at the
+        # lowest permissible offset.  We should not have any overlapping
+        # partitions, the parser should have already rejected such as invalid.
+        #
+        # XXX: the parser should sort these partitions for us in disk order as
+        # part of checking for overlaps, so we should not need to sort them
+        # here.
+        for part in sorted(self.gadget.partitions,   # pragma: notravis
+                           key=attrgetter('offset')):
+            size = part.size
+            if not part.offset:                      # pragma: notravis
+                part.offset = offset
+            # sgdisk takes either a sector or a KiB/MiB argument; assume
+            # that the offset and size are always multiples of 1MiB.  We
+            # should actually prefer multiples of 4MiB for optimal
+            # performance on modern disks.
+            partdef = '{}:{}M:+{}M'.format(
+                part_id, offset // MiB(1), size // MiB(1))
+            image.partition(new=partdef)
+            image.partition(typecode='{}:{}'.format(
+                part_id, part.type_id))
+            if part.role == 'ESP':                   # pragma: notravis
+                # XXX: this should be part of the parser defaults.
+                image.partition(change_name='{}:system-boot'
+                                            .format(part_id))
+                # assume that the offset and size are always multiples of
+                # 1MiB.  (XXX: but this should be enforced elsewhere.)
+                image.copy_blob(self.boot_img,
+                                bs='1M', seek=offset // 1024 // 1024,
+                                count=part.size // 1024 // 1024,
+                                conv='notrunc')
+            offset = part.offset + size
+            part_id += 1
         # Create main snappy writable partition
         # XXX: remove the fixed offset
         image.partition(new='{}:72MiB:+3646MiB'.format(part_id))
