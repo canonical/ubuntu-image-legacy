@@ -106,7 +106,7 @@ def run(command, *, check=True, **args):
     return proc
 
 
-def snap(model_assertion, root_dir, channel=None):
+def snap(model_assertion, root_dir, channel=None):   # pragma: notravis
     raw_cmd = 'sudo snap prepare-image {} {} {}'
     # XXX `snap prepare-image` currently requires that the gadget subdirectory
     # be created, despite the documentation.

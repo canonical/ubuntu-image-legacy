@@ -168,3 +168,55 @@ class TestModelAssertionBuilder(TestCase):
             next(state)
             # The only thing in the bootfs should be the EFI subdirectory.
             self.assertEqual(os.listdir(state.bootfs), ['EFI'])
+
+    def test_snap_gets_called(self):
+        # This exists for coverage under Travis-CI which normally won't run
+        # the snap command because the mount that snap does can't be performed
+        # in a docker container.
+        args = SimpleNamespace(
+            channel='edge',
+            workdir=None,
+            model_assertion=self.model_assertion,
+            output=None,
+            )
+        with ExitStack() as resources:
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            mock = resources.enter_context(patch('ubuntu_image.builder.snap'))
+            state.run_thru('prepare_image')
+            all_call_args = mock.call_args_list
+            self.assertEqual(len(all_call_args), 1)
+            # The second argument is a temporary directory, so just check the
+            # first and last arguments.
+            first_call = all_call_args[0][0]
+            self.assertEqual(first_call[0], self.model_assertion)
+            self.assertEqual(first_call[2], 'edge')
+
+    def test_populate_rootfs_contents(self):
+        # This exists for coverage under Travis-CI which normally won't run
+        # the snap command because the mount that snap does can't be performed
+        # in a docker container.
+        args = SimpleNamespace(
+            channel='edge',
+            workdir=None,
+            model_assertion=self.model_assertion,
+            output=None,
+            )
+        with ExitStack() as resources:
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'image')
+            os.makedirs(image_dir)
+            with open(os.path.join(image_dir, 'snap'), 'w'):
+                pass
+            with open(os.path.join(image_dir, 'var'), 'w'):
+                pass
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            system_data = os.path.join(state.rootfs, 'system-data')
+            os.makedirs(system_data)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            self.assertEqual(
+                set(os.listdir(system_data)), {'boot', 'snap', 'var'})
