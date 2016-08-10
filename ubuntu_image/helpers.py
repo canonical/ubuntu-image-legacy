@@ -108,9 +108,6 @@ def run(command, *, check=True, **args):
 
 def snap(model_assertion, root_dir, channel=None):   # pragma: notravis
     raw_cmd = 'sudo snap prepare-image {} {} {}'
-    # XXX `snap prepare-image` currently requires that the gadget subdirectory
-    # be created, despite the documentation.
-    os.makedirs(os.path.join(root_dir, 'gadget'), exist_ok=True)
     cmd = raw_cmd.format(
         '' if channel is None else '--channel={}'.format(channel),
         model_assertion,

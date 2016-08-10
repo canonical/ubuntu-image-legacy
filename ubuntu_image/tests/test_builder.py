@@ -74,13 +74,8 @@ class TestModelAssertionBuilder(TestCase):
             'var', 'lib', 'snapd', 'seed', 'snaps')
         snaps = set(os.listdir(seeds_path))
         seed_patterns = [
+            '^canonical-pc-linux_[0-9]+.snap$',
             '^canonical-pc_[0-9]+.snap$',
-            '^canonical-pc-linux_[0-9]+.snap.sideinfo$',
-            '^canonical-pc_[0-9]+.snap.sideinfo$',
-            '^ubuntu-core_[0-9]+.snap$',
-            '^canonical-pc-linux_[0-9]+.snap$',
-            '^ubuntu-core_[0-9]+.snap.sideinfo$',
-            '^canonical-pc-linux_[0-9]+.snap$',
             '^ubuntu-core_[0-9]+.snap$',
             ]
         # Make sure every file matches a pattern and every pattern matches a
