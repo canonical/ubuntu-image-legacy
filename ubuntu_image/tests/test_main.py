@@ -175,7 +175,7 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             EarlyExitLeaveATraceAssertionBuilder))
-        main(('--until', 'populate_rootfs_contents',
+        main(('--until', 'prepare_image',
               '--workdir', workdir,
               self.model_assertion))
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))

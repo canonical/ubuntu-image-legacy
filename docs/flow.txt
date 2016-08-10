@@ -26,11 +26,11 @@ image::
   # same as for the root filesystem, to avoid use of kpartx.  For vfat
   # filesystem this can be done with mtools as non-root instead of with a
   # loop mount.  However, snappy wants access to the boot partition for
-  # snap weld; we should check that giving them a target dir containing our
-  # own boot bits is sufficient.
+  # snap prepare-image; we should check that giving them a target dir
+  # containing our own boot bits is sufficient.
   mkdir -p snappy-rootfs/boot
   cp snappy-gadget/[...] snappy-rootfs/boot/[...]
-  snap weld seed.yaml --diskimage-dir snappy-rootfs
+  snap prepare-image seed.yaml --diskimage-dir snappy-rootfs
   dd if=/dev/zero of=snappy-boot.img count=0 bs=1GB seek=1 # ftruncate()
   mkfs.vfat snappy-boot.img
   mcopy -i snappy-boot.img snappy-rootfs/boot/* :: # untested

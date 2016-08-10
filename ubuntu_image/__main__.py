@@ -97,6 +97,7 @@ def main(argv=None):
     if args.resume:
         with open(pickle_file, 'rb') as fp:
             state_machine = load(fp)
+        state_machine.workdir = args.workdir
     else:
         state_machine = ModelAssertionBuilder(args)
     # Run the state machine, either to the end or thru/until the named state.

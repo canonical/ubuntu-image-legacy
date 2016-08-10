@@ -18,20 +18,19 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
     # will eventually.  For now, this copies sample files into the expected
     # case, and should be used in tests which require that step.
     def load_gadget_yaml(self):
+        gadget_dir = os.path.join(self.unpackdir, 'gadget')
+        meta_dir = os.path.join(gadget_dir, 'meta')
+        os.makedirs(meta_dir, exist_ok=True)
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'image.yaml'),
-            os.path.join(self.unpackdir, 'meta', self.image_yaml))
+            os.path.join(meta_dir, self.image_yaml))
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'grubx64.efi'),
-            os.path.join(self.unpackdir, 'grubx64.efi'))
+            os.path.join(gadget_dir, 'grubx64.efi'))
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'shim.efi.signed'),
-            os.path.join(self.unpackdir, 'shim.efi.signed'))
+            os.path.join(gadget_dir, 'shim.efi.signed'))
         super().load_gadget_yaml()
-
-
-class YYYModelAssertionBuilder(XXXModelAssertionBuilder):
-    image_yaml = 'mbr-image.yaml'
 
 
 class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
@@ -40,12 +39,15 @@ class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
 
 
 class EarlyExitModelAssertionBuilder(XXXModelAssertionBuilder):
-    def populate_rootfs_contents(self):
+    def prepare_image(self):
         # Do nothing, but let the state machine exit.
         pass
 
 
 class DoNothingBuilder(XXXModelAssertionBuilder):
+    def prepare_image(self):
+        self._next.append(self.load_gadget_yaml)
+
     def populate_rootfs_contents(self):
         self._next.append(self.calculate_rootfs_size)
 
@@ -54,7 +56,7 @@ class DoNothingBuilder(XXXModelAssertionBuilder):
 
 
 class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):
-    def populate_rootfs_contents(self):
+    def prepare_image(self):
         # Similar to above, but leave a trace that this method ran, so that we
         # have something to positively test.
         with open(os.path.join(self.workdir, 'success'), 'w'):
