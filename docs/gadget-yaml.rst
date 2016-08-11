@@ -2,11 +2,11 @@
  Overview
 ==========
 
-The ``gadget.yaml`` a new concept, added to Snappy in the series 16 release to
-support standardized image building tooling for snappy.  The file is embedded
-in the *gadget* snap. It is consumed by snappy, but also read and processed by
-the image toolkit (ubuntu-image) to produce a bootable image and supporting
-assets (e.g. recovery or installer support).
+The ``gadget.yaml`` is a new concept, added to Snappy in the series 16 release
+to support standardized image building tooling for snappy.  The file is
+embedded in the *gadget* snap. It is consumed by snappy, but also read and
+processed by the image toolkit (ubuntu-image) to produce a bootable image and
+supporting assets (e.g. recovery or installer support).
 
 Design
 ======
