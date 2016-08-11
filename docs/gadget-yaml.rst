@@ -1,44 +1,89 @@
-The new "gadget.yaml":
+==========
+ Overview
+==========
 
-platform: msm8916-mtp # possibly needed for dtb names to copy into uboot partition; kill for now?
-bootloader: u-boot         # or grub; this tells snapd whether to create grubenv or uboot.env
-volumes:                      # each volume is a distinct disk image
-    name-of-the-image:   # XXX: figure out size limit if we want to write this somewhere (MBR, GPT?)
-         - name: sbl1
-           type: DEA0BA2C-CBDD-4805-B4F9-F428251C3E98 #
-           offset: 512
-           data: sbl1.mbn
-        - name: foxy
-           type: vfat
-           size: 1024M
-         - name: system-boot # filesystem label
-           type: vfat
-           size: 512M
-           content:
-               - uboot.env
-               - EFI/  # subdirs allowed
-         - name: uboot
-           type: raw
-           data: u-boot.img
-           offset: 393216
-           offset-write: mbr+30
-        - name: foo
-          type: raw
-          size: 12MB
-          content:
-              - data: one.img
-              - data: two.img # if no offset specified, goes immediately after preceding block
-                offset: 1234
-        - name: bar
-          type: dump
-          data: foo.img
-          offset: foo+50
-       -
+The ``gadget.yaml`` a new concept, added to Snappy in the series 16 release to
+support standardized image building tooling for snappy.  The file is embedded
+in the *gadget* snap. It is consumed by snappy, but also read and processed by
+the image toolkit (ubuntu-image) to produce a bootable image and supporting
+assets (e.g. recovery or installer support).
 
-    name-of-the-other-image:
-         - name: writable
-           label: writable
-           type: ext4
+Design
+======
+
+The design of ubuntu-image is based on earlier lessons from
+``linaro-media-create``, linaro *hardware packs* and
+``ubuntu-device-flash``. The tool has the following goals and assumptions in
+place:
+
+- Stable support for very wide array of images, most of which are not created
+  by Canonical engineers.
+- Store oriented workflow. It is expected that the tool can obtain all required
+  bits from the Ubuntu store, in the form of snaps, assertions and
+  store-specific snap meta-data.
+- The build process is taking only two bits of input: the model assertion
+  (optionally looked up from the store) and the *partitioning strategy* which
+  can influence the layout of the image in certain ways. Everything else is a
+  well-defined fact stored as either an assertion or as a snap published in the
+  Ubuntu store.
+- Some tasks are delegated to a support tool generated from snappy code base
+  (or perhaps just snap CLI itself). The tool will have a stable interface
+  (input, output and expected behavior) and should shield ubuntu-image from
+  ongoing system design evolution.
+- There is a strong preference for user-space code over kernel code. We had
+  many issues caused by leftover loopback devices and kpartx errors. While it
+  may appear that those issues are no longer affecting the most recent versions
+  of the kernel it is our belief that this task can be accomplished with no
+  kernel support.
+
+
+Draft Specification
+===================
+
+
+Example
+=======
+
+::
+    platform: msm8916-mtp # possibly needed for dtb names to copy into uboot partition; kill for now?
+    bootloader: u-boot         # or grub; this tells snapd whether to create grubenv or uboot.env
+    volumes:                      # each volume is a distinct disk image
+        name-of-the-image:   # XXX: figure out size limit if we want to write this somewhere (MBR, GPT?)
+             - name: sbl1
+               type: DEA0BA2C-CBDD-4805-B4F9-F428251C3E98 #
+               offset: 512
+               data: sbl1.mbn
+            - name: foxy
+               type: vfat
+               size: 1024M
+             - name: system-boot # filesystem label
+               type: vfat
+               size: 512M
+               content:
+                   - uboot.env
+                   - EFI/  # subdirs allowed
+             - name: uboot
+               type: raw
+               data: u-boot.img
+               offset: 393216
+               offset-write: mbr+30
+            - name: foo
+              type: raw
+              size: 12MB
+              content:
+                  - data: one.img
+                  - data: two.img # if no offset specified, goes immediately after preceding block
+                    offset: 1234
+            - name: bar
+              type: dump
+              data: foo.img
+              offset: foo+50
+           -
+
+        name-of-the-other-image:
+             - name: writable
+               label: writable
+               type: ext4
 
 
 Example: grub
