@@ -73,6 +73,8 @@ def main():
             if len(filenames) == 0:
                 # We need the directory, even though there are no files.
                 arc = dirpath[len(tempdir)+1:]
+                # Make sure the dirpath ends in a / as a hint to zipfile to
+                # write an empty directory entry.
                 zipfile.write(dirpath + '/', arc)
                 continue
             for filename in filenames:
