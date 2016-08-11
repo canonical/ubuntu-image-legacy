@@ -1,0 +1,91 @@
+#!/usr/bin/python3
+
+"""Prepare sample data for faster test runs.
+
+This script runs `snap prepare-image` in a temporary directory, sudo chowns
+the results to the current user, replaces the large .snap files with empty
+contents (since ubuntu-image currently doesn't care about the actual
+contents), then zips the results into a <sample-data>.zip file that is put in
+ubuntu_image/tests/data.
+
+Normally the test suite mocks the `snap prepare-image` command so that it only
+runs once, with the results cached (based on model.assertion checksum and
+channel) so that subsequent calls don't need to hit the store.  This makes the
+test suite significantly faster, but we can still do better.
+
+By doing an off-line run and zip, we can avoid having to hit the store at
+all.  For now, this isn't the default, but if you set the environment variable
+`UBUNTUIMAGE_MOCK_SNAP=always`, it enables the very fast path, where only
+sample data is used and the store is never touched.  This also allows you to
+run the test suite without having to sudo (although you still currently need
+sudo to generate the .zip file - `snap prepare-image` will eventually fix
+this).
+"""
+
+import os
+
+from argparse import ArgumentParser
+from contextlib import ExitStack
+from hashlib import sha256
+from pkg_resources import resource_filename
+from tempfile import TemporaryDirectory
+from ubuntu_image.helpers import snap
+from zipfile import ZipFile
+
+
+def parseargs():
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument('-c', '--channel',
+                        default='edge',
+                        help="""The channel to pass to `snap prepare-image`.
+                        For now, the default 'edge' channel is the best one to
+                        use.""")
+    parser.add_argument('-m', '--model',
+                        metavar='MODEL.ASSERTION',
+                        help="""Path to the model assertion.  If not given, the
+                        model.assertion file in the test data directory is
+                        used instead.""")
+    parser.add_argument('-o', '--output',
+                        help="""Location of the zip file.  If not given, it's
+                        put in the sample data directory under a name such as
+                        <checksum>.zip, where <checksum> is calculate from the
+                        model.assertion file contents and the channel name.""")
+    args = parser.parse_args()
+    if not args.model:
+        args.model = resource_filename(
+            'ubuntu_image.tests.data', 'model.assertion')
+    if not args.output:
+        with open(args.model, 'rb') as fp:
+            checksum = sha256(fp.read())
+        checksum.update(args.channel.encode('utf-8'))
+        args.output = resource_filename(
+            'ubuntu_image.tests.data', '{}.zip'.format(checksum.hexdigest()))
+    return args
+
+
+def main():
+    args = parseargs()
+    with ExitStack() as resources:
+        tempdir = resources.enter_context(TemporaryDirectory())
+        zipfile = resources.enter_context(ZipFile(args.output, 'w'))
+        snap(args.model, tempdir, args.channel)
+        for dirpath, dirnames, filenames in os.walk(tempdir):
+            if len(filenames) == 0:
+                # We need the directory, even though there are no files.
+                arc = dirpath[len(tempdir)+1:]
+                zipfile.write(dirpath + '/', arc)
+                continue
+            for filename in filenames:
+                src = os.path.join(dirpath, filename)
+                arc = src[len(tempdir)+1:]
+                if src.endswith('.snap'):
+                    # Write some dummy data so that the file in the zip is
+                    # *much* smaller.  We don't currently care about the
+                    # contents.
+                    zipfile.writestr(arc, b'x')
+                else:
+                    zipfile.write(src, arc)
+
+
+if __name__ == '__main__':
+    main()

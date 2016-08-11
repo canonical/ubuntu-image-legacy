@@ -16,6 +16,7 @@ from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import as_bool, snap
 from unittest.mock import patch
+from zipfile import ZipFile
 
 
 FLAGS = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE | doctest.REPORT_NDIFF
@@ -30,12 +31,12 @@ def teardown(testobj):
     """Global doctest teardown."""
 
 
-class WeldMock:
+class MockerBase:
     def __init__(self, tmpdir):
         self._tmpdir = tmpdir
         self._patcher = patch('ubuntu_image.builder.snap', self.run)
 
-    def run(self, model_assertion, root_dir, channel=None):
+    def _checksum(self, model_assertion, channel):
         # Hash the contents of the model.assertion file + the channel name and
         # use that in the cache directory name.  This is more accurate than
         # using the model.assertion basename.
@@ -43,7 +44,21 @@ class WeldMock:
             checksum = sha256(fp.read())
         checksum.update(
             ('default' if channel is None else channel).encode('utf-8'))
-        run_tmp = os.path.join(self._tmpdir, checksum.hexdigest())
+        return checksum.hexdigest()
+
+    def __enter__(self):
+        self._patcher.start()
+
+    def __exit__(self, *args):
+        self._patcher.stop()
+        return False
+
+
+class SecondAndOnwardMock(MockerBase):
+    def run(self, model_assertion, root_dir, channel=None):
+        run_tmp = os.path.join(
+            self._tmpdir,
+            self._checksum(model_assertion, channel))
         tmp_root = os.path.join(run_tmp, 'root')
         if not os.path.isdir(run_tmp):
             os.makedirs(tmp_root)
@@ -54,12 +69,14 @@ class WeldMock:
         shutil.rmtree(root_dir, ignore_errors=True)
         shutil.copytree(tmp_root, root_dir)
 
-    def __enter__(self):
-        self._patcher.start()
 
-    def __exit__(self, *args):
-        self._patcher.stop()
-        return False
+class AlwaysMock(MockerBase):
+    def run(self, model_assertion, root_dir, channel=None):
+        zipfile = resource_filename(
+            'ubuntu_image.tests.data',
+            '{}.zip'.format(self._checksum(model_assertion, channel)))
+        with ZipFile(zipfile, 'r') as zf:
+            zf.extractall(root_dir)
 
 
 class NosePlugin(Plugin):
@@ -131,15 +148,18 @@ class NosePlugin(Plugin):
         # variable to see if the mocking should even be done.  This way, we
         # can make our Travis-CI job do at least one real end-to-end test.
         self.resources = ExitStack()
-        # How should we mock `snap prepare-image`?  For now, it's a binary
-        # choice, but I was thinking it might be useful to have another level
-        # where we'd mock `snap prepare-image` entirely and just use sample
-        # data.
-        should_we_mock = as_bool(
-            os.environ.get('UBUNTUIMAGE_MOCK_SNAP', 'yes'))
-        if should_we_mock:
+        # How should we mock `snap prepare-image`?  If set to 'always' (case
+        # insensitive), then use the sample data in the .zip file.  Any other
+        # truthy value says to use a second-and-onward mock.
+        mock_class = None
+        should_we_mock = os.environ.get('UBUNTUIMAGE_MOCK_SNAP', 'yes')
+        if should_we_mock.lower() == 'always':
+            mock_class = AlwaysMock
+        elif as_bool(should_we_mock):
+            mock_class = SecondAndOnwardMock
+        if mock_class is not None:
             tmpdir = self.resources.enter_context(TemporaryDirectory())
-            self.resources.enter_context(WeldMock(tmpdir))
+            self.resources.enter_context(mock_class(tmpdir))
 
     def stopTestRun(self, event):
         self.resources.close()

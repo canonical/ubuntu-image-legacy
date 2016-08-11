@@ -68,7 +68,6 @@ def as_size(size):
 
 def transform(caught_excs, new_exc):
     """Transform any caught exceptions into a new exception.
-
     This is a decorator which runs the decorated function, catching all
     specified exceptions.  If one of those exceptions occurs, it is
     transformed (i.e. re-raised) into a new exception.  The original exception
