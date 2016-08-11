@@ -151,12 +151,13 @@ class NosePlugin(Plugin):
         # How should we mock `snap prepare-image`?  If set to 'always' (case
         # insensitive), then use the sample data in the .zip file.  Any other
         # truthy value says to use a second-and-onward mock.
-        mock_class = None
         should_we_mock = os.environ.get('UBUNTUIMAGE_MOCK_SNAP', 'yes')
         if should_we_mock.lower() == 'always':
             mock_class = AlwaysMock
         elif as_bool(should_we_mock):
             mock_class = SecondAndOnwardMock
+        else:
+            mock_class = None
         if mock_class is not None:
             tmpdir = self.resources.enter_context(TemporaryDirectory())
             self.resources.enter_context(mock_class(tmpdir))
