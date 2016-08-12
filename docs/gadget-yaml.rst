@@ -122,8 +122,10 @@ content
     (*optional*) Content to be copied from the gadget snap into the partition.
     This field takes one of two formats:
 
-    - a list of files and/or directories in the gadget snap to be copied to
-      the same location within the filesystem on the partition.
+    - A list of files and/or directories in the gadget snap to be copied to
+      the same location within the filesystem on the partition.  Directories
+      are copied recursively into the filesystem and must be declared as
+      directories in the yaml by using a trailing slash.
 
     - A list of objects consisting of a ``data`` field an an optional
       ``offset`` field.  The ``data`` field specifies the name of a file
