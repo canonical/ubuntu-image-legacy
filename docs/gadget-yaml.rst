@@ -85,11 +85,15 @@ name
 type
     (*required*) The type of the partition.  This field takes one of four
     formats:
+
     - A GUID, representing a value used as a GPT partition type identifier.
+
     - A two-digit hex code, representing an MBR partition type identifier.
+
     - A two-digit hex code, followed by a slash, followed by a GUID.  This is
       used to define a partition in a way that it can be reused with a
       partition-scheme of either MBR or GPT without modification.
+
     - A name.  Valid values for named partition types are defined below.
 
 
