@@ -112,10 +112,10 @@ Example
                   offset: 512
                   data: sbl1.mbn
                 - name: foxy
-                  type: vfat
+                  fs-type: vfat
                   size: 1024M
                 - name: system-boot # filesystem label
-                  type: vfat
+                  fs-type: vfat
                   size: 512M
                   content:
                       - uboot.env
@@ -141,8 +141,7 @@ Example
         name-of-the-other-image:
             partitions:
                 - name: writable
-                  label: writable
-                  type: ext4
+                  fs-type: ext4
 
 
 Example: grub
