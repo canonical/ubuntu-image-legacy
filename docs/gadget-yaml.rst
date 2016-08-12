@@ -111,7 +111,8 @@ Example
                 - name: sbl1
                   type: DEA0BA2C-CBDD-4805-B4F9-F428251C3E98 #
                   offset: 512
-                  data: sbl1.mbn
+                  content:
+                      - data: sbl1.mbn
                 - name: foxy
                   fs-type: vfat
                   size: 1024M
@@ -123,7 +124,8 @@ Example
                       - EFI/  # subdirs allowed
                 - name: uboot
                   type: raw
-                  data: u-boot.img
+                  content:
+                      - data: u-boot.img
                   offset: 393216
                   offset-write: mbr+30
                 - name: foo
@@ -135,7 +137,8 @@ Example
                         offset: 1234
                 - name: bar
                   type: dump
-                  data: foo.img
+                  content:
+                      - data: foo.img
                   offset: foo+50
                 -
 
