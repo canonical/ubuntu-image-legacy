@@ -119,8 +119,24 @@ size
     located after this one on the disk.
 
 content
+    (*optional*) Content to be copied from the gadget snap into the partition.
+    This field takes one of two formats:
 
-data
+    - a list of files and/or directories in the gadget snap to be copied to
+      the same location within the filesystem on the partition.
+
+    - A list of objects consisting of a ``data`` field an an optional
+      ``offset`` field.  The ``data`` field specifies the name of a file
+      within the gadget snap.  The ``offset`` field specifies the offset
+      relative to the start of the partition at which to write the data.
+      If no ``offset`` field is specified for a given entry, the file is
+      written immediately after the end of the previous entry.  If the first
+      entry has no ``offset`` field, an offset of 0 is used.
+
+    A partition with an fs-type of ``ext4`` or ``vfat`` (explicit or implied)
+    may only use a content field with the first format.  A partition with an
+    implied fs-type of ``raw`` may only use a content field with the second
+    format.
 
 
 Example
