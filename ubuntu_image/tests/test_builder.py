@@ -58,7 +58,6 @@ class TestModelAssertionBuilder(TestCase):
             '{boot}/EFI/ubuntu/grub.cfg',
             '{boot}/EFI/ubuntu/grubenv',
             '{root}/system-data/boot/',
-            '{root}/system-data/snap/',
             ]
         for filename in files:
             path = filename.format(
@@ -74,8 +73,8 @@ class TestModelAssertionBuilder(TestCase):
             'var', 'lib', 'snapd', 'seed', 'snaps')
         snaps = set(os.listdir(seeds_path))
         seed_patterns = [
-            '^canonical-pc-linux_[0-9]+.snap$',
-            '^canonical-pc_[0-9]+.snap$',
+            '^pc-kernel_[0-9]+.snap$',
+            '^pc_[0-9]+.snap$',
             '^ubuntu-core_[0-9]+.snap$',
             ]
         # Make sure every file matches a pattern and every pattern matches a
@@ -213,5 +212,4 @@ class TestModelAssertionBuilder(TestCase):
             state._next.pop()
             state._next.append(state.populate_rootfs_contents)
             next(state)
-            self.assertEqual(
-                set(os.listdir(system_data)), {'boot', 'snap', 'var'})
+            self.assertEqual(set(os.listdir(system_data)), {'boot', 'var'})

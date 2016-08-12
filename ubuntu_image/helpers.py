@@ -1,6 +1,5 @@
 """Useful helper functions."""
 
-import os
 import re
 import sys
 
@@ -107,11 +106,9 @@ def run(command, *, check=True, **args):
 
 
 def snap(model_assertion, root_dir, channel=None):   # pragma: notravis
-    raw_cmd = 'sudo snap prepare-image {} {} {}'
+    raw_cmd = 'snap prepare-image {} {} {}'
     cmd = raw_cmd.format(
         '' if channel is None else '--channel={}'.format(channel),
         model_assertion,
         root_dir)
     run(cmd)
-    # XXX For testing purposes, these files can't be owned by root.
-    run('sudo chown -R {} {}'.format(os.getuid(), root_dir))
