@@ -94,8 +94,33 @@ type
       used to define a partition in a way that it can be reused with a
       partition-scheme of either MBR or GPT without modification.
 
-    - A name.  Valid values for named partition types are defined below.
+    - A name.  Valid values for named partition types are defined below.  To
+      avoid ambiguity, named types must be at least three characters in length
+      and not contain slashes or hyphens.
 
+fs-type
+    (*optional*) Type of the filesystem to use.  Legal values are ``ext4``
+    or ``vfat``.  If no type is specified, the default is a raw partition
+    with no filesystem (see below).
+
+    If the partition has a named partition type, and that partition type has
+    an implied fs-type, it is an error to explicitly declare a value for
+    fs-type.
+
+offset
+    (*optional*) The partition's offset from the beginning of the image.
+    If not specified, placement of the partition within the disk image is
+    implementation-dependent.
+
+size
+    (*optional*) Size of the partition.  If not specified, will be
+    automatically computed based on the size of contents, the partition
+    role, and any limits imposed by offsets specified for partitions
+    located after this one on the disk.
+
+content
+
+data
 
 
 Example
