@@ -148,7 +148,6 @@ class ModelAssertionBuilder(State):
     def populate_rootfs_contents(self):
         src = os.path.join(self.unpackdir, 'image')
         dst = os.path.join(self.rootfs, 'system-data')
-        shutil.move(os.path.join(src, 'snap'), os.path.join(dst, 'snap'))
         shutil.move(os.path.join(src, 'var'), os.path.join(dst, 'var'))
         # This is just a mount point.
         os.makedirs(os.path.join(dst, 'boot'))
