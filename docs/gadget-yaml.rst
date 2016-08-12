@@ -102,6 +102,7 @@ Example
 =======
 
 ::
+
     platform: msm8916-mtp # possibly needed for dtb names to copy into uboot partition; kill for now?
     bootloader: u-boot         # or grub; this tells snapd whether to create grubenv or uboot.env
     volumes:                      # each volume is a distinct disk image
