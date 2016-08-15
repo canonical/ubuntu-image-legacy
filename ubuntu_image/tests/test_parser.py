@@ -46,3 +46,32 @@ volumes:
         self.assertEqual(len(gadget_spec.volumes), 1)
         volume0 = gadget_spec.volumes[0]
         self.assertEqual(volume0.partition_scheme, PartitionScheme.GPT)
+
+    def test_bad_bootloader(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: u-boat
+volumes:
+ - partitions:
+   - type: ESP
+""")
+
+    def test_no_volumes(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: u-boot
+""")
+
+    def test_bad_partition_scheme(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partition-scheme: BAD
+   partitions:
+   - type: ESP
+""")
+
+    def test_no_partitions(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partition-scheme: GPT
+""")
