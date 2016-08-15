@@ -173,3 +173,14 @@ volumes:
         self.assertEqual(
             partition0.type,
             ('EF', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
+
+    def test_partition_name(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - name: whatever partition
+     type: ESP
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.name, 'whatever partition')
