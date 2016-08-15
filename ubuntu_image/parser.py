@@ -65,6 +65,13 @@ class Enumify(Coerce):
             raise CoerceInvalid(msg)
 
 
+def HEX2(v):
+    mo = re.match('^[a-fA-F0-9]{2}$', v)
+    if mo is None:
+        raise ValueError(v)
+    return mo.group(0).upper()
+
+
 GadgetYAML = Schema({
     Required('bootloader'):
         Enumify(BootLoader, preprocessor=methodcaller('replace', '-', '')),
@@ -75,7 +82,7 @@ GadgetYAML = Schema({
             Optional('name'): str,
             Required('type'): Any(
                 Coerce(UUID),
-                Upper(Match('^[a-fA-F0-9]{2}$')),
+                HEX2,
                 Coerce(hex_guid),
                 Enumify(PartitionType),
                 ),
@@ -154,9 +161,22 @@ def parse(stream_or_string):
                     pass
                 else:
                     raise ValueError('ESP partitions must be vfat')
-            if isinstance(p_type, UUID):
-                if scheme is not PartitionScheme.GPT:
-                    raise ValueError('UUID partition type on non-GPT volume')
+            # Note that the spec says that valid values for named partition
+            # types can be strings of at least 3 characters in length, not
+            # containing slashes or hyphens.  But the list of named partition
+            # types is also explicitly constrained to one of 'ESP', 'raw', or
+            # 'mbr'.  If it's one of those, then the object type has already
+            # been coerced to a PartitionType instance, so it won't show up
+            # here as a string.
+            #
+            # Furthermore, the partition type could be a hybrid of
+            # e.g. 2-digit-hex/GUID, which is represented as a 2-tuple after
+            # parsing.  Since that's compatible with both partition schemes,
+            # there is no other check to perform.
+            if isinstance(p_type, UUID) and scheme is not PartitionScheme.GPT:
+                raise ValueError('UUID partition type on non-GPT volume')
+            elif isinstance(p_type, str) and scheme is not PartitionScheme.MBR:
+                raise ValueError('2-digit hex code on non-MBR volume')
             partition_specs.append(
                 PartitionSpec(name, p_type, fs_type, offset, size))
         volume_specs.append(VolumeSpec(scheme, partition_specs))

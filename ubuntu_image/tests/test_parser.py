@@ -90,7 +90,7 @@ volumes:
         self.assertEqual(
             partition0.type, UUID(hex='00000000-0000-0000-0000-0000deadbeef'))
 
-    def test_conflicting_partition_schemes(self):
+    def test_conflicting_partition_schemes_UUID_MBR(self):
         # We can't have an explicit partition schema of MBR when using a GUID
         # partition type.
         self.assertRaises(ValueError, parse, """\
@@ -100,3 +100,76 @@ volumes:
    partitions:
    - type: 00000000-0000-0000-0000-0000deadbeef
 """)
+
+    def test_2HEX_partition_type(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partition-scheme: MBR
+   partitions:
+   - type: EF
+""")
+        volume0 = gadget_spec.volumes[0]
+        self.assertEqual(volume0.partition_scheme, PartitionScheme.MBR)
+        partition0 = volume0.partitions[0]
+        self.assertEqual(partition0.type, 'EF')
+
+    def test_2HEX_partition_type_casefold(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partition-scheme: MBR
+   partitions:
+   - type: ef
+""")
+        volume0 = gadget_spec.volumes[0]
+        self.assertEqual(volume0.partition_scheme, PartitionScheme.MBR)
+        partition0 = volume0.partitions[0]
+        self.assertEqual(partition0.type, 'EF')
+
+    def test_conflicting_partition_schemes_2HEX_implicit_GPT(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: EF
+""")
+
+    def test_conflicting_partition_schemes_2HEX_explicit_GPT(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partition-scheme: GPT
+   partitions:
+   - type: EF
+""")
+
+    def test_hybrid_partition_type_GPT(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partition-scheme: GPT
+   partitions:
+   - type: ef/00000000-0000-0000-0000-0000deadbeef
+""")
+        volume0 = gadget_spec.volumes[0]
+        self.assertEqual(volume0.partition_scheme, PartitionScheme.GPT)
+        partition0 = volume0.partitions[0]
+        self.assertEqual(
+            partition0.type,
+            ('EF', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
+
+    def test_hybrid_partition_type_MBR(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partition-scheme: MBR
+   partitions:
+   - type: ef/00000000-0000-0000-0000-0000deadbeef
+""")
+        volume0 = gadget_spec.volumes[0]
+        self.assertEqual(volume0.partition_scheme, PartitionScheme.MBR)
+        partition0 = volume0.partitions[0]
+        self.assertEqual(
+            partition0.type,
+            ('EF', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
