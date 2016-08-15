@@ -1,8 +1,9 @@
-"""gadget.yaml parsing."""
+"""Tests of the gadget.yaml parser."""
 
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, PartitionScheme, PartitionType, parse)
 from unittest import TestCase
+from uuid import UUID
 
 
 class TestParser(TestCase):
@@ -74,4 +75,28 @@ volumes:
 bootloader: grub
 volumes:
  - partition-scheme: GPT
+""")
+
+    def test_partition_type_guid(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: 00000000-0000-0000-0000-0000deadbeef
+""")
+        volume0 = gadget_spec.volumes[0]
+        self.assertEqual(volume0.partition_scheme, PartitionScheme.GPT)
+        partition0 = volume0.partitions[0]
+        self.assertEqual(
+            partition0.type, UUID(hex='00000000-0000-0000-0000-0000deadbeef'))
+
+    def test_conflicting_partition_schemes(self):
+        # We can't have an explicit partition schema of MBR when using a GUID
+        # partition type.
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partition-scheme: MBR
+   partitions:
+   - type: 00000000-0000-0000-0000-0000deadbeef
 """)

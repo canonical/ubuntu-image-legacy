@@ -146,7 +146,7 @@ def parse(stream_or_string):
             # content = partition.get('content')
             #
             # Additional sanity checks which can't be performed as pure schema
-            # syntax checks.
+            # syntax checks because of cross-item dependencies.
             if p_type is PartitionType.ESP:
                 if fs_type is None:
                     fs_type = FileSystemType.vfat
@@ -154,6 +154,9 @@ def parse(stream_or_string):
                     pass
                 else:
                     raise ValueError('ESP partitions must be vfat')
+            if isinstance(p_type, UUID):
+                if scheme is not PartitionScheme.GPT:
+                    raise ValueError('UUID partition type on non-GPT volume')
             partition_specs.append(
                 PartitionSpec(name, p_type, fs_type, offset, size))
         volume_specs.append(VolumeSpec(scheme, partition_specs))
