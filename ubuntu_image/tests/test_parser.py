@@ -1,14 +1,34 @@
-"""image.yaml parsing."""
+"""gadget.yaml parsing."""
 
 from io import StringIO
 from ubuntu_image.helpers import MiB
-from ubuntu_image.parser import parse
+from ubuntu_image.parser import (
+    BootLoader, FileSystemType, PartitionScheme, PartitionType, parse)
 from unittest import TestCase
 
 
 class TestParser(TestCase):
+    def test_minimal(self):
+        gadget_spec = parse("""\
+bootloader: u-boot
+volumes:
+ - partitions:
+   - type: ESP
+""")
+        self.assertEqual(gadget_spec.bootloader, BootLoader.uboot)
+        self.assertEqual(len(gadget_spec.volumes), 1)
+        volume0 = gadget_spec.volumes[0]
+        self.assertEqual(volume0.partition_scheme, PartitionScheme.GPT)
+        self.assertEqual(len(volume0.partitions), 1)
+        partition0 = volume0.partitions[0]
+        self.assertIsNone(partition0.name)
+        self.assertEqual(partition0.type, PartitionType.ESP)
+        self.assertEqual(partition0.fs_type, FileSystemType.vfat)
+        self.assertIsNone(partition0.offset)
+        self.assertIsNone(partition0.size)
+        self.assertIsNone(partition0.content)
+
     def test_parse(self):
-        # Parse an image.yaml into a partitioning role instance.
         stream = StringIO("""\
 partition-scheme: MBR
 partitions:

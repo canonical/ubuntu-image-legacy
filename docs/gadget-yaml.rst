@@ -140,6 +140,7 @@ content
     implied fs-type of ``raw`` may only use a content field with the second
     format.
 
+
 Named partition types
 ---------------------
 

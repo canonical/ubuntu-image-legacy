@@ -11,7 +11,7 @@ IN_TRAVIS = 'IN_TRAVIS' in os.environ
 
 
 class XXXModelAssertionBuilder(ModelAssertionBuilder):
-    image_yaml = 'image.yaml'
+    image_yaml = 'gadget.yaml'
 
     # We need this class because the current gadget snap we get from the store
     # does not contain an image.yaml or grub files, although it (probably)
