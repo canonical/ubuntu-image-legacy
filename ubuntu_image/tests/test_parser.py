@@ -285,3 +285,38 @@ volumes:
    - type: ESP
      size: 2Q
 """)
+
+    def test_content_paths(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     content:
+        - uboot.env
+        - EFI/
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.content, ['uboot.env', 'EFI/'])
+
+    def test_content_data(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     content:
+        - data: one.img
+        - data: two.img
+          offset: 1024
+        - data: three.img
+        - data: four.img
+          offset: 1M
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.content, [
+            dict(data='one.img'),
+            dict(data='two.img', offset=1024),
+            dict(data='three.img'),
+            dict(data='four.img', offset=MiB(1)),
+            ])

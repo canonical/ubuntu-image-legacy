@@ -8,8 +8,7 @@ from operator import methodcaller
 from ubuntu_image.helpers import as_size, transform
 from uuid import UUID
 from voluptuous import (
-    Any, Coerce, CoerceInvalid, Invalid, Match, Optional, Required, Schema,
-    Upper)
+    Any, Coerce, CoerceInvalid, Invalid, Optional, Required, Schema)
 from yaml import load
 
 
@@ -89,13 +88,20 @@ GadgetYAML = Schema({
             Optional('fs-type'): Enumify(FileSystemType),
             Optional('offset'): Coerce(as_size),
             Optional('size'): Coerce(as_size),
+            Optional('content'):
+                Any([str],
+                    [Schema({
+                        Required('data'): str,
+                        Optional('offset'): Coerce(as_size),
+                        })
+                    ])                              # noqa: E124
             })],
         })],
     })
 
 
 class PartitionSpec:
-    def __init__(self, name, p_type, fs_type, offset, size, content=None):
+    def __init__(self, name, p_type, fs_type, offset, size, content):
         self.name = name
         self.type = p_type
         self.fs_type = fs_type
@@ -177,7 +183,14 @@ def parse(stream_or_string):
                 raise ValueError('UUID partition type on non-GPT volume')
             elif isinstance(p_type, str) and scheme is not PartitionScheme.MBR:
                 raise ValueError('2-digit hex code on non-MBR volume')
+            # Sanity check the content.  It's optional so it's entirely
+            # possible there is no content.  Or, the content can be a list of
+            # file and directory paths.  Or the content can be a list of
+            # dictionaries with at least the `data` key and optionally the
+            # `offset` key.
+            content = partition.get('content')
+            # Create the partition specification.
             partition_specs.append(
-                PartitionSpec(name, p_type, fs_type, offset, size))
+                PartitionSpec(name, p_type, fs_type, offset, size, content))
         volume_specs.append(VolumeSpec(scheme, partition_specs))
     return GadgetSpec(validated['bootloader'], volume_specs)

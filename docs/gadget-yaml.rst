@@ -127,7 +127,7 @@ content
       are copied recursively into the filesystem and must be declared as
       directories in the yaml by using a trailing slash.
 
-    - A list of objects consisting of a ``data`` field an an optional
+    - A list of objects consisting of a ``data`` field and an optional
       ``offset`` field.  The ``data`` field specifies the name of a file
       within the gadget snap.  The ``offset`` field specifies the offset
       relative to the start of the partition at which to write the data.
