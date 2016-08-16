@@ -69,13 +69,11 @@ Within the ``name-of-the-image`` section are the following keys:
 
 scheme
     (*optional*) Defines the type of supported partition tables. Legal values
-    are ``mbr`` and ``gpt`` and ``mbr+gpt`` for hybrid volumes.  If not
-    specified, the default is ``gpt``.
+    are ``mbr`` and ``gpt``.  If not specified, the default is ``gpt``.
 
 id
     (*required*) Defines the disk ID which can be either a 2-digit hex code
-    representing an MBR disk ID, or a GUID representing a GPT disk id.  For
-    hybrid disks the format is <id>,<guid>
+    representing an MBR disk ID, or a GUID representing a GPT disk id.
 
 structure
     (*required*) Defines a list of partitions that must be present in this
@@ -115,20 +113,12 @@ type
 
     - A two-digit hex code, representing an MBR partition type identifier.
 
-    - A two-digit hex code, followed by a comma, followed by a GUID.  This is
-      used to define a partition in a way that it can be reused with a
-      partition-scheme of either MBR or GPT without modification.
-
 id
     (*optional*) The partition ID.  This field takes one of three formats:
 
     - A GUID, representing a value used as a GPT partition type identifier.
 
     - A two-digit hex code, representing an MBR partition type identifier.
-
-    - A two-digit hex code, followed by a comma, followed by a GUID.  This is
-      used to define a partition in a way that it can be reused with a
-      partition-scheme of either MBR or GPT without modification.
 
 filesystem
     (*optional*) Type of the filesystem to use.  Legal values are ``ext4``
