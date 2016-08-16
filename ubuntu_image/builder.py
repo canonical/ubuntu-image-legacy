@@ -140,7 +140,7 @@ class ModelAssertionBuilder(State):
 
     def load_gadget_yaml(self):
         yaml_file = os.path.join(
-            self.unpackdir, 'gadget', 'meta', 'image.yaml')
+            self.unpackdir, 'gadget', 'meta', 'gadget.yaml')
         with open(yaml_file, 'r', encoding='utf-8') as fp:
             self.gadget = parse_yaml(fp)
         self._next.append(self.populate_rootfs_contents)
@@ -226,8 +226,6 @@ class ModelAssertionBuilder(State):
         self._next.append(self.make_disk)
 
     def make_disk(self):
-        if self.gadget.scheme != 'GPT':
-            raise ValueError('DOS partition tables not yet supported')
         self.disk_img = os.path.join(self.images, 'disk.img')
         image = Image(self.disk_img, GiB(4))
         # Create BIOS boot partition

@@ -320,3 +320,28 @@ volumes:
             dict(data='three.img'),
             dict(data='four.img', offset=MiB(1)),
             ])
+
+    def test_content_source_target(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     content:
+        - source: one
+        - source: two
+          target: three
+        - source: four
+          target: five
+          unpack: false
+        - source: six
+          target: seven
+          unpack: true
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.content, [
+            dict(source='one', target='/', unpack=False),
+            dict(source='two', target='three', unpack=False),
+            dict(source='four', target='five', unpack=False),
+            dict(source='six', target='seven', unpack=True),
+            ])

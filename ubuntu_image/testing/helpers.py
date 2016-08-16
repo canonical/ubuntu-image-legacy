@@ -11,10 +11,10 @@ IN_TRAVIS = 'IN_TRAVIS' in os.environ
 
 
 class XXXModelAssertionBuilder(ModelAssertionBuilder):
-    image_yaml = 'gadget.yaml'
+    gadget_yaml = 'gadget.yaml'
 
     # We need this class because the current gadget snap we get from the store
-    # does not contain an image.yaml or grub files, although it (probably)
+    # does not contain a gadget.yaml or grub files, although it (probably)
     # will eventually.  For now, this copies sample files into the expected
     # case, and should be used in tests which require that step.
     def load_gadget_yaml(self):
@@ -22,8 +22,8 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
         meta_dir = os.path.join(gadget_dir, 'meta')
         os.makedirs(meta_dir, exist_ok=True)
         shutil.copy(
-            resource_filename('ubuntu_image.tests.data', 'image.yaml'),
-            os.path.join(meta_dir, self.image_yaml))
+            resource_filename('ubuntu_image.tests.data', 'gadget.yaml'),
+            os.path.join(meta_dir, self.gadget_yaml))
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'grubx64.efi'),
             os.path.join(gadget_dir, 'grubx64.efi'))

@@ -1,10 +1,7 @@
-partitions:
- - role: ESP
-   size: 50M
-   files:
-    - source: grubx64.efi
-      dest: EFI/boot/grubx64.efi
-    - source: shim.efi.signed
-      dest: EFI/boot/bootx64.efi
-    - source: grub.cfg
-      dest: EFI/boot/grub.cfg
+bootloader: u-boot
+volumes:
+ - partitions:
+   - type: ESP
+     size: 50M
+     content:
+      - EFI/

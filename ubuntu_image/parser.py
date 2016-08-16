@@ -1,4 +1,4 @@
-"""image.yaml parsing and validation."""
+"""gadget.yaml parsing and validation."""
 
 import re
 
@@ -94,7 +94,13 @@ GadgetYAML = Schema({
                         Required('data'): str,
                         Optional('offset'): Coerce(as_size),
                         })
-                    ])                              # noqa: E124
+                    ],                            # noqa: E124
+                    [Schema({
+                        Required('source'): str,
+                        Optional('target', default='/'): str,
+                        Optional('unpack', default=False): bool,
+                        })
+                    ]),
             })],
         })],
     })
@@ -127,7 +133,7 @@ def parse(stream_or_string):
     """Parse the YAML read from the stream or string.
 
     The YAML is parsed and validated against the schema defined in
-    docs/image-yaml.rst.
+    docs/gadget-yaml.rst.
 
     :param stream_or_string: Either a string or a file-like object containing
         a gadget.yaml specification.  If stream is given, it must be open for
