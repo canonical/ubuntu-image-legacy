@@ -72,7 +72,7 @@ scheme
     are ``mbr`` and ``gpt``.  If not specified, the default is ``gpt``.
 
 id
-    (*required*) Defines the disk ID which can be either a 2-digit hex code
+    (*optional*) Defines the disk ID which can be either a 2-digit hex code
     representing an MBR disk ID, or a GUID representing a GPT disk id.
 
 structure
