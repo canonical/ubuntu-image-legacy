@@ -106,12 +106,15 @@ size
     total length of the contained data.
 
 type
-    (*required*) The type of the partition.  This field takes one of three
+    (*required*) The type of the partition.  This field takes one of these
     formats:
 
     - A GUID, representing a value used as a GPT partition type identifier.
 
     - A two-digit hex code, representing an MBR partition type identifier.
+
+    - A name.  Valid values for named partition types are defined below.  To
+      avoid ambiguity, named types must be at least three characters in length.
 
 id
     (*optional*) The partition ID.  This field takes one of three formats:
@@ -165,3 +168,23 @@ content
     ``unpack``
         (*optional*) When true, the ``source`` must be a tarball, which will
         be decompressed and extracted from the source into the target.
+
+
+Named partition types
+---------------------
+
+The following named partition types are currently recognized.
+
+esp
+    (U)EFI System Partition.  Implies fs-type of ``vfat``.  Maps to a numeric
+    partition type of ``EF/C12A7328-F81F-11D2-BA4B-00A0C93EC93B``.
+
+raw
+    No filesystem.  Implies fs-type of ``raw``.  Maps to a numeric partition
+    type of ``DA/21686148-6449-6E6F-744E-656564454649``
+    ("Non-FS data", "BIOS Boot").
+
+mbr
+    Special partition type referring to the Master Boot Record of a disk.
+    Implies fs-type of ``raw``.  This partition type accepts a maximum data
+    size of 446 bytes, and is not recorded as an entry in the partition table
