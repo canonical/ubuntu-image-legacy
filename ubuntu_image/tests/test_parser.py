@@ -1,5 +1,6 @@
 """Tests of the gadget.yaml parser."""
 
+from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, PartitionScheme, PartitionType, parse)
 from unittest import TestCase
@@ -174,6 +175,22 @@ volumes:
             partition0.type,
             ('EF', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
 
+    def test_bad_partition_type(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: not-a-type
+""")
+
+    def test_short_partition_type(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: X
+""")
+
     def test_partition_name(self):
         gadget_spec = parse("""\
 bootloader: grub
@@ -184,3 +201,45 @@ volumes:
 """)
         partition0 = gadget_spec.volumes[0].partitions[0]
         self.assertEqual(partition0.name, 'whatever partition')
+
+    def test_partition_offset(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     offset: 1024
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.offset, 1024)
+
+    def test_partition_offset_M(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     offset: 1M
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.offset, MiB(1))
+
+    def test_partition_offset_G(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     offset: 2G
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.offset, GiB(2))
+
+    def test_partition_offset_bad_suffix(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     offset: 2Q
+""")
