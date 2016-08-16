@@ -243,3 +243,45 @@ volumes:
    - type: ESP
      offset: 2Q
 """)
+
+    def test_partition_size(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     size: 1024
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.size, 1024)
+
+    def test_partition_size_M(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     size: 1M
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.size, MiB(1))
+
+    def test_partition_size_G(self):
+        gadget_spec = parse("""\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     size: 2G
+""")
+        partition0 = gadget_spec.volumes[0].partitions[0]
+        self.assertEqual(partition0.size, GiB(2))
+
+    def test_partition_size_bad_suffix(self):
+        self.assertRaises(ValueError, parse, """\
+bootloader: grub
+volumes:
+ - partitions:
+   - type: ESP
+     size: 2Q
+""")
