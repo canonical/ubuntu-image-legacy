@@ -59,21 +59,20 @@ placed on?
 Volume subkeys
 --------------
 
-The volume section has the following keys:
+The volume section is a mapping between names (an arbitrary string, containing
+only ASCII alphanumeric characters and dash), to an *image spec* with the
+following fields:
 
-name
-    (*required*) An arbitrary string naming this volume's image.
-
-scheme
-    (*optional*) Defines the type of supported partition tables. Legal values
-    are ``mbr`` and ``gpt``.  If not specified, the default is ``gpt``.
+schema
+    (*required*) Defines the type of supported partition tables. Legal values
+    are ``mbr`` and ``gpt``.
 
 id
     (*optional*) Defines the disk ID which can be either a 2-digit hex code
     representing an MBR disk ID, or a GUID representing a GPT disk id.
 
 structure
-    (*required*) Defines a list of partitions that must be present in this
+    (*required*) A list of one or more partitions that must be present in this
     volume, their properties and content. In general all of the content of the
     image is either pre-computed as a part of the gadget snap or must be
     assembled as a filesystem from the content provided by the gadget snap.
@@ -173,15 +172,16 @@ Named partition types
 The following named partition types are currently recognized.
 
 esp
-    (U)EFI System Partition.  Implies fs-type of ``vfat``.  Maps to a numeric
-    partition type of ``EF/C12A7328-F81F-11D2-BA4B-00A0C93EC93B``.
+    (U)EFI System Partition.  Implies ``filesystem`` value of ``vfat``.  Maps
+    to a numeric partition type of ``EF/C12A7328-F81F-11D2-BA4B-00A0C93EC93B``.
 
 raw
-    No filesystem.  Implies fs-type of ``raw``.  Maps to a numeric partition
-    type of ``DA/21686148-6449-6E6F-744E-656564454649``
+    No filesystem.  Implies ``filesystem`` value of ``raw``.  Maps to a
+    numeric partition type of ``DA/21686148-6449-6E6F-744E-656564454649``
     ("Non-FS data", "BIOS Boot").
 
 mbr
     Special partition type referring to the Master Boot Record of a disk.
-    Implies fs-type of ``raw``.  This partition type accepts a maximum data
-    size of 446 bytes, and is not recorded as an entry in the partition table
+    Implies ``filesystem`` value of ``raw``.  This partition type accepts a
+    maximum data size of 446 bytes, and is not recorded as an entry in the
+    partition table

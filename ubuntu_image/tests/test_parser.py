@@ -2,7 +2,7 @@
 
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, PartitionScheme, PartitionType, parse)
+    BootLoader, FileSystemType, PartitionType, VolumeSchema, parse)
 from unittest import TestCase
 from uuid import UUID
 
@@ -12,21 +12,26 @@ class TestParser(TestCase):
         gadget_spec = parse("""\
 bootloader: u-boot
 volumes:
- - partitions:
-   - type: ESP
+  first-image:
+    schema: gpt
+    structure:
+        - type: ef
 """)
         self.assertEqual(gadget_spec.bootloader, BootLoader.uboot)
-        self.assertEqual(len(gadget_spec.volumes), 1)
-        volume0 = gadget_spec.volumes[0]
-        self.assertEqual(volume0.partition_scheme, PartitionScheme.GPT)
-        self.assertEqual(len(volume0.partitions), 1)
-        partition0 = volume0.partitions[0]
-        self.assertIsNone(partition0.name)
-        self.assertEqual(partition0.type, PartitionType.ESP)
-        self.assertEqual(partition0.fs_type, FileSystemType.vfat)
-        self.assertIsNone(partition0.offset)
-        self.assertIsNone(partition0.size)
-        self.assertIsNone(partition0.content)
+        self.assertEqual(gadget_spec.volumes.keys(), {'first-image'})
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(volume0.schema, VolumeSchema.gpt)
+        self.assertIsNone(volume0.id)
+        self.assertEqual(len(volume0.structure), 1)
+        structure0 = volume0.structure[0]
+        self.assertIsNone(structure0.label)
+        self.assertIsNone(structure0.offset)
+        self.assertIsNone(structure0.offset_write)
+        self.assertIsNone(structure0.size)
+        self.assertEqual(structure0.type, 'EF')
+        self.assertIsNone(structure0.id)
+        self.assertEqual(structure0.filesystem, FileSystemType.raw)
+        self.assertEqual(len(structure0.content), 0)
 
     def test_grub(self):
         gadget_spec = parse("""\
@@ -47,7 +52,7 @@ volumes:
 """)
         self.assertEqual(len(gadget_spec.volumes), 1)
         volume0 = gadget_spec.volumes[0]
-        self.assertEqual(volume0.partition_scheme, PartitionScheme.GPT)
+        self.assertEqual(volume0.partition_scheme, Scheme.GPT)
 
     def test_bad_bootloader(self):
         self.assertRaises(ValueError, parse, """\
@@ -86,7 +91,7 @@ volumes:
    - type: 00000000-0000-0000-0000-0000deadbeef
 """)
         volume0 = gadget_spec.volumes[0]
-        self.assertEqual(volume0.partition_scheme, PartitionScheme.GPT)
+        self.assertEqual(volume0.partition_scheme, Scheme.GPT)
         partition0 = volume0.partitions[0]
         self.assertEqual(
             partition0.type, UUID(hex='00000000-0000-0000-0000-0000deadbeef'))
@@ -111,7 +116,7 @@ volumes:
    - type: EF
 """)
         volume0 = gadget_spec.volumes[0]
-        self.assertEqual(volume0.partition_scheme, PartitionScheme.MBR)
+        self.assertEqual(volume0.partition_scheme, Scheme.MBR)
         partition0 = volume0.partitions[0]
         self.assertEqual(partition0.type, 'EF')
 
@@ -124,7 +129,7 @@ volumes:
    - type: ef
 """)
         volume0 = gadget_spec.volumes[0]
-        self.assertEqual(volume0.partition_scheme, PartitionScheme.MBR)
+        self.assertEqual(volume0.partition_scheme, Scheme.MBR)
         partition0 = volume0.partitions[0]
         self.assertEqual(partition0.type, 'EF')
 
@@ -154,7 +159,7 @@ volumes:
    - type: ef/00000000-0000-0000-0000-0000deadbeef
 """)
         volume0 = gadget_spec.volumes[0]
-        self.assertEqual(volume0.partition_scheme, PartitionScheme.GPT)
+        self.assertEqual(volume0.partition_scheme, Scheme.GPT)
         partition0 = volume0.partitions[0]
         self.assertEqual(
             partition0.type,
@@ -169,7 +174,7 @@ volumes:
    - type: ef/00000000-0000-0000-0000-0000deadbeef
 """)
         volume0 = gadget_spec.volumes[0]
-        self.assertEqual(volume0.partition_scheme, PartitionScheme.MBR)
+        self.assertEqual(volume0.partition_scheme, Scheme.MBR)
         partition0 = volume0.partitions[0]
         self.assertEqual(
             partition0.type,
