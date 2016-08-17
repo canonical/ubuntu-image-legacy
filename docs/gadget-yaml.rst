@@ -153,6 +153,7 @@ content
     ``unpack``
         (*optional*) When true, the ``source`` must be a tarball, which will
         be decompressed and extracted from the source into the target.
+        XXX: need to specify supported compressors
 
     or
 
@@ -173,6 +174,7 @@ content
     ``unpack``
         (*optional*) When true, the ``source`` must be a tarball, which will
         be decompressed and extracted from the source into the target.
+        XXX: need to specify supported compressors
 
 
 Named partition types
