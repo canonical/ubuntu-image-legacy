@@ -69,7 +69,7 @@ name-of-the-image
 
 Within the ``name-of-the-image`` section are the following keys:
 
-scheme
+schema
     (*optional*) Defines the type of supported partition tables. Legal values
     are ``mbr`` and ``gpt``.  If not specified, the default is ``gpt``.
 
@@ -95,8 +95,9 @@ label
     XXX: figure out what the implementation-specific lengths are and document.
 
 offset
-    (*optional*) The offset in bytes from the beginning of the image.
-    Defaults to offset(last-structure-item) + size(last-structure-item).
+    (*optional*) The offset in bytes from the beginning of the image.  If not
+    specified, placement of the partition within the disk image is
+    implementation-dependent.
 
 offset-write
     (*optional*) Location in which the offset of this partition is written
@@ -104,8 +105,10 @@ offset-write
     syntax ``label+1234``.
 
 size
-    (*optional*) Size of the partition.  If not specified, defaults to the
-    total length of the contained data.
+    (*optional*) Size of the partition.  If not specified, will be
+    automatically computed based on the size of contents, the partition
+    role, and any limits imposed by offsets specified for partitions
+    located after this one on the disk.
 
 type
     (*required*) The type of the partition.  This field takes one of these
@@ -115,15 +118,17 @@ type
 
     - A two-digit hex code, representing an MBR partition type identifier.
 
+    - A two-digit hex code, followed by a comma, followed by a GUID.  This is
+      used to define a partition in a way that it can be reused with a
+      partition-scheme of either MBR or GPT without modification.
+
     - A name.  Valid values for named partition types are defined below.  To
-      avoid ambiguity, named types must be at least three characters in length.
+      avoid ambiguity, named types must be at least three characters in length
+      and not contain hyphens or commas.
 
 id
-    (*optional*) The partition ID.  This field takes one of three formats:
-
-    - A GUID, representing a value used as a GPT partition type identifier.
-
-    - A two-digit hex code, representing an MBR partition type identifier.
+    (*optional*) A GUID, to be used as a GPT unique partition id.  This field
+    is unused on mbr volumes.
 
 filesystem
     (*optional*) Type of the filesystem to use.  Legal values are ``ext4``
@@ -150,6 +155,7 @@ content
     ``unpack``
         (*optional*) When true, the ``source`` must be a tarball, which will
         be decompressed and extracted from the source into the target.
+        XXX: need to specify supported compressors
 
     or
 
@@ -168,8 +174,14 @@ content
         (*optional*) Size of the content bits.  If not specified, defaults to
         the total length of the contained data.
     ``unpack``
-        (*optional*) When true, the ``source`` must be a tarball, which will
-        be decompressed and extracted from the source into the target.
+        (*optional*) When true, the ``source`` must be a compressed file,
+        which will be decompressed before writing.
+        XXX: need to specify supported compressors
+
+    A partition with a filesystem of ``ext4`` or ``vfat`` (explicit or implied)
+    may only use a content field with the first format.  A partition with an
+    implied filesystem of ``raw`` may only use a content field with the second
+    format.
 
 
 Named partition types
@@ -190,4 +202,5 @@ mbr
     Special partition type referring to the Master Boot Record of a disk.
     Implies ``filesystem`` value of ``raw``.  This partition type accepts a
     maximum data size of 446 bytes, and is not recorded as an entry in the
-    partition table
+    partition table (and therefore has no mapping to a numeric partition
+    type).
