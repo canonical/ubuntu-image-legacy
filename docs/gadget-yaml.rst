@@ -63,9 +63,15 @@ The volume section is a mapping between names (an arbitrary string, containing
 only ASCII alphanumeric characters and dash), to an *image spec* with the
 following fields:
 
-schema
-    (*required*) Defines the type of supported partition tables. Legal values
-    are ``mbr`` and ``gpt``.
+name-of-the-image
+    (*required*) An arbitrary string naming this volume's image.
+
+
+Within the ``name-of-the-image`` section are the following keys:
+
+scheme
+    (*optional*) Defines the type of supported partition tables. Legal values
+    are ``mbr`` and ``gpt``.  If not specified, the default is ``gpt``.
 
 id
     (*optional*) Defines the disk ID which can be either a 2-digit hex code
