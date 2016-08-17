@@ -176,6 +176,11 @@ content
         which will be decompressed before writing.
         XXX: need to specify supported compressors
 
+    A partition with a filesystem of ``ext4`` or ``vfat`` (explicit or implied)
+    may only use a content field with the first format.  A partition with an
+    implied filesystem of ``raw`` may only use a content field with the second
+    format.
+
 
 Named partition types
 ---------------------
