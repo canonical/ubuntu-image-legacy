@@ -90,9 +90,10 @@ Structure subkeys
 Each partition is an object with the following properties:
 
 label
-    (*optional*) File system name. There's an implementation specific
+    (*optional*) File system name.  There's an implementation specific
     constraint on the maximum length.
-    XXX: figure out what the implementation-specific lengths are and document.
+
+    XXX: Figure out what the implementation-specific lengths are and document.
 
 offset
     (*optional*) The offset in bytes from the beginning of the image.  If not
@@ -105,10 +106,10 @@ offset-write
     syntax ``label+1234``.
 
 size
-    (*optional*) Size of the partition.  If not specified, will be
-    automatically computed based on the size of contents, the partition
-    role, and any limits imposed by offsets specified for partitions
-    located after this one on the disk.
+    (*optional*) Size of the partition.  If not specified, the size will be
+    automatically computed based on the size of contents, the partition role,
+    and any limits imposed by offsets specified for partitions located after
+    this one on the disk.
 
 type
     (*required*) The type of the partition.  This field takes one of these
@@ -128,7 +129,7 @@ type
 
 id
     (*optional*) A GUID, to be used as a GPT unique partition id.  This field
-    is unused on mbr volumes.
+    is unused on MBR volumes.
 
 filesystem
     (*optional*) Type of the filesystem to use.  Legal values are ``ext4``
@@ -155,7 +156,7 @@ content
     ``unpack``
         (*optional*) When true, the ``source`` must be a tarball, which will
         be decompressed and extracted from the source into the target.
-        XXX: need to specify supported compressors
+        XXX: Need to specify supported compressors.
 
     or
 
@@ -176,7 +177,7 @@ content
     ``unpack``
         (*optional*) When true, the ``source`` must be a compressed file,
         which will be decompressed before writing.
-        XXX: need to specify supported compressors
+        XXX: Need to specify supported compressors.
 
     A partition with a filesystem of ``ext4`` or ``vfat`` (explicit or implied)
     may only use a content field with the first format.  A partition with an
