@@ -67,7 +67,7 @@ name-of-the-image
 
 Within the ``name-of-the-image`` section are the following keys:
 
-scheme
+schema
     (*optional*) Defines the type of supported partition tables. Legal values
     are ``mbr`` and ``gpt``.  If not specified, the default is ``gpt``.
 
