@@ -117,8 +117,8 @@ type
     - A two-digit hex code, representing an MBR partition type identifier.
 
     - A two-digit hex code, followed by a comma, followed by a GUID.  This is
-      used to define a partition in a way that it can be reused with a
-      partition-scheme of either MBR or GPT without modification.
+      used to define a partition in a way that it can be reused with a schema
+      of either MBR or GPT without modification.
 
     - A name.  Valid values for named partition types are defined below.  To
       avoid ambiguity, named types must be at least three characters in length
