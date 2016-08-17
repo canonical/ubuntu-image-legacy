@@ -93,8 +93,9 @@ label
     XXX: figure out what the implementation-specific lengths are and document.
 
 offset
-    (*optional*) The offset in bytes from the beginning of the image.
-    Defaults to offset(last-structure-item) + size(last-structure-item).
+    (*optional*) The offset in bytes from the beginning of the image.  If not
+    specified, placement of the partition within the disk image is
+    implementation-dependent.
 
 offset-write
     (*optional*) Location in which the offset of this partition is written
@@ -102,8 +103,10 @@ offset-write
     syntax ``label+1234``.
 
 size
-    (*optional*) Size of the partition.  If not specified, defaults to the
-    total length of the contained data.
+    (*optional*) Size of the partition.  If not specified, will be
+    automatically computed based on the size of contents, the partition
+    role, and any limits imposed by offsets specified for partitions
+    located after this one on the disk.
 
 type
     (*required*) The type of the partition.  This field takes one of these
