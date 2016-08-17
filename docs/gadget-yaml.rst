@@ -121,11 +121,8 @@ type
       avoid ambiguity, named types must be at least three characters in length.
 
 id
-    (*optional*) The partition ID.  This field takes one of three formats:
-
-    - A GUID, representing a value used as a GPT partition type identifier.
-
-    - A two-digit hex code, representing an MBR partition type identifier.
+    (*optional*) A GUID, to be used as a GPT unique partition id.  This field
+    is unused on mbr volumes.
 
 filesystem
     (*optional*) Type of the filesystem to use.  Legal values are ``ext4``
