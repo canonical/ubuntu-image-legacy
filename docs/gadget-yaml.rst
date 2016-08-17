@@ -118,7 +118,8 @@ type
       partition-scheme of either MBR or GPT without modification.
 
     - A name.  Valid values for named partition types are defined below.  To
-      avoid ambiguity, named types must be at least three characters in length.
+      avoid ambiguity, named types must be at least three characters in length
+      and not contain hyphens or commas.
 
 id
     (*optional*) A GUID, to be used as a GPT unique partition id.  This field
