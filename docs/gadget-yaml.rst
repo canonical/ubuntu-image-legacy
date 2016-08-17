@@ -188,15 +188,16 @@ Named partition types
 The following named partition types are currently recognized.
 
 esp
-    (U)EFI System Partition.  Implies fs-type of ``vfat``.  Maps to a numeric
+    (U)EFI System Partition.  Implies filesystem of ``vfat``.  Maps to a numeric
     partition type of ``EF/C12A7328-F81F-11D2-BA4B-00A0C93EC93B``.
 
 raw
-    No filesystem.  Implies fs-type of ``raw``.  Maps to a numeric partition
+    No filesystem.  Implies filesystem of ``raw``.  Maps to a numeric partition
     type of ``DA/21686148-6449-6E6F-744E-656564454649``
     ("Non-FS data", "BIOS Boot").
 
 mbr
     Special partition type referring to the Master Boot Record of a disk.
-    Implies fs-type of ``raw``.  This partition type accepts a maximum data
+    Implies filesystem of ``raw``.  This partition type accepts a maximum data
     size of 446 bytes, and is not recorded as an entry in the partition table
+    (and therefore has no mapping to a numeric partition type).
