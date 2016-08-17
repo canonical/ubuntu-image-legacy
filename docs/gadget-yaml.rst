@@ -61,8 +61,11 @@ Volume subkeys
 
 The volume section has the following keys:
 
-name
+name-of-the-image
     (*required*) An arbitrary string naming this volume's image.
+
+
+Within the ``name-of-the-image`` section are the following keys:
 
 scheme
     (*optional*) Defines the type of supported partition tables. Legal values
