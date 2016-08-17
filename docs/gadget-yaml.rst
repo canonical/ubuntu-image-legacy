@@ -172,8 +172,8 @@ content
         (*optional*) Size of the content bits.  If not specified, defaults to
         the total length of the contained data.
     ``unpack``
-        (*optional*) When true, the ``source`` must be a tarball, which will
-        be decompressed and extracted from the source into the target.
+        (*optional*) When true, the ``source`` must be a compressed file,
+        which will be decompressed before writing.
         XXX: need to specify supported compressors
 
 
