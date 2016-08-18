@@ -213,8 +213,8 @@ def parse(stream_or_string):
                 for item in content:
                     # The content is either of type spec A or B; you cannot
                     # mix them in the same volume.
-                    source = content.get('source')
-                    image = content.get('image')
+                    source = item.get('source')
+                    image = item.get('image')
                     if source is not None and image is not None:
                         ValueError('Invalid content specification')
                     elif source is not None:
