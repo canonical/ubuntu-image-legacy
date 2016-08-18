@@ -42,9 +42,13 @@ Draft Specification
 
 The YAML file has the following top-level keys:
 
-bootloader
-    (*required*) Instructs snapd which format of bootloader environment to
-    create.  Currently permitted values are ``u-boot`` and ``grub``.
+device-tree-origin
+    (*optional*) Where to find the device tree.  Defaults to ``gadget``.
+
+device-tree
+    (*optional*) The file nameof the device tree.  If specified
+    ``dtbs/<filename>`` must exist in kernel or gadget snap, depending on
+    ``device-tree-origin``.
 
 volumes
     (*required*) Collection of one or more disk images to be created.  The sub
@@ -72,6 +76,10 @@ Within the ``name-of-the-image`` section are the following keys:
 schema
     (*optional*) Defines the type of supported partition tables. Legal values
     are ``mbr`` and ``gpt``.  If not specified, the default is ``gpt``.
+
+bootloader
+    (*required*) Instructs snapd which format of bootloader environment to
+    create.  Currently permitted values are ``u-boot`` and ``grub``.
 
 id
     (*optional*) Defines the disk ID which can be either a 2-digit hex code

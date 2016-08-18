@@ -56,7 +56,8 @@ def as_size(size):
     if isinstance(size, int):
         return size
     mo = re.match('(\d+)([a-zA-Z]*)', size)
-    assert mo is not None, 'Invalid size: {}'.format(size)
+    if mo is None:
+        raise ValueError(size)
     size_in_bytes = mo.group(1)
     return {
         '': straight_up_bytes,

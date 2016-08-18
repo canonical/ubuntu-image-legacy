@@ -23,6 +23,7 @@ class VolumeSchema(Enum):
     gpt = 'gpt'
 
 
+# XXX Named partition types are still controversial.
 class PartitionType(Enum):
     esp = ('EF', UUID(hex='C12A7328-F81F-11D2-BA4B-00A0C93EC93B'))
     raw = ('DA', UUID(hex='21686148-6449-6E6F-744E-656564454649'))
@@ -50,7 +51,23 @@ class Enumify(Coerce):
             raise CoerceInvalid(msg)
 
 
-def Hex2(v):
+def Id(v):
+    """Coerce to either a hex UUID or a 2-digit hex value."""
+    if isinstance(v, int):
+        # Okay, here's the problem.  If the id value is something like '80' in
+        # the yaml file, the yaml parser will turn that into the decimal
+        # integer 80, but that's really not what we want!  We want it to be
+        # the hex value 0x80.  So we have to turn it back into a string and
+        # allow the 2-digit validation matcher to go from there.
+        if v >= 100 or v < 0:
+            raise ValueError(str(v))
+        v = '{:02d}'.format(v)
+    elif not isinstance(v, str):
+        raise ValueError
+    try:
+        return UUID(hex=v)
+    except ValueError:
+        pass
     mo = re.match('^[a-fA-F0-9]{2}$', v)
     if mo is None:
         raise ValueError(v)
@@ -70,22 +87,21 @@ def RelativeOffset(v):
 
 
 GadgetYAML = Schema({
-    Required('bootloader'): Enumify(
-        BootLoader, preprocessor=methodcaller('replace', '-', '')),
+    Optional('device-tree-origin', default='gadget'): str,
+    Optional('device-tree'): str,
     Required('volumes'): {
         Match('^[-a-zA-Z0-9]+$'): Schema({
-            Optional('schema', default='gpt'): Enumify(VolumeSchema),
-            Optional('id'): Any(Coerce(UUID), Hex2),
+            Required('schema'): Enumify(VolumeSchema),
+            Optional('bootloader'): Enumify(
+                BootLoader, preprocessor=methodcaller('replace', '-', '')),
+            Optional('id'): Coerce(Id),
             Required('structure'): [Schema({
                 Optional('label'): str,
                 Optional('offset'): Coerce(as_size),
                 Optional('offset-write'): Any(Coerce(as_size), RelativeOffset),
                 Optional('size'): Coerce(as_size),
-                Required('type'): Any(
-                    Coerce(UUID),
-                    Hex2,
-                    Enumify(PartitionType),
-                    ),
+                Required('type'): Any(Coerce(Id), Enumify(PartitionType)),
+                Optional('id'): Coerce(UUID),
                 Optional('filesystem'): Enumify(FileSystemType),
                 Optional('content'): Any(
                     [Schema({
@@ -136,7 +152,7 @@ class ContentSpecB:
     def from_yaml(cls, content):
         image = content['image']
         offset = content.get('offset')
-        offset_write = content.get('offset_write')
+        offset_write = content.get('offset-write')
         size = content.get('size')
         unpack = content.get('unpack')
         return cls(image, offset, offset_write, size, unpack)
@@ -157,13 +173,15 @@ class StructureSpec:
 @attr.s
 class VolumeSpec:
     schema = attr.ib()
+    bootloader = attr.ib()
     id = attr.ib()
     structure = attr.ib()
 
 
 @attr.s
 class GadgetSpec:
-    bootloader = attr.ib()
+    device_tree_origin = attr.ib()
+    device_tree = attr.ib()
     volumes = attr.ib()
 
 
@@ -190,12 +208,14 @@ def parse(stream_or_string):
     else:
         yaml = load(stream_or_string)
     validated = GadgetYAML(yaml)
-    bootloader = validated['bootloader']
+    device_tree_origin = validated.get('device-tree-origin')
+    device_tree = validated.get('device-tree')
     volume_specs = {}
     for image_name, image_spec in validated['volumes'].items():
         if image_name in volume_specs:
             raise ValueError('Duplicate image name: {}'.format(image_name))
         schema = image_spec['schema']
+        bootloader = image_spec.get('bootloader')
         image_id = image_spec.get('id')
         structures = []
         for structure in image_spec['structure']:
@@ -221,16 +241,17 @@ def parse(stream_or_string):
                         if content_spec_class is ContentSpecB:
                             raise ValueError('Mixed content specifications')
                         else:
-                            content_spec_class is ContentSpecA
+                            content_spec_class = ContentSpecA
                     elif image is not None:
                         if content_spec_class is ContentSpecA:
                             raise ValueError('Mixed content specifications')
                         else:
-                            content_spec_class is ContentSpecB
+                            content_spec_class = ContentSpecB
                     content_specs.append(content_spec_class.from_yaml(item))
             structures.append(StructureSpec(
                 label, offset, offset_write, size,
                 structure_type, structure_id, filesystem,
                 content_specs))
-        volume_specs[image_name] = VolumeSpec(schema, image_id, structures)
-    return GadgetSpec(bootloader, volume_specs)
+        volume_specs[image_name] = VolumeSpec(
+            schema, bootloader, image_id, structures)
+    return GadgetSpec(device_tree_origin, device_tree, volume_specs)
