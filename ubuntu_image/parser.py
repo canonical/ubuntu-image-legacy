@@ -74,7 +74,7 @@ GadgetYAML = Schema({
         BootLoader, preprocessor=methodcaller('replace', '-', '')),
     Required('volumes'): {
         Match('^[-a-zA-Z0-9]+$'): Schema({
-            Required('schema'): Enumify(VolumeSchema),
+            Optional('schema', default='gpt'): Enumify(VolumeSchema),
             Optional('id'): Any(Coerce(UUID), Hex2),
             Required('structure'): [Schema({
                 Optional('label'): str,
