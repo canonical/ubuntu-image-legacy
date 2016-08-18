@@ -227,7 +227,7 @@ def parse(stream_or_string):
                             raise ValueError('Mixed content specifications')
                         else:
                             content_spec_class is ContentSpecB
-                    content_specs.append(content_spec_class.from_yaml(content))
+                    content_specs.append(content_spec_class.from_yaml(item))
             structures.append(StructureSpec(
                 label, offset, offset_write, size,
                 structure_type, structure_id, filesystem,
