@@ -68,8 +68,8 @@ only ASCII alphanumeric characters and dash), to an *image spec* with the
 following fields:
 
 name-of-the-image
-    (*required*) An arbitrary string naming this volume's image.
-
+    (*required*) An arbitrary string naming this volume's image.  Each volume
+    is a distinct disk image.
 
 Within the ``name-of-the-image`` section are the following keys:
 
@@ -160,8 +160,8 @@ content
         slash, a directory is created.
     ``unpack``
         (*optional*) When true, the ``source`` must be a tarball, which will
-        be decompressed and extracted from the source into the target.
-        XXX: Need to specify supported compressors.
+        be decompressed and extracted from the source into the target.  The
+        unpacking algorithm will be inferred from the ``source`` file name.
 
     or
 
@@ -181,13 +181,23 @@ content
         the total length of the contained data.
     ``unpack``
         (*optional*) When true, the ``source`` must be a compressed file,
-        which will be decompressed before writing.
-        XXX: Need to specify supported compressors.
+        which will be decompressed before writing.  The unpacking algorithm
+        will be inferred from the ``image`` name.
 
     A structure with a filesystem of ``ext4`` or ``vfat`` (explicit or
     implied) may only use a content field with the first format.  A structure
     with an implied filesystem of ``raw`` may only use a content field with
     the second format.
+
+
+Unpack algorithms
+-----------------
+
+When ``unpack: true`` appears in the ``content`` section, the ``source`` or
+``image`` name will be used so select the unpacking algorithm used from the
+following list:
+
+* TBD
 
 
 Named partition types
