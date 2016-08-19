@@ -53,8 +53,8 @@ device-tree
 volumes
     (*required*) Collection of one or more disk images to be created.  The sub
     keys of this field are the names of the volumes.  The value associated
-    with each volume name is a structure describing the partition layout to
-    record in this volume.
+    with each volume name is a structure describing the layout to record in
+    this volume.
 
 XXX: how do we know which volume the writable partition is supposed to be
 placed on?
@@ -78,15 +78,16 @@ schema
     are ``mbr`` and ``gpt``.  If not specified, the default is ``gpt``.
 
 bootloader
-    (*required*) Instructs snapd which format of bootloader environment to
-    create.  Currently permitted values are ``u-boot`` and ``grub``.
+    (*at least one*) Instructs snapd which format of bootloader environment to
+    create.  Currently permitted values are ``u-boot`` and ``grub``.  This key
+    is required on exactly one volume, and may be optional for other volumes.
 
 id
     (*optional*) Defines the disk ID which can be either a 2-digit hex code
     representing an MBR disk ID, or a GUID representing a GPT disk id.
 
 structure
-    (*required*) A list of one or more partitions that must be present in this
+    (*required*) A list of one or more layouts that must be present in this
     volume, their properties and content. In general all of the content of the
     image is either pre-computed as a part of the gadget snap or must be
     assembled as a filesystem from the content provided by the gadget snap.
@@ -95,7 +96,7 @@ structure
 Structure subkeys
 -----------------
 
-Each partition is an object with the following properties:
+Each structure is an object with the following properties:
 
 label
     (*optional*) File system name.  There's an implementation specific
@@ -105,22 +106,22 @@ label
 
 offset
     (*optional*) The offset in bytes from the beginning of the image.  If not
-    specified, placement of the partition within the disk image is
+    specified, placement of the structure within the disk image is
     implementation-dependent.
 
 offset-write
-    (*optional*) Location in which the offset of this partition is written
+    (*optional*) Location in which the offset of this structure is written
     into.  It may be specified relative to another structure item with the
     syntax ``label+1234``.
 
 size
-    (*optional*) Size of the partition.  If not specified, the size will be
-    automatically computed based on the size of contents, the partition role,
-    and any limits imposed by offsets specified for partitions located after
-    this one on the disk.
+    (*optional*) Size of the structure.  If not specified, the size will be
+    automatically computed based on the size of contents, other gadget
+    specifications, and any limits imposed by offsets specified for structures
+    located after this one on the disk.
 
 type
-    (*required*) The type of the partition.  This field takes one of these
+    (*required*) The type of the structure.  This field takes one of these
     formats:
 
     - A GUID, representing a value used as a GPT partition type identifier.
@@ -128,7 +129,7 @@ type
     - A two-digit hex code, representing an MBR partition type identifier.
 
     - A two-digit hex code, followed by a comma, followed by a GUID.  This is
-      used to define a partition in a way that it can be reused with a schema
+      used to define a structure in a way that it can be reused with a schema
       of either MBR or GPT without modification.
 
     - A name.  Valid values for named partition types are defined below.  To
@@ -140,23 +141,21 @@ id
     is unused on MBR volumes.
 
 filesystem
-    (*optional*) Type of the filesystem to use.  Legal values are ``ext4``
-    or ``vfat``.  If no type is specified, the default is a raw partition
-    with no filesystem (see below).
+    (*optional*) Type of the filesystem to use.  Legal values are ``ext4`` or
+    ``vfat``.  If no type is specified, the default is a raw image with no
+    filesystem (see below).
 
-    If the partition has a named partition type, and that partition type has
-    an implied filesystem type, it is an error to explicitly declare a value
-    for ``filesystem``.
+    If the structure has a named type, and that type has an implied filesystem
+    type, it is an error to explicitly declare a value for ``filesystem``.
 
 content
-    (*optional*) Content to be copied from the gadget snap into the partition.
+    (*optional*) Content to be copied from the gadget snap into the structure.
     This field takes a list of one of the following formats:
 
     ``source``
         (*required*) The file or directory to copy from the gadget snap into
-        the partition filesystem, relative to the gadget snap's root
-        directory.  End the path with a slash to indicate a recursive
-        directory copy.
+        the filesystem, relative to the gadget snap's root directory.  End the
+        path with a slash to indicate a recursive directory copy.
     ``target``
         (*required*) The location to copy the source into, relative to the
         file system's root.  If ``source`` is a file and target ends in a
@@ -170,7 +169,7 @@ content
 
     ``image``
         (*required*) The image of the raw data to be copied as-is into the
-        partition at the given offset.
+        structure at the given offset.
     ``offset``
         (*optional*) Position in bytes to copy the image to, relative to the
         start of the structure item.  Defaults to offset(last-content-image) +
@@ -187,10 +186,10 @@ content
         which will be decompressed before writing.
         XXX: Need to specify supported compressors.
 
-    A partition with a filesystem of ``ext4`` or ``vfat`` (explicit or implied)
-    may only use a content field with the first format.  A partition with an
-    implied filesystem of ``raw`` may only use a content field with the second
-    format.
+    A structure with a filesystem of ``ext4`` or ``vfat`` (explicit or
+    implied) may only use a content field with the first format.  A structure
+    with an implied filesystem of ``raw`` may only use a content field with
+    the second format.
 
 
 Named partition types
@@ -213,3 +212,38 @@ mbr
     maximum data size of 446 bytes, and is not recorded as an entry in the
     partition table (and therefore has no mapping to a numeric partition
     type).
+
+
+Example
+-------
+
+::
+
+    device-tree-origin: kernel
+    device-tree: <filename>    # Optional, if specified dtbs/<filename> must
+                               # exist in kernel or gadget snap (depends on
+                               # origin) Note: snap_device_tree_origin and
+                               # snap_device_tree are available for u-boot and
+                               # grub .
+    volumes:
+      name-of-the-image:
+        schema: mbr
+        bootloader: u-boot
+        id: <id>,<guid>
+        structure:
+          - label: foo
+            offset: 12345
+            offset-write: 777
+            size: 88888
+            type: <id>,<guid>
+            id: <guid>
+            filesystem: vfat
+            content:
+              - source: subdir/
+                target: /
+                unpack: false
+              - image: foo.img
+                offset: 4321
+                offset-write: 8888
+                size: 88888
+                unpack: false
