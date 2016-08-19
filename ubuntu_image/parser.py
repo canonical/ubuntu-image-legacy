@@ -175,7 +175,7 @@ class VolumeSpec:
     schema = attr.ib()
     bootloader = attr.ib()
     id = attr.ib()
-    structure = attr.ib()
+    structures = attr.ib()
 
 
 @attr.s
@@ -211,11 +211,13 @@ def parse(stream_or_string):
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
     volume_specs = {}
+    bootloader_seen = False
     for image_name, image_spec in validated['volumes'].items():
         if image_name in volume_specs:
             raise ValueError('Duplicate image name: {}'.format(image_name))
         schema = image_spec['schema']
         bootloader = image_spec.get('bootloader')
+        bootloader_seen |= (bootloader is not None)
         image_id = image_spec.get('id')
         structures = []
         for structure in image_spec['structure']:
@@ -254,4 +256,6 @@ def parse(stream_or_string):
                 content_specs))
         volume_specs[image_name] = VolumeSpec(
             schema, bootloader, image_id, structures)
+    if not bootloader_seen:
+        raise ValueError('No bootloader volume named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs)

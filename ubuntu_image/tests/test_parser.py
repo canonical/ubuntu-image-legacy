@@ -13,6 +13,7 @@ class TestParser(TestCase):
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
 """)
@@ -21,10 +22,10 @@ volumes:
         self.assertEqual(gadget_spec.volumes.keys(), {'first-image'})
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.schema, VolumeSchema.gpt)
-        self.assertIsNone(volume0.bootloader)
+        self.assertEqual(volume0.bootloader, BootLoader.uboot)
         self.assertIsNone(volume0.id)
-        self.assertEqual(len(volume0.structure), 1)
-        structure0 = volume0.structure[0]
+        self.assertEqual(len(volume0.structures), 1)
+        structure0 = volume0.structures[0]
         self.assertIsNone(structure0.label)
         self.assertIsNone(structure0.offset)
         self.assertIsNone(structure0.offset_write)
@@ -41,6 +42,7 @@ device-tree: dtree
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
 """)
@@ -52,6 +54,7 @@ volumes:
 volumes:
   first-image:
     schema: mbr
+    bootloader: u-boot
     structure:
         - type: ef
 """)
@@ -63,6 +66,7 @@ volumes:
 volumes:
   first-image:
     schema: bad
+    bootloader: u-boot
     structure:
         - type: ef
 """)
@@ -71,6 +75,7 @@ volumes:
         self.assertRaises(ValueError, parse, """\
 volumes:
   first-image:
+    bootloader: u-boot
     structure:
         - type: ef
 """)
@@ -86,18 +91,6 @@ volumes:
 """)
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.bootloader, BootLoader.grub)
-
-    def test_uboot(self):
-        gadget_spec = parse("""\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: ef
-""")
-        volume0 = gadget_spec.volumes['first-image']
-        self.assertEqual(volume0.bootloader, BootLoader.uboot)
 
     def test_bad_bootloader(self):
         self.assertRaises(ValueError, parse, """\
@@ -160,6 +153,7 @@ volumes:
         self.assertRaises(ValueError, parse, """\
 volumes:
   first-image:
+    bootloader: u-boot
     schema: gpt
 """)
 
@@ -168,12 +162,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - label: my volume
           type: ef
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.label, 'my volume')
 
     def test_volume_offset(self):
@@ -181,12 +176,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           offset: 2112
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.offset, 2112)
 
     def test_volume_offset_suffix(self):
@@ -194,12 +190,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           offset: 3M
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.offset, MiB(3))
 
     def test_volume_offset_write(self):
@@ -207,12 +204,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           offset-write: 1G
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.offset_write, GiB(1))
 
     def test_volume_offset_write_relative(self):
@@ -220,12 +218,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           offset-write: some_label+2112
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.offset_write, ('some_label', 2112))
 
     def test_volume_size(self):
@@ -233,12 +232,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           size: 2112
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.size, 2112)
 
     def test_size_offset_suffix(self):
@@ -246,12 +246,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           size: 3M
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.size, MiB(3))
 
     def test_volume_id(self):
@@ -259,12 +260,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           id: 00000000-0000-0000-0000-0000deadbeef
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(
             partition0.id, UUID(hex='00000000-0000-0000-0000-0000deadbeef'))
 
@@ -273,6 +275,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           id: ef
@@ -283,12 +286,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           filesystem: vfat
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.filesystem, FileSystemType.vfat)
 
     def test_volume_filesystem_ext4(self):
@@ -296,12 +300,13 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           filesystem: ext4
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.filesystem, FileSystemType.ext4)
 
     def test_volume_filesystem_bad(self):
@@ -309,6 +314,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           filesystem: zfs
@@ -319,6 +325,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -326,7 +333,7 @@ volumes:
             target: /
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.source, 'subdir/')
@@ -338,6 +345,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -346,7 +354,7 @@ volumes:
             unpack: true
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.source, 'subdir/')
@@ -358,13 +366,14 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
           - image: foo.img
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -378,6 +387,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -385,7 +395,7 @@ volumes:
             offset: 2112
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -399,6 +409,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -406,7 +417,7 @@ volumes:
             offset: 1M
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -420,6 +431,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -427,7 +439,7 @@ volumes:
             offset-write: 2112
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -441,6 +453,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -448,7 +461,7 @@ volumes:
             offset-write: 1M
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -462,6 +475,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -469,7 +483,7 @@ volumes:
             offset-write: label+2112
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -483,6 +497,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -490,7 +505,7 @@ volumes:
             size: 2112
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -504,6 +519,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -511,7 +527,7 @@ volumes:
             size: 1M
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -525,6 +541,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -532,7 +549,7 @@ volumes:
             unpack: true
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 1)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo.img')
@@ -546,6 +563,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -559,6 +577,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -572,6 +591,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -582,7 +602,7 @@ volumes:
             target: 2/
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 2)
         content0 = partition0.content[0]
         self.assertEqual(content0.source, 'subdir1/')
@@ -598,6 +618,7 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: ef
           content:
@@ -607,7 +628,7 @@ volumes:
             offset: 2112
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(len(partition0.content), 2)
         content0 = partition0.content[0]
         self.assertEqual(content0.image, 'foo1.img')
@@ -628,11 +649,12 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: esp
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.type, PartitionType.esp)
 
     def test_partition_type_raw(self):
@@ -640,11 +662,12 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: raw
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.type, PartitionType.raw)
 
     def test_partition_type_mbr(self):
@@ -652,9 +675,54 @@ volumes:
 volumes:
   first-image:
     schema: gpt
+    bootloader: u-boot
     structure:
         - type: mbr
 """)
         volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structure[0]
+        partition0 = volume0.structures[0]
         self.assertEqual(partition0.type, PartitionType.mbr)
+
+    def test_multiple_volumes_no_bootloader(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: ef
+  second-image:
+    schema: gpt
+    structure:
+        - type: a0
+  third-image:
+    schema: gpt
+    structure:
+        - type: b1
+""")
+
+    def test_multiple_volumes_with_bootloader(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: ef
+  second-image:
+    schema: gpt
+    structure:
+        - type: a0
+  third-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: b1
+""")
+        self.assertEqual(len(gadget_spec.volumes), 3)
+        self.assertEqual({
+            'first-image': None,
+            'second-image': None,
+            'third-image': BootLoader.uboot,
+            },
+            {key: gadget_spec.volumes[key].bootloader
+             for key in gadget_spec.volumes}
+            )
