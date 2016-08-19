@@ -80,7 +80,7 @@ schema
 bootloader
     (*at least one*) Instructs snapd which format of bootloader environment to
     create.  Currently permitted values are ``u-boot`` and ``grub``.  This key
-    is required on exactly one volume, and may be optional for other volumes.
+    is required on exactly one volume, and is optional for other volumes.
 
 id
     (*optional*) Defines the disk ID which can be either a 2-digit hex code
@@ -116,9 +116,7 @@ offset-write
 
 size
     (*optional*) Size of the structure.  If not specified, the size will be
-    automatically computed based on the size of contents, other gadget
-    specifications, and any limits imposed by offsets specified for structures
-    located after this one on the disk.
+    automatically computed based on the size of content.
 
 type
     (*required*) The type of the structure.  This field takes one of these
