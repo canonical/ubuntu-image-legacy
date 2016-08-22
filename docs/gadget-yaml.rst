@@ -103,9 +103,8 @@ the following properties:
 
 name
     (*optional*) Structure name.  There's an implementation specific
-    constraint on the maximum length.
-
-    XXX: Figure out what the implementation-specific lengths are and document.
+    constraint on the maximum length.  The maximum length of a partition
+    name for GPT is 36 characters in the UTF-16 character set.
 
 offset
     (*optional*) The offset in bytes from the beginning of the image.  If not
