@@ -11,6 +11,7 @@ from uuid import UUID
 from voluptuous import (
     Any, Coerce, CoerceInvalid, Invalid, Match, Optional, Required, Schema)
 from yaml import load
+from yaml.parser import ParserError
 
 
 class BootLoader(Enum):
@@ -73,6 +74,9 @@ def HybridId(v):
     if isinstance(v, str):
         code, comma, guid = v.partition(',')
         if comma == ',':
+            # Two digit hex code must appear before GUID.
+            if len(code) != 2 or len(guid) != 36:
+                raise ValueError(v)
             hex_code = Id(code)
             guid_code = Id(guid)
             return hex_code, guid_code
@@ -96,7 +100,8 @@ GadgetYAML = Schema({
     Optional('device-tree'): str,
     Required('volumes'): {
         Match('^[-a-zA-Z0-9]+$'): Schema({
-            Required('schema'): Enumify(VolumeSchema),
+            Optional('schema', default=VolumeSchema.gpt):
+                Enumify(VolumeSchema),
             Optional('bootloader'): Enumify(
                 BootLoader, preprocessor=methodcaller('replace', '-', '')),
             Optional('id'): Coerce(Id),
@@ -105,7 +110,7 @@ GadgetYAML = Schema({
                 Optional('offset'): Coerce(as_size),
                 Optional('offset-write'): Any(Coerce(as_size), RelativeOffset),
                 Required('size'): Coerce(as_size),
-                Required('type'): Coerce(HybridId),
+                Required('type'): Any('mbr', Coerce(HybridId)),
                 Optional('id'): Coerce(UUID),
                 Optional('filesystem', default=FileSystemType.none):
                     Enumify(FileSystemType),
@@ -187,7 +192,7 @@ class GadgetSpec:
     volumes = attr.ib()
 
 
-@transform((KeyError, Invalid), ValueError)
+@transform((KeyError, Invalid, ParserError), ValueError)
 def parse(stream_or_string):
     """Parse the YAML read from the stream or string.
 
@@ -230,7 +235,10 @@ def parse(stream_or_string):
             structure_type = structure['type']
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
-            filesystem_label = structure['filesystem-label']
+            if (structure_type == 'mbr' and
+                    filesystem is not FileSystemType.none):
+                raise ValueError('mbr type must not specify a file system')
+            filesystem_label = structure.get('filesystem-label', name)
             content = structure.get('content')
             content_specs = []
             content_spec_class = (

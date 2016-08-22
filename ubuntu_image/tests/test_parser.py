@@ -302,6 +302,31 @@ volumes:
             partition0.type,
             ('80', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
 
+    def test_mbr_structure(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 400M
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        self.assertEqual(partition0.type, 'mbr')
+        self.assertEqual(partition0.filesystem, FileSystemType.none)
+
+    def test_mbr_structure_conflicting_filesystem(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 400M
+          filesystem: ext4
+""")
+
     def test_bad_hybrid_volume_type_1(self):
         self.assertRaises(ValueError, parse, """\
 volumes:
@@ -318,7 +343,8 @@ volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef,00000000-0000-0000-0000-0000deadbeef
+        - type: 00000000-0000-0000-0000-0000deadbeef,\
+00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
 
@@ -801,15 +827,18 @@ volumes:
     schema: gpt
     structure:
         - type: ef
+          size: 100
   second-image:
     schema: gpt
     structure:
         - type: a0
+          size: 200
   third-image:
     schema: gpt
     bootloader: u-boot
     structure:
         - type: b1
+          size: 300
 """)
         self.assertEqual(len(gadget_spec.volumes), 3)
         self.assertEqual({
