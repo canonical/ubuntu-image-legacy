@@ -23,14 +23,8 @@ class VolumeSchema(Enum):
     gpt = 'gpt'
 
 
-# XXX Named partition types are still controversial.
-class PartitionType(Enum):
-    esp = ('EF', UUID(hex='C12A7328-F81F-11D2-BA4B-00A0C93EC93B'))
-    raw = ('DA', UUID(hex='21686148-6449-6E6F-744E-656564454649'))
-    mbr = 'mbr'
-
-
 class FileSystemType(Enum):
+    none = 'none'
     ext4 = 'ext4'
     vfat = 'vfat'
 
@@ -52,7 +46,7 @@ class Enumify(Coerce):
 
 
 def Id(v):
-    """Coerce to either a hex UUID or a 2-digit hex value."""
+    """Coerce to either a hex UUID, a 2-digit hex value."""
     if isinstance(v, int):
         # Okay, here's the problem.  If the id value is something like '80' in
         # the yaml file, the yaml parser will turn that into the decimal
@@ -72,6 +66,17 @@ def Id(v):
     if mo is None:
         raise ValueError(v)
     return mo.group(0).upper()
+
+
+def HybridId(v):
+    """Like above, but allows for hybrid Ids."""
+    if isinstance(v, str):
+        code, comma, guid = v.partition(',')
+        if comma == ',':
+            hex_code = Id(code)
+            guid_code = Id(guid)
+            return hex_code, guid_code
+    return Id(v)
 
 
 def RelativeOffset(v):
@@ -96,18 +101,19 @@ GadgetYAML = Schema({
                 BootLoader, preprocessor=methodcaller('replace', '-', '')),
             Optional('id'): Coerce(Id),
             Required('structure'): [Schema({
-                Optional('label'): str,
+                Optional('name'): str,
                 Optional('offset'): Coerce(as_size),
                 Optional('offset-write'): Any(Coerce(as_size), RelativeOffset),
-                Optional('size'): Coerce(as_size),
-                Required('type'): Any(Coerce(Id), Enumify(PartitionType)),
+                Required('size'): Coerce(as_size),
+                Required('type'): Coerce(HybridId),
                 Optional('id'): Coerce(UUID),
-                Optional('filesystem'): Enumify(FileSystemType),
+                Optional('filesystem', default=FileSystemType.none):
+                    Enumify(FileSystemType),
+                Optional('filesystem-label'): str,
                 Optional('content'): Any(
                     [Schema({
                         Required('source'): str,
                         Required('target'): str,
-                        Optional('unpack', default=False): bool,
                         })
                     ],                                  # noqa: E124
                     [Schema({
@@ -116,7 +122,6 @@ GadgetYAML = Schema({
                         Optional('offset-write'): Any(
                             Coerce(as_size), RelativeOffset),
                         Optional('size'): Coerce(as_size),
-                        Optional('unpack', default=False): bool,
                         })
                     ],
                 )
@@ -130,14 +135,12 @@ GadgetYAML = Schema({
 class ContentSpecA:
     source = attr.ib()
     target = attr.ib()
-    unpack = attr.ib()
 
     @classmethod
     def from_yaml(cls, content):
         source = content['source']
         target = content['target']
-        unpack = content.get('unpack')
-        return cls(source, target, unpack)
+        return cls(source, target)
 
 
 @attr.s
@@ -146,7 +149,6 @@ class ContentSpecB:
     offset = attr.ib()
     offset_write = attr.ib()
     size = attr.ib()
-    unpack = attr.ib()
 
     @classmethod
     def from_yaml(cls, content):
@@ -154,19 +156,19 @@ class ContentSpecB:
         offset = content.get('offset')
         offset_write = content.get('offset-write')
         size = content.get('size')
-        unpack = content.get('unpack')
-        return cls(image, offset, offset_write, size, unpack)
+        return cls(image, offset, offset_write, size)
 
 
 @attr.s
 class StructureSpec:
-    label = attr.ib()
+    name = attr.ib()
     offset = attr.ib()
     offset_write = attr.ib()
     size = attr.ib()
     type = attr.ib()
     id = attr.ib()
     filesystem = attr.ib()
+    filesystem_label = attr.ib()
     content = attr.ib()
 
 
@@ -221,38 +223,25 @@ def parse(stream_or_string):
         image_id = image_spec.get('id')
         structures = []
         for structure in image_spec['structure']:
-            label = structure.get('label')
+            name = structure.get('name')
             offset = structure.get('offset')
             offset_write = structure.get('offset-write')
-            size = structure.get('size')
+            size = structure['size']
             structure_type = structure['type']
             structure_id = structure.get('id')
-            filesystem = structure.get('filesystem')
+            filesystem = structure['filesystem']
+            filesystem_label = structure['filesystem-label']
             content = structure.get('content')
             content_specs = []
-            content_spec_class = None
+            content_spec_class = (
+                ContentSpecB if filesystem is FileSystemType.none
+                else ContentSpecA)
             if content is not None:
                 for item in content:
-                    # The content is either of type spec A or B; you cannot
-                    # mix them in the same volume.
-                    source = item.get('source')
-                    image = item.get('image')
-                    if source is not None and image is not None:
-                        ValueError('Invalid content specification')
-                    elif source is not None:
-                        if content_spec_class is ContentSpecB:
-                            raise ValueError('Mixed content specifications')
-                        else:
-                            content_spec_class = ContentSpecA
-                    elif image is not None:
-                        if content_spec_class is ContentSpecA:
-                            raise ValueError('Mixed content specifications')
-                        else:
-                            content_spec_class = ContentSpecB
                     content_specs.append(content_spec_class.from_yaml(item))
             structures.append(StructureSpec(
-                label, offset, offset_write, size,
-                structure_type, structure_id, filesystem,
+                name, offset, offset_write, size,
+                structure_type, structure_id, filesystem, filesystem_label,
                 content_specs))
         volume_specs[image_name] = VolumeSpec(
             schema, bootloader, image_id, structures)
