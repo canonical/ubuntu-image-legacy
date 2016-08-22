@@ -132,6 +132,11 @@ type
       used to define a structure in a way that it can be reused with a schema
       of either MBR or GPT without modification.
 
+    - The special value 'mbr', referring to the Master Boot Record of a
+      disk.  This type has an implied ``filesystem`` type of ``none``,
+      accepts a maximum data size of 446 bytes, and is not recorded as an
+      entry in the partition table.
+
 id
     (*optional*) A GUID, to be used as a GPT unique partition id.  This field
     is unused on MBR volumes.
