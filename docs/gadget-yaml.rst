@@ -102,10 +102,9 @@ needn't correspond to a physical partition.  Each structure is an object with
 the following properties:
 
 name
-    (*optional*) Strcture name.  There's an implementation specific constraint
-    on the maximum length.
-
-    XXX: Figure out what the implementation-specific lengths are and document.
+    (*optional*) Structure name.  There's an implementation specific
+    constraint on the maximum length.  The maximum length of a partition
+    name for GPT is 36 characters in the UTF-16 character set.
 
 offset
     (*optional*) The offset in bytes from the beginning of the image.  If not
@@ -118,8 +117,7 @@ offset-write
     syntax ``label+1234``.
 
 size
-    (*required*) Size of the structure.  If not specified, the size will be
-    automatically computed based on the size of content.
+    (*required*) Size of the structure.
 
 type
     (*required*) The type of the structure.  This field takes one of these
@@ -132,6 +130,11 @@ type
     - A two-digit hex code, followed by a comma, followed by a GUID.  This is
       used to define a structure in a way that it can be reused with a schema
       of either MBR or GPT without modification.
+
+    - The special value 'mbr', referring to the Master Boot Record of a
+      disk.  This type has an implied ``filesystem`` type of ``none``,
+      accepts a maximum data size of 446 bytes, and is not recorded as an
+      entry in the partition table.
 
 id
     (*optional*) A GUID, to be used as a GPT unique partition id.  This field
