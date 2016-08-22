@@ -102,8 +102,8 @@ needn't correspond to a physical partition.  Each structure is an object with
 the following properties:
 
 name
-    (*optional*) Strcture name.  There's an implementation specific constraint
-    on the maximum length.
+    (*optional*) Structure name.  There's an implementation specific
+    constraint on the maximum length.
 
     XXX: Figure out what the implementation-specific lengths are and document.
 
