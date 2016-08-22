@@ -117,8 +117,7 @@ offset-write
     syntax ``label+1234``.
 
 size
-    (*required*) Size of the structure.  If not specified, the size will be
-    automatically computed based on the size of content.
+    (*required*) Size of the structure.
 
 type
     (*required*) The type of the structure.  This field takes one of these
