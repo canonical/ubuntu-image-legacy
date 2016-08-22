@@ -5,7 +5,7 @@
 The ``gadget.yaml`` is a new concept, added to Snappy in the series 16 release
 to support standardized image building tooling for snappy.  The file is
 embedded in the *gadget* snap. It is consumed by snappy, but also read and
-processed by the image toolkit (ubuntu-image) to produce a bootable image and
+processed by the image toolkit (ubuntu-image) to produce bootable images and
 supporting assets (e.g. recovery or installer support).
 
 Design
@@ -26,15 +26,15 @@ place:
   can influence the layout of the image in certain ways. Everything else is a
   well-defined fact stored as either an assertion or as a snap published in the
   Ubuntu store.
-- Some tasks are delegated to a support tool generated from snappy code base
-  (or perhaps just snap CLI itself). The tool will have a stable interface
-  (input, output and expected behavior) and should shield ubuntu-image from
-  ongoing system design evolution.
+- Some tasks are delegated to the ``snap`` command line tool via the
+  ``prepare-image`` subcommand.  This command has a stable interface (input,
+  output and expected behavior) and should shield ubuntu-image from ongoing
+  system design evolution.
 - There is a strong preference for user-space code over kernel code. We had
   many issues caused by leftover loopback devices and kpartx errors. While it
   may appear that those issues are no longer affecting the most recent versions
   of the kernel it is our belief that this task can be accomplished with no
-  kernel support.
+  kernel support (i.e. no ``sudo`` required).
 
 
 Draft Specification
@@ -90,17 +90,20 @@ structure
     (*required*) A list of one or more layouts that must be present in this
     volume, their properties and content. In general all of the content of the
     image is either pre-computed as a part of the gadget snap or must be
-    assembled as a filesystem from the content provided by the gadget snap.
+    assembled as a file system from the content provided by the gadget snap.
 
 
 Structure subkeys
 -----------------
 
-Each structure is an object with the following properties:
+Roughly speaking, the ``structure`` section defines partitions within the
+image, although note that this terminology is inaccurate, since the structure
+needn't correspond to a physical partition.  Each structure is an object with
+the following properties:
 
-label
-    (*optional*) File system name.  There's an implementation specific
-    constraint on the maximum length.
+name
+    (*optional*) Strcture name.  There's an implementation specific constraint
+    on the maximum length.
 
     XXX: Figure out what the implementation-specific lengths are and document.
 
@@ -115,7 +118,7 @@ offset-write
     syntax ``label+1234``.
 
 size
-    (*optional*) Size of the structure.  If not specified, the size will be
+    (*required*) Size of the structure.  If not specified, the size will be
     automatically computed based on the size of content.
 
 type
@@ -130,21 +133,22 @@ type
       used to define a structure in a way that it can be reused with a schema
       of either MBR or GPT without modification.
 
-    - A name.  Valid values for named partition types are defined below.  To
-      avoid ambiguity, named types must be at least three characters in length
-      and not contain hyphens or commas.
-
 id
     (*optional*) A GUID, to be used as a GPT unique partition id.  This field
     is unused on MBR volumes.
 
 filesystem
-    (*optional*) Type of the filesystem to use.  Legal values are ``ext4`` or
-    ``vfat``.  If no type is specified, the default is a raw image with no
-    filesystem (see below).
+    (*optional*) Type of file system to put on this structure.  Legal values
+    are ``none``, ``ext4`` ``vfat``.  The value ``none`` means there is no
+    file system on this structure, essentially defining a raw image.  The
+    default is ``none``.
 
-    If the structure has a named type, and that type has an implied filesystem
+    If the structure has a named type, and that type has an implied file system
     type, it is an error to explicitly declare a value for ``filesystem``.
+
+filesystem-label
+    (*optional*) A label for the file system, independent of its name.
+    The default is to reuse the structure's name.
 
 content
     (*optional*) Content to be copied from the gadget snap into the structure.
@@ -152,16 +156,12 @@ content
 
     ``source``
         (*required*) The file or directory to copy from the gadget snap into
-        the filesystem, relative to the gadget snap's root directory.  End the
+        the file system, relative to the gadget snap's root directory.  End the
         path with a slash to indicate a recursive directory copy.
     ``target``
         (*required*) The location to copy the source into, relative to the
         file system's root.  If ``source`` is a file and target ends in a
         slash, a directory is created.
-    ``unpack``
-        (*optional*) When true, the ``source`` must be a tarball, which will
-        be decompressed and extracted from the source into the target.  The
-        unpacking algorithm will be inferred from the ``source`` file name.
 
     or
 
@@ -179,47 +179,11 @@ content
     ``size``
         (*optional*) Size of the content bits.  If not specified, defaults to
         the total length of the contained data.
-    ``unpack``
-        (*optional*) When true, the ``source`` must be a compressed file,
-        which will be decompressed before writing.  The unpacking algorithm
-        will be inferred from the ``image`` name.
 
-    A structure with a filesystem of ``ext4`` or ``vfat`` (explicit or
+    A structure with a file system of ``ext4`` or ``vfat`` (explicit or
     implied) may only use a content field with the first format.  A structure
-    with an implied filesystem of ``raw`` may only use a content field with
+    with an implied file system of ``raw`` may only use a content field with
     the second format.
-
-
-Unpack algorithms
------------------
-
-When ``unpack: true`` appears in the ``content`` section, the ``source`` or
-``image`` name will be used so select the unpacking algorithm used from the
-following list:
-
-* TBD
-
-
-Named partition types
----------------------
-
-The following named partition types are currently recognized.
-
-esp
-    (U)EFI System Partition.  Implies ``filesystem`` value of ``vfat``.  Maps
-    to a numeric partition type of ``EF/C12A7328-F81F-11D2-BA4B-00A0C93EC93B``.
-
-raw
-    No filesystem.  Implies ``filesystem`` value of ``raw``.  Maps to a
-    numeric partition type of ``DA/21686148-6449-6E6F-744E-656564454649``
-    ("Non-FS data", "BIOS Boot").
-
-mbr
-    Special partition type referring to the Master Boot Record of a disk.
-    Implies ``filesystem`` value of ``raw``.  This partition type accepts a
-    maximum data size of 446 bytes, and is not recorded as an entry in the
-    partition table (and therefore has no mapping to a numeric partition
-    type).
 
 
 Example
@@ -234,12 +198,12 @@ Example
                                # snap_device_tree are available for u-boot and
                                # grub .
     volumes:
-      name-of-the-image:
+      first-image:
         schema: mbr
         bootloader: u-boot
         id: <id>,<guid>
         structure:
-          - label: foo
+          - name: foo
             offset: 12345
             offset-write: 777
             size: 88888
@@ -249,9 +213,7 @@ Example
             content:
               - source: subdir/
                 target: /
-                unpack: false
               - image: foo.img
                 offset: 4321
                 offset-write: 8888
                 size: 88888
-                unpack: false
