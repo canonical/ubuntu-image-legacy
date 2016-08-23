@@ -170,6 +170,18 @@ volumes:
           size: 400M
 """)
 
+    def test_bad_integer_volume_id(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    id: 3g
+    structure:
+        - type: 801
+          size: 400M
+""")
+
     def test_no_structure(self):
         self.assertRaises(ValueError, parse, """\
 volumes:
@@ -191,6 +203,27 @@ volumes:
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.name, 'my volume')
         self.assertEqual(partition0.filesystem_label, 'my volume')
+
+    def test_duplicate_volume_name(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first:
+    bootloader: u-boot
+    structure:
+        - name: one
+          type: ef
+          size: 400M
+  second:
+    structure:
+        - name: two
+          type: ef
+          size: 400M
+  first:
+    structure:
+        - name: three
+          type: ef
+          size: 400M
+""")
 
     def test_volume_offset(self):
         gadget_spec = parse("""\
@@ -249,6 +282,18 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.offset_write, ('some_label', 2112))
+
+    def test_volume_offset_write_relative_syntax_error(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+          offset-write: some_label%2112
+""")
 
     def test_volume_size(self):
         gadget_spec = parse("""\
@@ -497,10 +542,10 @@ volumes:
         self.assertRaises(ValueError, parse, """\
 volumes:
   first-image:
-    schema: gpt
     bootloader: u-boot
     structure:
         - type: ef
+          size: 400M
           filesystem: zfs
 """)
 
