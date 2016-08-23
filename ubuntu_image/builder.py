@@ -187,9 +187,9 @@ class ModelAssertionBuilder(State):
             # XXX: use fs label for the moment, until we get a proper way to
             # identify the boot partition
             if part.filesystem_label == 'system-boot':
-                for src_filename, dst_filename in part.files:
-                    src = os.path.join(self.unpackdir, 'gadget', src_filename)
-                    dst = os.path.join(self.bootfs, dst_filename)
+                for file in part.content:
+                    src = os.path.join(self.unpackdir, 'gadget', file.source)
+                    dst = os.path.join(self.bootfs, file.target)
                     os.makedirs(os.path.dirname(dst), exist_ok=True)
                     shutil.copy(src, dst)
                 break
