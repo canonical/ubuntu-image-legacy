@@ -181,7 +181,9 @@ class ModelAssertionBuilder(State):
             src = os.path.join(boot, filename)
             dst = os.path.join(self.bootfs, 'EFI', 'ubuntu', filename)
             shutil.move(src, dst)
-        for part in self.gadget.partitions:
+        # XXX: for the moment we only handle the first volume
+        volume = list(self.gadget.volumes.values())[0]
+        for part in volume.structures:
             if part.role == 'ESP':
                 for src_filename, dst_filename in part.files:
                     src = os.path.join(self.unpackdir, 'gadget', src_filename)
@@ -252,7 +254,9 @@ class ModelAssertionBuilder(State):
         # XXX: the parser should sort these partitions for us in disk order as
         # part of checking for overlaps, so we should not need to sort them
         # here.
-        for part in sorted(self.gadget.partitions,   # pragma: notravis
+        # XXX: for the moment we only handle the first volume
+        volume = list(self.gadget.volumes.values())[0]
+        for part in sorted(volume.structures,   # pragma: notravis
                            key=attrgetter('offset')):
             size = part.size
             if not part.offset:                      # pragma: notravis
@@ -265,7 +269,7 @@ class ModelAssertionBuilder(State):
                 part_id, offset // MiB(1), size // MiB(1))
             image.partition(new=partdef)
             image.partition(typecode='{}:{}'.format(
-                part_id, part.type_id))
+                part_id, part.type[1]))
             if part.role == 'ESP':                   # pragma: notravis
                 # XXX: this should be part of the parser defaults.
                 image.partition(change_name='{}:system-boot'
