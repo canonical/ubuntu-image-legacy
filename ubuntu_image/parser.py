@@ -51,14 +51,14 @@ class FileSystemType(Enum):
     vfat = 'vfat'
 
 
-class Enumify(Coerce):
-    def __init__(self, type, msg=None, preprocessor=None):
-        super().__init__(type, msg)
+class Enumify:
+    def __init__(self, enum_class, msg=None, preprocessor=None):
+        self.enum_class = enum_class
         self.preprocessor = preprocessor
 
     def __call__(self, v):
         # Voluptuous will catch any exceptions.
-        return self.type[
+        return self.enum_class[
             v if self.preprocessor is None
             else self.preprocessor(v)
             ]
