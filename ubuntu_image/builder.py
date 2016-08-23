@@ -181,11 +181,12 @@ class ModelAssertionBuilder(State):
             src = os.path.join(boot, filename)
             dst = os.path.join(self.bootfs, 'EFI', 'ubuntu', filename)
             shutil.move(src, dst)
-        # XXX: for the moment we only handle the first volume
-        volume = list(self.gadget.volumes.values())[0]
+        volumes = self.gadget.volumes.values()
+        assert len(volumes) == 1, 'For now, only one volume is allowed'
+        volume = volumes[0]
         for part in volume.structures:
-            # XXX: use fs label for the moment, until we get a proper way to
-            # identify the boot partition
+            # XXX: Use fs label for the moment, until we get a proper way to
+            # identify the boot partition.
             if part.filesystem_label == 'system-boot':
                 for file in part.content:
                     src = os.path.join(self.unpackdir, 'gadget', file.source)
@@ -252,15 +253,16 @@ class ModelAssertionBuilder(State):
         # lowest permissible offset.  We should not have any overlapping
         # partitions, the parser should have already rejected such as invalid.
         #
-        # XXX: the parser should sort these partitions for us in disk order as
+        # XXX: The parser should sort these partitions for us in disk order as
         # part of checking for overlaps, so we should not need to sort them
         # here.
-        # XXX: for the moment we only handle the first volume
-        volume = list(self.gadget.volumes.values())[0]
-        for part in sorted(volume.structures,   # pragma: notravis
+        volumes = self.gadget.volumes.values()
+        assert len(volumes) == 1, 'For now, only one volume is allowed'
+        volume = volumes[0]
+        for part in sorted(volume.structures,               # pragma: notravis
                            key=attrgetter('offset')):
             size = part.size
-            if not part.offset:                      # pragma: notravis
+            if not part.offset:                             # pragma: notravis
                 part.offset = offset
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.  We
@@ -269,15 +271,14 @@ class ModelAssertionBuilder(State):
             partdef = '{}:{}M:+{}M'.format(
                 part_id, offset // MiB(1), size // MiB(1))
             image.partition(new=partdef)
-            image.partition(typecode='{}:{}'.format(
-                part_id, part.type[1]))
+            image.partition(typecode='{}:{}'.format(part_id, part.type[1]))
             if part.name is not None:
-                image.partition(change_name='{}:{}'
-                                            .format(part_id, part.name))
-            # XXX: use fs label for the moment, until we get a proper way to
-            # identify the boot partition
+                image.partition(
+                    change_name='{}:{}'.format(part_id, part.name))
+            # XXX: Use fs label for the moment, until we get a proper way to
+            # identify the boot partition.
             if part.filesystem_label == 'system-boot':     # pragma: notravis
-                # assume that the offset and size are always multiples of
+                # Assume that the offset and size are always multiples of
                 # 1MiB.  (XXX: but this should be enforced elsewhere.)
                 image.copy_blob(self.boot_img,
                                 bs='1M', seek=offset // 1024 // 1024,
