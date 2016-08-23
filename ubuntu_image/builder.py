@@ -184,13 +184,14 @@ class ModelAssertionBuilder(State):
         # XXX: for the moment we only handle the first volume
         volume = list(self.gadget.volumes.values())[0]
         for part in volume.structures:
-            if part.role == 'ESP':
+            # XXX: use fs label for the moment, until we get a proper way to
+            # identify the boot partition
+            if part.filesystem_label == 'system-boot':
                 for src_filename, dst_filename in part.files:
                     src = os.path.join(self.unpackdir, 'gadget', src_filename)
                     dst = os.path.join(self.bootfs, dst_filename)
                     os.makedirs(os.path.dirname(dst), exist_ok=True)
                     shutil.copy(src, dst)
-                # XXX: there should only be one ESP
                 break
         self._next.append(self.calculate_bootfs_size)
 
@@ -270,10 +271,12 @@ class ModelAssertionBuilder(State):
             image.partition(new=partdef)
             image.partition(typecode='{}:{}'.format(
                 part_id, part.type[1]))
-            if part.role == 'ESP':                   # pragma: notravis
-                # XXX: this should be part of the parser defaults.
-                image.partition(change_name='{}:system-boot'
-                                            .format(part_id))
+            if part.name is not None:
+                image.partition(change_name='{}:{}'
+                                            .format(part_id, part.name))
+            # XXX: use fs label for the moment, until we get a proper way to
+            # identify the boot partition
+            if part.filesystem_label == 'system-boot':     # pragma: notravis
                 # assume that the offset and size are always multiples of
                 # 1MiB.  (XXX: but this should be enforced elsewhere.)
                 image.copy_blob(self.boot_img,
