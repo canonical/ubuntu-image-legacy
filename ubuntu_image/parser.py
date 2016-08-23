@@ -1,168 +1,289 @@
-"""image.yaml parsing and validation."""
+"""gadget.yaml parsing and validation."""
+
+import re
+import attr
 
 from enum import Enum
-from operator import attrgetter
-from ubuntu_image.helpers import MiB, as_size, transform
+from io import StringIO
+from operator import methodcaller
+from ubuntu_image.helpers import as_size, transform
 from uuid import UUID
-from voluptuous import (
-    All, Any, Coerce, Invalid, Match, Optional, Required, Schema, Upper)
+from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from yaml import load
+from yaml.loader import SafeLoader
+from yaml.parser import ParserError
 
 
-ImageYAML = Schema({
-    Optional('partition-scheme', default='GPT'): Any('GPT', 'MBR'),
-    Required('partitions'): [
-        Schema({
-            Optional('name'): str,
-            Required('role'): Any('ESP', 'raw', 'custom'),
-            Optional('fs-type'): Any('ext4', 'vfat'),
-            Optional('guid'): Coerce(UUID),
-            Optional('type'): All(Upper, Match('^[a-z0-9A-Z0-9]{2}$')),
-            Optional('offset'): Coerce(as_size),
-            Optional('size'): Coerce(as_size),
-            Optional('files'): [
-                Schema({
-                    Required('source'): str,
-                    Optional('dest'): str,
-                    Optional('offset'): Coerce(as_size),
-                    })
-                ],
-            })],
-    })
+# By default PyYAML allows duplicate mapping keys, even though the YAML spec
+# prohibits this.  We can't validate this after parsing because PyYAML just
+# gives us a normal dictionary, which of course does not have duplicate keys.
+# We use the basic YAML SafeLoader but override the mapping constructor to
+# raise an exception if we see a key twice.
+
+class StrictLoader(SafeLoader):
+    def construct_mapping(self, node):
+        pairs = self.construct_pairs(node)
+        mapping = {}
+        for key, value in pairs:
+            if key in mapping:
+                raise ValueError('Duplicate key: {}'.format(key))
+            mapping[key] = value
+        return mapping
 
 
-class ESPTypeID(Enum):
-    MBR = 'EF'
-    GPT = 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B'
+StrictLoader.add_constructor(
+    'tag:yaml.org,2002:map', StrictLoader.construct_mapping)
 
 
-class RawTypeID(Enum):
-    MBR = 'DA'
-    GPT = '21686148-6449-6E6F-744E-656564454649'
+class BootLoader(Enum):
+    uboot = 'u-boot'
+    grub = 'grub'
 
 
-class CustomTypeID(Enum):
-    MBR = '83'
-    GPT = '0FC63DAF-8483-4772-8E79-3D69D8477DE4'
+class VolumeSchema(Enum):
+    mbr = 'mbr'
+    gpt = 'gpt'
 
 
-class PartitionSpec:
-    def __init__(self,
-                 name, role, guid, type_id, offset, size, fs_type, files):
-        self.name = name
-        self.role = role
-        self.guid = guid
-        self.type_id = type_id
-        self.offset = offset
-        self.size = size
-        self.fs_type = fs_type
-        self.files = files
+class FileSystemType(Enum):
+    none = 'none'
+    ext4 = 'ext4'
+    vfat = 'vfat'
 
 
-class ImageSpec:
-    def __init__(self, scheme, partitions):
-        self.scheme = scheme
-        self.partitions = partitions
+class Enumify:
+    def __init__(self, enum_class, msg=None, preprocessor=None):
+        self.enum_class = enum_class
+        self.preprocessor = preprocessor
+
+    def __call__(self, v):
+        # Voluptuous will catch any exceptions.
+        return self.enum_class[
+            v if self.preprocessor is None
+            else self.preprocessor(v)
+            ]
 
 
-@transform((KeyError, Invalid), ValueError)
-def parse(stream):
-    """Parse the YAML read from the stream.
+def Id(v):
+    """Coerce to either a hex UUID, a 2-digit hex value."""
+    if isinstance(v, int):
+        # Okay, here's the problem.  If the id value is something like '80' in
+        # the yaml file, the yaml parser will turn that into the decimal
+        # integer 80, but that's really not what we want!  We want it to be
+        # the hex value 0x80.  So we have to turn it back into a string and
+        # allow the 2-digit validation matcher to go from there.
+        if v >= 100 or v < 0:
+            raise ValueError(str(v))
+        v = '{:02d}'.format(v)
+    try:
+        return UUID(hex=v)
+    except ValueError:
+        pass
+    mo = re.match('^[a-fA-F0-9]{2}$', v)
+    if mo is None:
+        raise ValueError(v)
+    return mo.group(0).upper()
+
+
+def HybridId(v):
+    """Like above, but allows for hybrid Ids."""
+    if isinstance(v, str):
+        code, comma, guid = v.partition(',')
+        if comma == ',':
+            # Two digit hex code must appear before GUID.
+            if len(code) != 2 or len(guid) != 36:
+                raise ValueError(v)
+            hex_code = Id(code)
+            guid_code = Id(guid)
+            return hex_code, guid_code
+    return Id(v)
+
+
+def RelativeOffset(v):
+    """From the spec:
+
+    It may be specified relative to another structure item with the
+    syntax ``label+1234``.
+    """
+    label, plus, offset = v.partition('+')
+    if len(label) == 0 or plus != '+' or len(offset) == 0:
+        raise ValueError(v)
+    return label, as_size(offset)
+
+
+GadgetYAML = Schema({
+    Optional('device-tree-origin', default='gadget'): str,
+    Optional('device-tree'): str,
+    Required('volumes'): {
+        Match('^[-a-zA-Z0-9]+$'): Schema({
+            Optional('schema', default=VolumeSchema.gpt):
+                Enumify(VolumeSchema),
+            Optional('bootloader'): Enumify(
+                BootLoader, preprocessor=methodcaller('replace', '-', '')),
+            Optional('id'): Coerce(Id),
+            Required('structure'): [Schema({
+                Optional('name'): str,
+                Optional('offset'): Coerce(as_size),
+                Optional('offset-write'): Any(Coerce(as_size), RelativeOffset),
+                Required('size'): Coerce(as_size),
+                Required('type'): Any('mbr', Coerce(HybridId)),
+                Optional('id'): Coerce(UUID),
+                Optional('filesystem', default=FileSystemType.none):
+                    Enumify(FileSystemType),
+                Optional('filesystem-label'): str,
+                Optional('content'): Any(
+                    [Schema({
+                        Required('source'): str,
+                        Required('target'): str,
+                        })
+                    ],                                  # noqa: E124
+                    [Schema({
+                        Required('image'): str,
+                        Optional('offset'): Coerce(as_size),
+                        Optional('offset-write'): Any(
+                            Coerce(as_size), RelativeOffset),
+                        Optional('size'): Coerce(as_size),
+                        })
+                    ],
+                )
+            })]
+        })
+    }
+})
+
+
+@attr.s
+class ContentSpecA:
+    source = attr.ib()
+    target = attr.ib()
+
+    @classmethod
+    def from_yaml(cls, content):
+        source = content['source']
+        target = content['target']
+        return cls(source, target)
+
+
+@attr.s
+class ContentSpecB:
+    image = attr.ib()
+    offset = attr.ib()
+    offset_write = attr.ib()
+    size = attr.ib()
+
+    @classmethod
+    def from_yaml(cls, content):
+        image = content['image']
+        offset = content.get('offset')
+        offset_write = content.get('offset-write')
+        size = content.get('size')
+        return cls(image, offset, offset_write, size)
+
+
+@attr.s
+class StructureSpec:
+    name = attr.ib()
+    offset = attr.ib()
+    offset_write = attr.ib()
+    size = attr.ib()
+    type = attr.ib()
+    id = attr.ib()
+    filesystem = attr.ib()
+    filesystem_label = attr.ib()
+    content = attr.ib()
+
+
+@attr.s
+class VolumeSpec:
+    schema = attr.ib()
+    bootloader = attr.ib()
+    id = attr.ib()
+    structures = attr.ib()
+
+
+@attr.s
+class GadgetSpec:
+    device_tree_origin = attr.ib()
+    device_tree = attr.ib()
+    volumes = attr.ib()
+
+
+@transform((KeyError, Invalid, ParserError), ValueError)
+def parse(stream_or_string):
+    """Parse the YAML read from the stream or string.
 
     The YAML is parsed and validated against the schema defined in
-    docs/image-yaml.rst.
+    docs/gadget-yaml.rst.
 
-    :param stream: A file-like object containing an image.yaml
-        specification.  The file should be open for reading with a UTF-8
-        encoding.
-    :type image_yaml: file
-    :return: A specification of the image.
-    :rtype: ImageSpec
+    :param stream_or_string: Either a string or a file-like object containing
+        a gadget.yaml specification.  If stream is given, it must be open for
+        reading with a UTF-8 encoding.
+    :type stream_or_string: str or file-like object
+    :return: A specification of the gadget.
+    :rtype: GadgetSpec
     :raises ValueError: If the schema is violated.
     """
     # Do the basic schema validation steps.  There some interdependencies that
     # require post-validation.  E.g. you cannot define the fs-type if the role
     # is ESP.
-    yaml = load(stream)
-    validated = ImageYAML(yaml)
-    scheme = validated['partition-scheme']
-    partitions = []
-    for partition in validated['partitions']:
-        name = partition.get('name')
-        role = partition['role']
-        guid = partition.get('guid')
-        partition_offset = partition.get('offset')
-        size = partition.get('size')
-        fs_type = partition.get('fs-type')
-        # Sanity check the values for the partition role.
-        if role == 'ESP':
-            if fs_type is not None:
-                raise ValueError(
-                    'Invalid explicit fs-type: {}'.format(fs_type))
-            fs_type = 'vfat'
-            if guid is not None:
-                raise ValueError('Invalid explicit guid: {}'.format(guid))
-            if partition.get('type') is not None:
-                raise ValueError('Invalid explicit type id: {}'.format(
-                    partition.get('type')))
-            type_id = ESPTypeID[scheme].value
-            # Default size, which is more than big enough for all of the EFI
-            # executables that we might want to install.
-            if size is None:
-                size = MiB(64)
-        elif role == 'raw':
-            if fs_type is not None:
-                raise ValueError(
-                    'No fs-type allowed for raw partitions: {}'.format(
-                        fs_type))
-            type_id = RawTypeID[scheme].value
-        elif role == 'custom':
-            if fs_type is None:
-                raise ValueError('fs-type is required')
-            type_id = CustomTypeID[scheme].value
-        else:
-            raise AssertionError('Should never get here!')   # pragma: nocover
-        # Sanity check other values.
-        if scheme == 'MBR':
-            guid = None
-            # Allow MBRs to override the partition type identifier.
-            type_id = partition.get('type', type_id)
-        # Handle files.
-        files = []
-        offset_defaulted = False
-        for section in partition.get('files', []):
-            source = section['source']
-            if fs_type is None:
-                if 'dest' in section:
-                    raise ValueError('No dest allowed')
-                offset = section.get('offset')
-                if offset is None:
-                    if offset_defaulted:
-                        raise ValueError('Only one default offset allowed')
-                    offset = 0
-                    offset_defaulted = True
-                files.append((source, offset))
-            else:
-                if 'offset' in section:
-                    raise ValueError('offset not allowed')
-                dest = section.get('dest')
-                if dest is None:
-                    raise ValueError(
-                        'dest required for source: {}'.format(source))
-                files.append((source, dest))
-        # XXX "It is also an error for files in the list to overlap."
-        partitions.append(PartitionSpec(
-            name, role, guid, type_id, partition_offset, size, fs_type, files))
-    partitions.sort(key=attrgetter('offset'))
-    min_offset = 0
-    for part in partitions:
-        # XXX certain offsets are illegal to specify because they overlap the
-        # partition table.  Should these limits be implemented here in the
-        # parser, or only in the partitioner code?
-        if not part.offset:
-            continue
-        if part.offset < min_offset:
-            raise ValueError('overlapping partitions defined')
-        if part.size:
-            min_offset = part.offset + part.size
-    return ImageSpec(scheme, partitions)
+    stream = (StringIO(stream_or_string)
+              if isinstance(stream_or_string, str)
+              else stream_or_string)
+    yaml = load(stream, Loader=StrictLoader)
+    validated = GadgetYAML(yaml)
+    device_tree_origin = validated.get('device-tree-origin')
+    device_tree = validated.get('device-tree')
+    volume_specs = {}
+    bootloader_seen = False
+    # This item is a dictionary so it can't possibly have duplicate keys.
+    # That's okay because our StrictLoader above will already raise an
+    # exception if it sees a duplicate key.
+    for image_name, image_spec in validated['volumes'].items():
+        schema = image_spec['schema']
+        bootloader = image_spec.get('bootloader')
+        bootloader_seen |= (bootloader is not None)
+        image_id = image_spec.get('id')
+        structures = []
+        for structure in image_spec['structure']:
+            name = structure.get('name')
+            offset = structure.get('offset')
+            offset_write = structure.get('offset-write')
+            size = structure['size']
+            structure_type = structure['type']
+            # Validate structure types.  These can be either GUIDs, two hex
+            # digits, hybrids, or the special 'mbr' type.  The basic syntactic
+            # validation happens above in the Voluptuous schema, but here we
+            # need to ensure cross-attribute constraints.  Specifically,
+            # hybrids and 'mbr' are allowed for either schema, but GUID-only
+            # is only allowed for GPT, while 2-digit-only is only allowed for
+            # MBR.  Note too that 2-item tuples are also already ensured.
+            if (isinstance(structure_type, UUID)
+                    and schema is not VolumeSchema.gpt):          # noqa: W503
+                raise ValueError('GUID structure type with non-GPT')
+            elif (isinstance(structure_type, str)
+                    and structure_type != 'mbr'                   # noqa: W503
+                    and schema is not VolumeSchema.mbr):          # noqa: W503
+                raise ValueError('MBR structure type with non-MBR')
+            structure_id = structure.get('id')
+            filesystem = structure['filesystem']
+            if (structure_type == 'mbr' and
+                    filesystem is not FileSystemType.none):
+                raise ValueError('mbr type must not specify a file system')
+            filesystem_label = structure.get('filesystem-label', name)
+            content = structure.get('content')
+            content_specs = []
+            content_spec_class = (
+                ContentSpecB if filesystem is FileSystemType.none
+                else ContentSpecA)
+            if content is not None:
+                for item in content:
+                    content_specs.append(content_spec_class.from_yaml(item))
+            structures.append(StructureSpec(
+                name, offset, offset_write, size,
+                structure_type, structure_id, filesystem, filesystem_label,
+                content_specs))
+        volume_specs[image_name] = VolumeSpec(
+            schema, bootloader, image_id, structures)
+    if not bootloader_seen:
+        raise ValueError('No bootloader volume named')
+    return GadgetSpec(device_tree_origin, device_tree, volume_specs)

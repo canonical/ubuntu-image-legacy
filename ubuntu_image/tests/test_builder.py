@@ -55,7 +55,6 @@ class TestModelAssertionBuilder(TestCase):
             '{boot}/EFI/boot/bootx64.efi',
             '{boot}/EFI/boot/grub.cfg',
             '{boot}/EFI/boot/grubx64.efi',
-            '{boot}/EFI/ubuntu/grub.cfg',
             '{boot}/EFI/ubuntu/grubenv',
             '{root}/system-data/boot/',
             ]
@@ -98,70 +97,6 @@ class TestModelAssertionBuilder(TestCase):
         self.assertEqual(
             len(files_unmatched), 0,
             'Unmatched files: {}'.format(COMMASPACE.join(files_unmatched)))
-
-    def test_make_disk_no_dos_partitions_yet(self):
-        args = SimpleNamespace(
-            channel='edge',
-            workdir=None,
-            model_assertion=self.model_assertion,
-            output=None,
-            )
-        with ExitStack() as resources:
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state.gadget = SimpleNamespace(scheme='MBR')
-            # Jump right to the state method we're trying to test.
-            state._next.pop()
-            state._next.append(state.make_disk)
-            # Be quiet.
-            resources.enter_context(patch('ubuntu_image.state.log.exception'))
-            cm = resources.enter_context(self.assertRaises(ValueError))
-            list(state)
-            self.assertEqual(str(cm.exception),
-                             'DOS partition tables not yet supported')
-
-    def test_no_partitions(self):
-        args = SimpleNamespace(
-            channel='edge',
-            workdir=None,
-            model_assertion=self.model_assertion,
-            output=None,
-            )
-        with ExitStack() as resources:
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            # Fake some state expected by the method under test.
-            state.unpackdir = resources.enter_context(TemporaryDirectory())
-            os.makedirs(os.path.join(state.unpackdir, 'image', 'boot', 'grub'))
-            state.bootfs = resources.enter_context(TemporaryDirectory())
-            state.gadget = SimpleNamespace(scheme='GPT')
-            state.gadget.partitions = []
-            # Jump right to the state method we're trying to test.
-            state._next.pop()
-            state._next.append(state.populate_bootfs_contents)
-            next(state)
-            # The only thing in the bootfs should be the EFI subdirectory.
-            self.assertEqual(os.listdir(state.bootfs), ['EFI'])
-
-    def test_no_esp_parts(self):
-        args = SimpleNamespace(
-            channel='edge',
-            workdir=None,
-            model_assertion=self.model_assertion,
-            output=None,
-            )
-        with ExitStack() as resources:
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            # Fake some state expected by the method under test.
-            state.unpackdir = resources.enter_context(TemporaryDirectory())
-            os.makedirs(os.path.join(state.unpackdir, 'image', 'boot', 'grub'))
-            state.bootfs = resources.enter_context(TemporaryDirectory())
-            state.gadget = SimpleNamespace(scheme='GPT')
-            state.gadget.partitions = [SimpleNamespace(role='raw')]
-            # Jump right to the state method we're trying to test.
-            state._next.pop()
-            state._next.append(state.populate_bootfs_contents)
-            next(state)
-            # The only thing in the bootfs should be the EFI subdirectory.
-            self.assertEqual(os.listdir(state.bootfs), ['EFI'])
 
     def test_snap_gets_called(self):
         # This exists for coverage under Travis-CI which normally won't run

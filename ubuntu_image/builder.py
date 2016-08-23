@@ -140,7 +140,7 @@ class ModelAssertionBuilder(State):
 
     def load_gadget_yaml(self):
         yaml_file = os.path.join(
-            self.unpackdir, 'gadget', 'meta', 'image.yaml')
+            self.unpackdir, 'gadget', 'meta', 'gadget.yaml')
         with open(yaml_file, 'r', encoding='utf-8') as fp:
             self.gadget = parse_yaml(fp)
         self._next.append(self.populate_rootfs_contents)
@@ -156,7 +156,7 @@ class ModelAssertionBuilder(State):
     def _calculate_dirsize(self, path):
         total = 0
         for dirpath, dirnames, filenames in os.walk(path):
-            for filename in filenames:
+            for filename in filenames:              # pragma: notravis
                 total += os.path.getsize(os.path.join(dirpath, filename))
         # Fudge factor for incidentals.
         total *= 1.5
@@ -169,7 +169,7 @@ class ModelAssertionBuilder(State):
         self.rootfs_size = self._calculate_dirsize(self.rootfs)
         self._next.append(self.populate_bootfs_contents)
 
-    def populate_bootfs_contents(self):
+    def populate_bootfs_contents(self):             # pragma: notravis
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
@@ -181,14 +181,19 @@ class ModelAssertionBuilder(State):
             src = os.path.join(boot, filename)
             dst = os.path.join(self.bootfs, 'EFI', 'ubuntu', filename)
             shutil.move(src, dst)
-        for part in self.gadget.partitions:
-            if part.role == 'ESP':
-                for src_filename, dst_filename in part.files:
-                    src = os.path.join(self.unpackdir, 'gadget', src_filename)
-                    dst = os.path.join(self.bootfs, dst_filename)
+        volumes = self.gadget.volumes.values()
+        assert len(volumes) == 1, 'For now, only one volume is allowed'
+        volume = list(volumes)[0]
+        # At least one structure is required.
+        for part in volume.structures:              # pragma: no branch
+            # XXX: Use fs label for the moment, until we get a proper way to
+            # identify the boot partition.
+            if part.filesystem_label == 'system-boot':
+                for file in part.content:
+                    src = os.path.join(self.unpackdir, 'gadget', file.source)
+                    dst = os.path.join(self.bootfs, file.target)
                     os.makedirs(os.path.dirname(dst), exist_ok=True)
                     shutil.copy(src, dst)
-                # XXX: there should only be one ESP
                 break
         self._next.append(self.calculate_bootfs_size)
 
@@ -226,8 +231,6 @@ class ModelAssertionBuilder(State):
         self._next.append(self.make_disk)
 
     def make_disk(self):
-        if self.gadget.scheme != 'GPT':
-            raise ValueError('DOS partition tables not yet supported')
         self.disk_img = os.path.join(self.images, 'disk.img')
         image = Image(self.disk_img, GiB(4))
         # Create BIOS boot partition
@@ -251,13 +254,16 @@ class ModelAssertionBuilder(State):
         # lowest permissible offset.  We should not have any overlapping
         # partitions, the parser should have already rejected such as invalid.
         #
-        # XXX: the parser should sort these partitions for us in disk order as
+        # XXX: The parser should sort these partitions for us in disk order as
         # part of checking for overlaps, so we should not need to sort them
         # here.
-        for part in sorted(self.gadget.partitions,   # pragma: notravis
+        volumes = self.gadget.volumes.values()
+        assert len(volumes) == 1, 'For now, only one volume is allowed'
+        volume = list(volumes)[0]
+        for part in sorted(volume.structures,               # pragma: notravis
                            key=attrgetter('offset')):
             size = part.size
-            if not part.offset:                      # pragma: notravis
+            if not part.offset:                             # pragma: notravis
                 part.offset = offset
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.  We
@@ -266,13 +272,14 @@ class ModelAssertionBuilder(State):
             partdef = '{}:{}M:+{}M'.format(
                 part_id, offset // MiB(1), size // MiB(1))
             image.partition(new=partdef)
-            image.partition(typecode='{}:{}'.format(
-                part_id, part.type_id))
-            if part.role == 'ESP':                   # pragma: notravis
-                # XXX: this should be part of the parser defaults.
-                image.partition(change_name='{}:system-boot'
-                                            .format(part_id))
-                # assume that the offset and size are always multiples of
+            image.partition(typecode='{}:{}'.format(part_id, part.type[1]))
+            if part.name is not None:
+                image.partition(
+                    change_name='{}:{}'.format(part_id, part.name))
+            # XXX: Use fs label for the moment, until we get a proper way to
+            # identify the boot partition.
+            if part.filesystem_label == 'system-boot':     # pragma: notravis
+                # Assume that the offset and size are always multiples of
                 # 1MiB.  (XXX: but this should be enforced elsewhere.)
                 image.copy_blob(self.boot_img,
                                 bs='1M', seek=offset // 1024 // 1024,

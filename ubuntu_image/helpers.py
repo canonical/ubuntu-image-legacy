@@ -56,7 +56,8 @@ def as_size(size):
     if isinstance(size, int):
         return size
     mo = re.match('(\d+)([a-zA-Z]*)', size)
-    assert mo is not None, 'Invalid size: {}'.format(size)
+    if mo is None:
+        raise ValueError(size)
     size_in_bytes = mo.group(1)
     return {
         '': straight_up_bytes,
@@ -111,4 +112,13 @@ def snap(model_assertion, root_dir, channel=None):   # pragma: notravis
         '' if channel is None else '--channel={}'.format(channel),
         model_assertion,
         root_dir)
-    run(cmd)
+    # This environment variable is a temporary workaround to prevent `snap
+    # prepare-image` from failing with an unverified signature on the
+    # model.assertion.  We obviously can't sign it with the real root keys,
+    # and there's no other way to inject testing data.
+    #
+    # $PATH is needed because without it `snap prepare-image` can't find
+    # /usr/bin/squashfs.  This is currently unexplained.
+    env = dict(UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL='1',
+               PATH='/usr/bin')
+    run(cmd, env=env)

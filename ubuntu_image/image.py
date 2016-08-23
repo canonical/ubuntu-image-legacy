@@ -111,11 +111,11 @@ class Image:
 
 
 def extract(snap_path):                             # pragma: nocover
-    """Extract the image.yml file from a path to a .snap.
+    """Extract the gadget.yml file from a path to a .snap.
 
     :param snap_path: File system path to a .snap.
     :type snap_path: str
-    :return: The dictionary represented by the meta/image.yaml file contained
+    :return: The dictionary represented by the meta/gadget.yaml file contained
         in the snap.
     :rtype: dict
     """
@@ -123,5 +123,5 @@ def extract(snap_path):                             # pragma: nocover
         gadget_dir = os.path.join(destination, 'gadget')
         run(['unsquashfs', '-d', gadget_dir, snap_path],
             stderr=PIPE, stdout=PIPE)
-        image_yaml = os.path.join(gadget_dir, 'meta', 'image.yaml')
-        return parse(image_yaml)
+        gadget_yaml = os.path.join(gadget_dir, 'meta', 'gadget.yaml')
+        return parse(gadget_yaml)

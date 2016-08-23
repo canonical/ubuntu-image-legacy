@@ -30,7 +30,7 @@ class TestImage(TestCase):
 
     def test_copy_blob_install_grub_to_mbr(self):
         # Install GRUB to MBR
-        # TODO: this has to be represented in the image.yaml
+        # TODO: this has to be represented in the gadget.yaml
         # NOTE: the boot.img has to be a part of the gadget snap itself
         # FIXME: embed a pointer to 2nd stage in bios-boot partition
         #
