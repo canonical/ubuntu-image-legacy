@@ -26,7 +26,8 @@ PROGRAM = 'ubuntu-image'
 
 def validate(gadget_yaml, debug):
     try:
-        parse(gadget_yaml)
+        with open(gadget_yaml, 'r', encoding='utf-8') as fp:
+            parse(fp)
     except ValueError:
         print(gadget_yaml, 'is not valid', file=sys.stderr)
         if debug:
