@@ -156,7 +156,7 @@ class ModelAssertionBuilder(State):
     def _calculate_dirsize(self, path):
         total = 0
         for dirpath, dirnames, filenames in os.walk(path):
-            for filename in filenames:
+            for filename in filenames:              # pragma: notravis
                 total += os.path.getsize(os.path.join(dirpath, filename))
         # Fudge factor for incidentals.
         total *= 1.5
@@ -169,7 +169,7 @@ class ModelAssertionBuilder(State):
         self.rootfs_size = self._calculate_dirsize(self.rootfs)
         self._next.append(self.populate_bootfs_contents)
 
-    def populate_bootfs_contents(self):
+    def populate_bootfs_contents(self):             # pragma: notravis
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
@@ -183,8 +183,9 @@ class ModelAssertionBuilder(State):
             shutil.move(src, dst)
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = volumes[0]
-        for part in volume.structures:
+        volume = list(volumes)[0]
+        # At least one structure is required.
+        for part in volume.structures:              # pragma: no branch
             # XXX: Use fs label for the moment, until we get a proper way to
             # identify the boot partition.
             if part.filesystem_label == 'system-boot':
@@ -258,7 +259,7 @@ class ModelAssertionBuilder(State):
         # here.
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = volumes[0]
+        volume = list(volumes)[0]
         for part in sorted(volume.structures,               # pragma: notravis
                            key=attrgetter('offset')):
             size = part.size

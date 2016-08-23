@@ -8,10 +8,31 @@ from io import StringIO
 from operator import methodcaller
 from ubuntu_image.helpers import as_size, transform
 from uuid import UUID
-from voluptuous import (
-    Any, Coerce, CoerceInvalid, Invalid, Match, Optional, Required, Schema)
+from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from yaml import load
+from yaml.loader import SafeLoader
 from yaml.parser import ParserError
+
+
+# By default PyYAML allows duplicate mapping keys, even though the YAML spec
+# prohibits this.  We can't validate this after parsing because PyYAML just
+# gives us a normal dictionary, which of course does not have duplicate keys.
+# We use the basic YAML SafeLoader but override the mapping constructor to
+# raise an exception if we see a key twice.
+
+class StrictLoader(SafeLoader):
+    def construct_mapping(self, node):
+        pairs = self.construct_pairs(node)
+        mapping = {}
+        for key, value in pairs:
+            if key in mapping:
+                raise ValueError('Duplicate key: {}'.format(key))
+            mapping[key] = value
+        return mapping
+
+
+StrictLoader.add_constructor(
+    'tag:yaml.org,2002:map', StrictLoader.construct_mapping)
 
 
 class BootLoader(Enum):
@@ -30,20 +51,17 @@ class FileSystemType(Enum):
     vfat = 'vfat'
 
 
-class Enumify(Coerce):
-    def __init__(self, type, msg=None, preprocessor=None):
-        super().__init__(type, msg)
+class Enumify:
+    def __init__(self, enum_class, msg=None, preprocessor=None):
+        self.enum_class = enum_class
         self.preprocessor = preprocessor
 
     def __call__(self, v):
-        try:
-            return self.type[
-                v if self.preprocessor is None
-                else self.preprocessor(v)
-                ]
-        except (ValueError, TypeError):
-            msg = self.msg or ('expected %s' % self.type_name)
-            raise CoerceInvalid(msg)
+        # Voluptuous will catch any exceptions.
+        return self.enum_class[
+            v if self.preprocessor is None
+            else self.preprocessor(v)
+            ]
 
 
 def Id(v):
@@ -57,8 +75,6 @@ def Id(v):
         if v >= 100 or v < 0:
             raise ValueError(str(v))
         v = '{:02d}'.format(v)
-    elif not isinstance(v, str):
-        raise ValueError
     try:
         return UUID(hex=v)
     except ValueError:
@@ -210,18 +226,19 @@ def parse(stream_or_string):
     # Do the basic schema validation steps.  There some interdependencies that
     # require post-validation.  E.g. you cannot define the fs-type if the role
     # is ESP.
-    if isinstance(stream_or_string, str):
-        yaml = load(StringIO(stream_or_string))
-    else:
-        yaml = load(stream_or_string)
+    stream = (StringIO(stream_or_string)
+              if isinstance(stream_or_string, str)
+              else stream_or_string)
+    yaml = load(stream, Loader=StrictLoader)
     validated = GadgetYAML(yaml)
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
     volume_specs = {}
     bootloader_seen = False
+    # This item is a dictionary so it can't possibly have duplicate keys.
+    # That's okay because our StrictLoader above will already raise an
+    # exception if it sees a duplicate key.
     for image_name, image_spec in validated['volumes'].items():
-        if image_name in volume_specs:
-            raise ValueError('Duplicate image name: {}'.format(image_name))
         schema = image_spec['schema']
         bootloader = image_spec.get('bootloader')
         bootloader_seen |= (bootloader is not None)
@@ -233,6 +250,20 @@ def parse(stream_or_string):
             offset_write = structure.get('offset-write')
             size = structure['size']
             structure_type = structure['type']
+            # Validate structure types.  These can be either GUIDs, two hex
+            # digits, hybrids, or the special 'mbr' type.  The basic syntactic
+            # validation happens above in the Voluptuous schema, but here we
+            # need to ensure cross-attribute constraints.  Specifically,
+            # hybrids and 'mbr' are allowed for either schema, but GUID-only
+            # is only allowed for GPT, while 2-digit-only is only allowed for
+            # MBR.  Note too that 2-item tuples are also already ensured.
+            if (isinstance(structure_type, UUID)
+                    and schema is not VolumeSchema.gpt):          # noqa: W503
+                raise ValueError('GUID structure type with non-GPT')
+            elif (isinstance(structure_type, str)
+                    and structure_type != 'mbr'                   # noqa: W503
+                    and schema is not VolumeSchema.mbr):          # noqa: W503
+                raise ValueError('MBR structure type with non-MBR')
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
             if (structure_type == 'mbr' and

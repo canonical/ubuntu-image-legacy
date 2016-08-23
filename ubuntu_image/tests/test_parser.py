@@ -14,7 +14,7 @@ volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
         self.assertEqual(gadget_spec.device_tree_origin, 'gadget')
@@ -30,7 +30,8 @@ volumes:
         self.assertIsNone(structure0.offset)
         self.assertIsNone(structure0.offset_write)
         self.assertEqual(structure0.size, MiB(400))
-        self.assertEqual(structure0.type, 'EF')
+        self.assertEqual(
+            structure0.type, UUID(hex='00000000-0000-0000-0000-0000deadbeef'))
         self.assertIsNone(structure0.id)
         self.assertEqual(structure0.filesystem, FileSystemType.none)
         self.assertIsNone(structure0.filesystem_label)
@@ -45,14 +46,14 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
         self.assertEqual(gadget_spec.device_tree_origin, 'kernel')
         self.assertEqual(gadget_spec.device_tree, 'dtree')
         self.assertEqual(gadget_spec.volumes.keys(), {'first-image'})
 
-    def test_mbr(self):
+    def test_mbr_schema(self):
         gadget_spec = parse("""\
 volumes:
   first-image:
@@ -82,11 +83,102 @@ volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.schema, VolumeSchema.gpt)
+
+    def test_implicit_gpt_with_two_digit_type(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+""")
+
+    def test_explicit_gpt_with_two_digit_type(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+""")
+
+    def test_mbr_with_guid_type(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+
+    def test_mbr_with_bogus_type(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: 801
+          size: 400M
+""")
+
+    def test_mbr_with_hybrid_type(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef,00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(volume0.schema, VolumeSchema.mbr)
+        partition0 = volume0.structures[0]
+        self.assertEqual(
+            partition0.type,
+            ('EF', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
+
+    def test_implicit_gpt_with_hybrid_type(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 80,00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        self.assertEqual(
+            partition0.type,
+            ('80', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
+
+    def test_explicit_gpt_with_hybrid_type(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 80,00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        self.assertEqual(
+            partition0.type,
+            ('80', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
 
     def test_grub(self):
         gadget_spec = parse("""\
@@ -95,7 +187,7 @@ volumes:
     schema: gpt
     bootloader: grub
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
         volume0 = gadget_spec.volumes['first-image']
@@ -108,7 +200,7 @@ volumes:
     schema: gpt
     bootloader: u-boat
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
 
@@ -118,7 +210,7 @@ volumes:
   first-image:
     schema: gpt
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
 
@@ -138,7 +230,7 @@ volumes:
     bootloader: u-boot
     id: 00000000-0000-0000-0000-0000deadbeef
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
         volume0 = gadget_spec.volumes['first-image']
@@ -152,7 +244,7 @@ volumes:
     bootloader: u-boot
     id: 80
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
         volume0 = gadget_spec.volumes['first-image']
@@ -166,7 +258,19 @@ volumes:
     bootloader: u-boot
     id: 3g
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+
+    def test_bad_integer_volume_id(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    id: 3g
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
 
@@ -184,7 +288,7 @@ volumes:
     bootloader: u-boot
     structure:
         - name: my volume
-          type: ef
+          type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
         volume0 = gadget_spec.volumes['first-image']
@@ -192,13 +296,34 @@ volumes:
         self.assertEqual(partition0.name, 'my volume')
         self.assertEqual(partition0.filesystem_label, 'my volume')
 
+    def test_duplicate_volume_name(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first:
+    bootloader: u-boot
+    structure:
+        - name: one
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+  second:
+    structure:
+        - name: two
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+  first:
+    structure:
+        - name: three
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+
     def test_volume_offset(self):
         gadget_spec = parse("""\
 volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           offset: 2112
 """)
@@ -212,7 +337,7 @@ volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           offset: 3M
 """)
@@ -227,7 +352,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           offset-write: 1G
 """)
@@ -242,13 +367,25 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           offset-write: some_label+2112
 """)
         volume0 = gadget_spec.volumes['first-image']
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.offset_write, ('some_label', 2112))
+
+    def test_volume_offset_write_relative_syntax_error(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: some_label%2112
+""")
 
     def test_volume_size(self):
         gadget_spec = parse("""\
@@ -257,7 +394,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 2112
 """)
         volume0 = gadget_spec.volumes['first-image']
@@ -271,7 +408,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 3M
 """)
         volume0 = gadget_spec.volumes['first-image']
@@ -284,23 +421,8 @@ volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
 """)
-
-    def test_hybrid_volume_type(self):
-        gadget_spec = parse("""\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: 80,00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-        volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structures[0]
-        self.assertEqual(
-            partition0.type,
-            ('80', UUID(hex='00000000-0000-0000-0000-0000deadbeef')))
 
     def test_mbr_structure(self):
         gadget_spec = parse("""\
@@ -385,7 +507,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           id: 00000000-0000-0000-0000-0000deadbeef
 """)
@@ -401,7 +523,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           id: ef
 """)
@@ -429,7 +551,7 @@ volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           id: 80,00000000-0000-0000-0000-0000deadbeef
 """)
@@ -441,7 +563,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: vfat
 """)
@@ -456,7 +578,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: ext4
 """)
@@ -471,7 +593,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: none
 """)
@@ -486,7 +608,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
         volume0 = gadget_spec.volumes['first-image']
@@ -497,10 +619,10 @@ volumes:
         self.assertRaises(ValueError, parse, """\
 volumes:
   first-image:
-    schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
           filesystem: zfs
 """)
 
@@ -511,7 +633,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: ext4
           content:
@@ -532,7 +654,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: none
           content:
@@ -554,7 +676,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           content:
           - image: foo.img
@@ -576,7 +698,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           content:
           - image: foo.img
@@ -598,7 +720,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           content:
           - image: foo.img
@@ -620,7 +742,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           content:
           - image: foo.img
@@ -642,7 +764,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           content:
           - image: foo.img
@@ -664,7 +786,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           content:
           - image: foo.img
@@ -686,7 +808,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           content:
           - image: foo.img
@@ -708,7 +830,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: none
           content:
@@ -723,7 +845,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: ext4
           content:
@@ -737,7 +859,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: ext4
           content:
@@ -753,7 +875,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: ext4
           content:
@@ -779,7 +901,7 @@ volumes:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           content:
           - image: foo1.img
@@ -826,18 +948,18 @@ volumes:
   first-image:
     schema: gpt
     structure:
-        - type: ef
+        - type: 00000000-0000-0000-0000-0000deadbeef
           size: 100
   second-image:
     schema: gpt
     structure:
-        - type: a0
+        - type: 00000000-0000-0000-0000-0000feedface
           size: 200
   third-image:
     schema: gpt
     bootloader: u-boot
     structure:
-        - type: b1
+        - type: 00000000-0000-0000-0000-0000deafbead
           size: 300
 """)
         self.assertEqual(len(gadget_spec.volumes), 3)
