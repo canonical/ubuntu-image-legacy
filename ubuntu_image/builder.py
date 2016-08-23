@@ -183,7 +183,7 @@ class ModelAssertionBuilder(State):
             shutil.move(src, dst)
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = volumes[0]
+        volume = list(volumes)[0]
         for part in volume.structures:
             # XXX: Use fs label for the moment, until we get a proper way to
             # identify the boot partition.
@@ -258,7 +258,7 @@ class ModelAssertionBuilder(State):
         # here.
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = volumes[0]
+        volume = list(volumes)[0]
         for part in sorted(volume.structures,               # pragma: notravis
                            key=attrgetter('offset')):
             size = part.size
