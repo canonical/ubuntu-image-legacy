@@ -9,8 +9,10 @@ import argparse
 from contextlib import suppress
 from pickle import dump, load
 from pkg_resources import resource_string as resource_bytes
+from traceback import print_exc
 from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.i18n import _
+from ubuntu_image.parser import parse
 
 
 _logger = logging.getLogger('ubuntu-image')
@@ -20,6 +22,18 @@ except FileNotFoundError:                           # pragma: nocover
     # Probably, setup.py hasn't been run yet to generate the version.txt.
     __version__ = 'dev'
 PROGRAM = 'ubuntu-image'
+
+
+def validate(gadget_yaml, debug):
+    try:
+        parse(gadget_yaml)
+    except ValueError:
+        print(gadget_yaml, 'is not valid', file=sys.stderr)
+        if debug:
+            print_exc()
+        return 1
+    print(gadget_yaml, 'is valid')
+    return 0
 
 
 def parseargs(argv=None):
@@ -51,6 +65,10 @@ def parseargs(argv=None):
                         help=_("""Continue the state machine from the
                         previously saved state.  It is an error if there is no
                         previous state."""))
+    parser.add_argument('-g', '--validate-gadget-yaml',
+                        default=False, metavar='YAMLFILE',
+                        help=_("""Validate a gadget.yaml file and exit.  If
+                        given, all other arguments are ignored."""))
     parser.add_argument('model_assertion', nargs='?',
                         help=_('Path to the model assertion'))
     group = parser.add_mutually_exclusive_group()
@@ -73,6 +91,9 @@ def parseargs(argv=None):
         logging.basicConfig(level=logging.DEBUG)
     # The model assertion argument is required unless --resume is given, in
     # which case it cannot be given.
+    if args.validate_gadget_yaml:
+        status = validate(args.validate_gadget_yaml, args.debug)
+        sys.exit(status)
     if args.resume and args.model_assertion:
         parser.error('model assertion is not allowed with --resume')
     if not args.resume and args.model_assertion is None:
