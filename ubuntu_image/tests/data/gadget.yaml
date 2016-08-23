@@ -13,4 +13,4 @@ volumes:
           - source: shim.efi.signed
             target: EFI/boot/bootx64.efi
           - source: grub.cfg
-            target: EFI/ubuntu/grub.cfg
+            target: EFI/boot/grub.cfg

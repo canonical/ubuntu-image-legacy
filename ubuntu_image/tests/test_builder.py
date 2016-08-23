@@ -55,7 +55,6 @@ class TestModelAssertionBuilder(TestCase):
             '{boot}/EFI/boot/bootx64.efi',
             '{boot}/EFI/boot/grub.cfg',
             '{boot}/EFI/boot/grubx64.efi',
-            '{boot}/EFI/ubuntu/grub.cfg',
             '{boot}/EFI/ubuntu/grubenv',
             '{root}/system-data/boot/',
             ]
