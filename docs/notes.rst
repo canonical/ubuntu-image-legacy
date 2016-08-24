@@ -6,8 +6,8 @@ $ ./ubuntu-image -w ../workdir -c edge -d -u load_gadget_yaml \
 
 $ pushd ..
 $ bzr branch lp:~vorlon/snappy-hub/snappy-systems
-$ rm -r workdir/unpack/
-$ cp -a snappy-systems/generic-amd64 workdir/unpack/
+$ rm -r workdir/unpack/gadget
+$ cp -a snappy-systems/generic-amd64 workdir/unpack/gadget
 
 $ popd
 $ ./ubuntu-image -w ../workdir -d --resume
