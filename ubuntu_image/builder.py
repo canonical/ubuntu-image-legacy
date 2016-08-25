@@ -238,10 +238,20 @@ class ModelAssertionBuilder(State):
                 part_img, part.size))
             if part.filesystem is FileSystemType.vfat:   # pragma: nobranch
                 run('mkfs.vfat {}'.format(part_img))
+            # XXX: Does not handle the case of partitions at the end of the
+            # image.
+            next_avail = part.offset + part.size
         # The image for the root partition.
+
+        # XXX: Hard-codes 4G image size.   Hard-codes last sector for backup
+        # GPT.
+        avail_space = (GiB(4) - next_avail - 4*1024) // MiB(1)
+        assert self.rootfs_size / MiB(1) < avail_space, \
+            'No room for root filesystem data'
+        self.rootfs_size = avail_space
         self.root_img = os.path.join(self.images, 'root.img')
-        run('dd if=/dev/zero of={} count=0 bs=1GB seek=2'.format(
-            self.root_img))
+        run('dd if=/dev/zero of={} count=0 bs={}M seek=1'.format(
+            self.root_img, avail_space))
         # We defer creating the root file system image because we have to
         # populate it at the same time.  See mkfs.ext4(8) for details.
         self._next.append(self.populate_filesystems)
@@ -317,14 +327,16 @@ class ModelAssertionBuilder(State):
                 image.partition(
                     change_name='{}:{}'.format(part_id, part.name))
             part_id += 1
+            next_offset = (part.offset + part.size) // MiB(1)
         # Create main snappy writable partition
-        # XXX: remove the fixed offset
-        image.partition(new='{}:72MiB:+3646MiB'.format(part_id))
+        image.partition(new='{}:{}M:+{}M'
+                            .format(part_id, next_offset, self.rootfs_size))
         image.partition(typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'
                                  .format(part_id))
         image.partition(change_name='{}:writable'.format(part_id))
         image.copy_blob(self.root_img,
-                        bs='1M', seek=72, count=3646, conv='notrunc')
+                        bs='1M', seek=next_offset, count=self.rootfs_size,
+                        conv='notrunc')
         self._next.append(self.finish)
 
     def finish(self):
