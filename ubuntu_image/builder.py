@@ -199,11 +199,12 @@ class ModelAssertionBuilder(State):
                     dst = os.path.join(target_dir, 'EFI', 'ubuntu', filename)
                     shutil.move(src, dst)
 
-            for file in part.content:
-                src = os.path.join(self.unpackdir, 'gadget', file.source)
-                dst = os.path.join(target_dir, file.target)
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                shutil.copy(src, dst)
+            if part.filesystem != FileSystemType.none:
+                for file in part.content:
+                    src = os.path.join(self.unpackdir, 'gadget', file.source)
+                    dst = os.path.join(target_dir, file.target)
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    shutil.copy(src, dst)
 
         self._next.append(self.calculate_bootfs_size)
 
