@@ -199,11 +199,11 @@ class ModelAssertionBuilder(State):
                     dst = os.path.join(target_dir, 'EFI', 'ubuntu', filename)
                     shutil.move(src, dst)
 
-                for file in part.content:
-                    src = os.path.join(self.unpackdir, 'gadget', file.source)
-                    dst = os.path.join(target_dir, file.target)
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    shutil.copy(src, dst)
+            for file in part.content:
+                src = os.path.join(self.unpackdir, 'gadget', file.source)
+                dst = os.path.join(target_dir, file.target)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy(src, dst)
             partnum += 1
 
         self._next.append(self.calculate_bootfs_size)
@@ -234,7 +234,6 @@ class ModelAssertionBuilder(State):
         volume = list(volumes)[0]
         partnum = 1
         for part in volume.structures:
-            part_dir = os.path.join(self.workdir, 'part%d' % partnum)
             part_img = os.path.join(self.images, 'part%d.img' % partnum)
             self.boot_images.append(part_img)
             partnum += 1
