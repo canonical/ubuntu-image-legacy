@@ -10,7 +10,7 @@ from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, MiB, run, snap
 from ubuntu_image.image import Image
-from ubuntu_image.parser import parse as parse_yaml, FileSystemType
+from ubuntu_image.parser import FileSystemType, parse as parse_yaml
 from ubuntu_image.state import State
 
 
