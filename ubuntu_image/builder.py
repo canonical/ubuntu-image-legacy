@@ -302,7 +302,6 @@ class ModelAssertionBuilder(State):
         volume = list(volumes)[0]
         for part in sorted(volume.structures,               # pragma: notravis
                            key=attrgetter('offset')):
-            size = part.size
             image.copy_blob(self.boot_images[i],
                             bs='1M', seek=part.offset // 1024 // 1024,
                             count=part.size // 1024 // 1024,
@@ -313,7 +312,7 @@ class ModelAssertionBuilder(State):
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
             partdef = '{}:{}M:+{}M'.format(
-                part_id, part.offset // MiB(1), size // MiB(1))
+                part_id, part.offset // MiB(1), part.size // MiB(1))
             image.partition(new=partdef)
             image.partition(typecode='{}:{}'.format(part_id, part.type[1]))
             if part.name is not None:
