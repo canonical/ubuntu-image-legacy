@@ -29,7 +29,7 @@ def mount(img):
         yield mountpoint
 
 
-def _mkfs_ext4(img_file, contents_dir):
+def _mkfs_ext4(img_file, contents_dir, label='writable'):
     """Encapsulate the `mkfs.ext4` invocation.
 
     As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
@@ -39,13 +39,13 @@ def _mkfs_ext4(img_file, contents_dir):
     that case, we have to sudo loop mount the ext4 file system and
     populate it that way.  Which sucks because sudo.
     """
-    cmd = 'mkfs.ext4 -L writable -O -metadata_csum {} -d {}'.format(
-        img_file, contents_dir)
+    cmd = 'mkfs.ext4 -L {} -O -metadata_csum {} -d {}'.format(
+        label, img_file, contents_dir)
     proc = run(cmd, check=False)
     if proc.returncode == 0:                           # pragma: notravis
         # We have a new enough e2fsprogs, so we're done.
         return
-    run('mkfs.ext4 -L writable {}'.format(img_file))   # pragma: notravis
+    run('mkfs.ext4 -L {} {}'.format(label, img_file))  # pragma: notravis
     with mount(img_file) as mountpoint:                # pragma: notravis
         # fixme: everything is terrible.
         run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
@@ -274,7 +274,7 @@ class ModelAssertionBuilder(State):
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=dict(MTOOLS_SKIP_CHECK='1'))
             elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
-                _mkfs_ext4(self.part_img, part_dir)
+                _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
         _mkfs_ext4(self.root_img, self.rootfs)
