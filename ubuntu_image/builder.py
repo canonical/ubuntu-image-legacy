@@ -249,12 +249,11 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
-        partnum = 1
-        self.bootfs_sizes = {}
+        partnum = 0
         for part in volume.structures:
-            part_dir = os.path.join(self.workdir, 'part%d' % partnum)
             part_img = self.boot_images[partnum]
             partnum += 1
+            part_dir = os.path.join(self.workdir, 'part%d' % partnum)
             if part.filesystem == FileSystemType.none:
                 # XXX: we need to handle raw partitions here
                 continue
