@@ -267,7 +267,7 @@ def parse(stream_or_string):
                 raise ValueError('MBR structure type with non-MBR')
             # XXX: ensure the special case of the 'mbr' type doesn't extend
             # beyond the confines of the mbr
-            if not offset and structure_type != 'mbr' and last_offset == 0:
+            if not offset and structure_type != 'mbr' and last_offset < MiB(1):
                 offset = MiB(1)
             if not offset:
                 offset = last_offset
