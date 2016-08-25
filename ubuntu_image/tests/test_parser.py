@@ -27,7 +27,7 @@ volumes:
         self.assertEqual(len(volume0.structures), 1)
         structure0 = volume0.structures[0]
         self.assertIsNone(structure0.name)
-        self.assertIsNone(structure0.offset)
+        self.assertEqual(structure0.offset, MiB(1))
         self.assertIsNone(structure0.offset_write)
         self.assertEqual(structure0.size, MiB(400))
         self.assertEqual(

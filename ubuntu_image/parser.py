@@ -6,7 +6,7 @@ import attr
 from enum import Enum
 from io import StringIO
 from operator import methodcaller
-from ubuntu_image.helpers import as_size, transform
+from ubuntu_image.helpers import MiB, as_size, transform
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from yaml import load
@@ -244,6 +244,7 @@ def parse(stream_or_string):
         bootloader_seen |= (bootloader is not None)
         image_id = image_spec.get('id')
         structures = []
+        last_offset = 0
         for structure in image_spec['structure']:
             name = structure.get('name')
             offset = structure.get('offset')
@@ -264,6 +265,14 @@ def parse(stream_or_string):
                     and structure_type != 'mbr'                   # noqa: W503
                     and schema is not VolumeSchema.mbr):          # noqa: W503
                 raise ValueError('MBR structure type with non-MBR')
+            # XXX: Ensure the special case of the 'mbr' type doesn't extend
+            # beyond the confines of the mbr.
+            if not offset and structure_type != 'mbr' and last_offset < MiB(1):
+                offset = MiB(1)
+            if not offset:
+                offset = last_offset
+            last_offset = offset + size
+            # Extract the rest of the structure data.
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
             if (structure_type == 'mbr' and
