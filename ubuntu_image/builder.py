@@ -10,7 +10,7 @@ from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, MiB, run, snap
 from ubuntu_image.image import Image
-from ubuntu_image.parser import parse as FileSystemType, parse_yaml
+from ubuntu_image.parser import parse as parse_yaml, FileSystemType
 from ubuntu_image.state import State
 
 
@@ -198,8 +198,7 @@ class ModelAssertionBuilder(State):
                     src = os.path.join(boot, filename)
                     dst = os.path.join(target_dir, 'EFI', 'ubuntu', filename)
                     shutil.move(src, dst)
-
-            if part.filesystem != FileSystemType.none:
+            if part.filesystem is not FileSystemType.none:
                 for file in part.content:
                     src = os.path.join(self.unpackdir, 'gadget', file.source)
                     dst = os.path.join(target_dir, file.target)
@@ -218,7 +217,7 @@ class ModelAssertionBuilder(State):
             partnum = 'part{}'.format(i)
             target_dir = os.path.join(self.workdir, partnum)
             if part.filesystem is FileSystemType.none:
-                continue
+                continue                            # pragma: nocover
             self.bootfs_sizes[partnum] = self._calculate_dirsize(target_dir)
         self._next.append(self.prepare_filesystems)
 
@@ -235,7 +234,7 @@ class ModelAssertionBuilder(State):
             self.boot_images.append(part_img)
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                 part_img, part.size))
-            if part.filesystem == FileSystemType.vfat:
+            if part.filesystem is FileSystemType.vfat:   # pragma: nobranch
                 run('mkfs.vfat {}'.format(part_img))
         # The image for the root partition.
         self.root_img = os.path.join(self.images, 'root.img')
@@ -252,19 +251,18 @@ class ModelAssertionBuilder(State):
         for partnum, part in enumerate(volume.structures):
             part_img = self.boot_images[partnum]
             part_dir = os.path.join(self.workdir, 'part%d' % partnum)
-            if part.filesystem == FileSystemType.none:
-                # XXX: we need to handle raw partitions here
-                continue
-            elif part.filesystem == FileSystemType.vfat:
+            if part.filesystem is FileSystemType.none:
+                # XXX: We need to handle raw partitions here.
+                continue                                    # pragma: nocover
+            elif part.filesystem is FileSystemType.vfat:    # pragma: nobranch
                 sourcefiles = SPACE.join(
                     os.path.join(part_dir, filename)
                     for filename in os.listdir(part_dir)
                     )
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=dict(MTOOLS_SKIP_CHECK='1'))
-            elif part.filesystem == FileSystemType.ext4:
+            elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
                 _mkfs_ext4(self.part_img, part_dir)
-
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
         _mkfs_ext4(self.root_img, self.rootfs)
@@ -308,14 +306,14 @@ class ModelAssertionBuilder(State):
                             conv='notrunc')
             i += 1
             if part.type == 'mbr':
-                continue
+                continue                            # pragma: nocover
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
             partdef = '{}:{}M:+{}M'.format(
                 part_id, part.offset // MiB(1), part.size // MiB(1))
             image.partition(new=partdef)
             image.partition(typecode='{}:{}'.format(part_id, part.type[1]))
-            if part.name is not None:
+            if part.name is not None:               # pragma: nobranch
                 image.partition(
                     change_name='{}:{}'.format(part_id, part.name))
             part_id += 1
