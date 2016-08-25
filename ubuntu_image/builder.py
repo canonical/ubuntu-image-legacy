@@ -174,7 +174,7 @@ class ModelAssertionBuilder(State):
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             os.makedirs(target_dir, exist_ok=True)
-        self._next.append(self.populate_rootfs_contents)
+        self._next.append(self.populate_bootfs_contents)
 
     def populate_bootfs_contents(self):             # pragma: notravis
         # The unpack directory has a boot/ directory inside it.  The contents
@@ -204,7 +204,6 @@ class ModelAssertionBuilder(State):
                 dst = os.path.join(target_dir, file.target)
                 os.makedirs(os.path.dirname(dst), exist_ok=True)
                 shutil.copy(src, dst)
-            partnum += 1
 
         self._next.append(self.calculate_bootfs_size)
 
@@ -212,15 +211,13 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
-        partnum = 1
         self.bootfs_sizes = {}
         # At least one structure is required.
-        for part in volume.structures:
-            target_dir = os.path.join(self.workdir, 'part%d' % partnum)
-            partnum += 1
+        for partnum, part in enumerate(volume.structures):
+            target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             if part.filesystem == FileSystemType.none:
                 continue
-            self.bootfs_sizes['part%d' % partnum] = \
+            self.bootfs_sizes['part{}'.format(partnum)] = \
                 self._calculate_dirsize(target_dir)
         self._next.append(self.prepare_filesystems)
 
@@ -232,11 +229,9 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
-        partnum = 1
-        for part in volume.structures:
+        for partnum, part in enumerate(volume.structures):
             part_img = os.path.join(self.images, 'part%d.img' % partnum)
             self.boot_images.append(part_img)
-            partnum += 1
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                 part_img, part.size))
             if part.filesystem == FileSystemType.vfat:
@@ -253,10 +248,8 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
-        partnum = 0
-        for part in volume.structures:
+        for partnum, part in enumerate(volume.structures):
             part_img = self.boot_images[partnum]
-            partnum += 1
             part_dir = os.path.join(self.workdir, 'part%d' % partnum)
             if part.filesystem == FileSystemType.none:
                 # XXX: we need to handle raw partitions here
