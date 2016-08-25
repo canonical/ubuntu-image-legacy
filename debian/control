@@ -5,7 +5,7 @@ Maintainer: Barry Warsaw <barry@ubuntu.com>
 Build-Depends: debhelper (>= 9),
                dh-python,
                dosfstools,
-               e2fsprogs (>= 1.43),
+               e2fsprogs (>= 1.43~),
                gdisk,
                help2man,
                mtools,
