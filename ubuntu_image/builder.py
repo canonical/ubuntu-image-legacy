@@ -291,7 +291,7 @@ class ModelAssertionBuilder(State):
         # Create EFI system partition
         #
         part_id = 1
-        offset = MiB(4)
+        i = 0
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
         # partitions, the parser should have already rejected such as invalid.
@@ -305,29 +305,24 @@ class ModelAssertionBuilder(State):
         for part in sorted(volume.structures,               # pragma: notravis
                            key=attrgetter('offset')):
             size = part.size
-            if not part.offset:                             # pragma: notravis
-                part.offset = offset
+            image.copy_blob(self.boot_images[i],
+                            bs='1M', seek=part.offset // 1024 // 1024,
+                            count=part.size // 1024 // 1024,
+                            conv='notrunc')
+            i += 1
+            if part.type == 'mbr':
+                continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.  We
             # should actually prefer multiples of 4MiB for optimal
             # performance on modern disks.
             partdef = '{}:{}M:+{}M'.format(
-                part_id, offset // MiB(1), size // MiB(1))
+                part_id, part.offset // MiB(1), size // MiB(1))
             image.partition(new=partdef)
             image.partition(typecode='{}:{}'.format(part_id, part.type[1]))
             if part.name is not None:
                 image.partition(
                     change_name='{}:{}'.format(part_id, part.name))
-            # XXX: Use fs label for the moment, until we get a proper way to
-            # identify the boot partition.
-            if part.filesystem_label == 'system-boot':     # pragma: notravis
-                # Assume that the offset and size are always multiples of
-                # 1MiB.  (XXX: but this should be enforced elsewhere.)
-                image.copy_blob(self.boot_img,
-                                bs='1M', seek=offset // 1024 // 1024,
-                                count=part.size // 1024 // 1024,
-                                conv='notrunc')
-            offset = part.offset + size
             part_id += 1
         # Create main snappy writable partition
         # XXX: remove the fixed offset
