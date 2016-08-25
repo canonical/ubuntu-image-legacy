@@ -243,9 +243,9 @@ class ModelAssertionBuilder(State):
             next_avail = part.offset + part.size
         # The image for the root partition.
 
-        # XXX: Hard-codes 4G image size.   Hard-codes last sector for backup
+        # XXX: Hard-codes 4GB image size.   Hard-codes last sector for backup
         # GPT.
-        avail_space = (GiB(4) - next_avail - 4*1024) // MiB(1)
+        avail_space = (4000000000 - next_avail - 4*1024) // MiB(1)
         assert self.rootfs_size / MiB(1) < avail_space, \
             'No room for root filesystem data'
         self.rootfs_size = avail_space
@@ -282,7 +282,7 @@ class ModelAssertionBuilder(State):
 
     def make_disk(self):
         self.disk_img = os.path.join(self.images, 'disk.img')
-        image = Image(self.disk_img, GiB(4))
+        image = Image(self.disk_img, 4000000000)
 
         part_id = 1
         # Walk through all partitions and write them to the disk image at the
