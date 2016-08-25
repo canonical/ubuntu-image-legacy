@@ -283,21 +283,7 @@ class ModelAssertionBuilder(State):
     def make_disk(self):
         self.disk_img = os.path.join(self.images, 'disk.img')
         image = Image(self.disk_img, GiB(4))
-        # Create BIOS boot partition
-        #
-        # The partition is 1MiB in size, as recommended by various
-        # partitioning guides.  The actual required size is much, much
-        # smaller.
-        #
-        # https://www.gnu.org/software/grub/manual/html_node/BIOS-installation.html#BIOS-installation
-        # image.partition(new='1:4MiB:+1MiB')
-        # image.partition(typecode='1:21686148-6449-6E6F-744E-656564454649')
-        # image.partition(change_name='1:grub')
-        # image.copy_blob(self.boot_img,
-        #                 bs='1MiB', seek=4, count=1, conv='notrunc')
-        #
-        # Create EFI system partition
-        #
+
         part_id = 1
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
