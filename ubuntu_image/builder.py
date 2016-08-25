@@ -165,21 +165,26 @@ class ModelAssertionBuilder(State):
         # to reproduce du(1) close enough without having to call out to it and
         # parse its output.
         self.rootfs_size = self._calculate_dirsize(self.rootfs)
-        self._next.append(self.populate_bootfs_contents)
+        self._next.append(self.pre_populate_bootfs_contents)
+
+    def pre_populate_bootfs_contents(self):
+        volumes = self.gadget.volumes.values()
+        assert len(volumes) == 1, 'For now, only one volume is allowed'
+        volume = list(volumes)[0]
+        for partnum, part in enumerate(volume.structures):
+            target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
+            os.makedirs(target_dir, exist_ok=True)
+        self._next.append(self.populate_rootfs_contents)
 
     def populate_bootfs_contents(self):             # pragma: notravis
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
         boot = os.path.join(self.unpackdir, 'image', 'boot', 'grub')
-        volumes = self.gadget.volumes.values()
-        assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = list(volumes)[0]
-        partnum = 1
         # At least one structure is required.
-        for part in volume.structures:              # pragma: no branch
-            target_dir = os.path.join(self.workdir, 'part%d' % partnum)
-            os.makedirs(target_dir)
+        volume = list(self.gadget.volumes.values())[0]
+        for partnum, part in enumerate(volume.structures):  # pragma: no branch
+            target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             # XXX: Use fs label for the moment, until we get a proper way to
             # identify the boot partition.
             if part.filesystem_label == 'system-boot':
