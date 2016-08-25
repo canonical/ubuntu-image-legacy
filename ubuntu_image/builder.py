@@ -183,20 +183,20 @@ class ModelAssertionBuilder(State):
         boot = os.path.join(self.unpackdir, 'image', 'boot', 'grub')
         # At least one structure is required.
         volume = list(self.gadget.volumes.values())[0]
-        for partnum, part in enumerate(volume.structures):  # pragma: no branch
+        for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             # XXX: Use fs label for the moment, until we get a proper way to
             # identify the boot partition.
             if part.filesystem_label == 'system-boot':
-                # XXX: bad special-casing.  `snap prepare-image` currently
+                # XXX: Bad special-casing.  `snap prepare-image` currently
                 # installs to /boot/grub, but we need to map this to
                 # /EFI/ubuntu.
                 self.bootfs = target_dir
-                os.makedirs(os.path.join(target_dir, 'EFI', 'ubuntu'),
-                            exist_ok=True)
+                ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
+                os.makedirs(ubuntu, exist_ok=True)
                 for filename in os.listdir(boot):
                     src = os.path.join(boot, filename)
-                    dst = os.path.join(target_dir, 'EFI', 'ubuntu', filename)
+                    dst = os.path.join(ubuntu, filename)
                     shutil.move(src, dst)
             if part.filesystem is not FileSystemType.none:
                 for file in part.content:
@@ -230,7 +230,7 @@ class ModelAssertionBuilder(State):
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
         for partnum, part in enumerate(volume.structures):
-            part_img = os.path.join(self.images, 'part%d.img' % partnum)
+            part_img = os.path.join(self.images, 'part{}.img'.format(partnum))
             self.boot_images.append(part_img)
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                 part_img, part.size))
@@ -250,7 +250,7 @@ class ModelAssertionBuilder(State):
         volume = list(volumes)[0]
         for partnum, part in enumerate(volume.structures):
             part_img = self.boot_images[partnum]
-            part_dir = os.path.join(self.workdir, 'part%d' % partnum)
+            part_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             if part.filesystem is FileSystemType.none:
                 # XXX: We need to handle raw partitions here.
                 continue                                    # pragma: nocover
@@ -287,7 +287,6 @@ class ModelAssertionBuilder(State):
         # Create EFI system partition
         #
         part_id = 1
-        i = 0
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
         # partitions, the parser should have already rejected such as invalid.
@@ -298,13 +297,12 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
-        for part in sorted(volume.structures,               # pragma: notravis
-                           key=attrgetter('offset')):
+        structures = sorted(volume.structures, key=attrgetter('offset'))
+        for i, part in enumerate(structures):
             image.copy_blob(self.boot_images[i],
-                            bs='1M', seek=part.offset // 1024 // 1024,
-                            count=part.size // 1024 // 1024,
+                            bs='1M', seek=part.offset // MiB(1),
+                            count=part.size // MiB(1),
                             conv='notrunc')
-            i += 1
             if part.type == 'mbr':
                 continue                            # pragma: nocover
             # sgdisk takes either a sector or a KiB/MiB argument; assume

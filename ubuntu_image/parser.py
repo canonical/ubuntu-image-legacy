@@ -265,14 +265,14 @@ def parse(stream_or_string):
                     and structure_type != 'mbr'                   # noqa: W503
                     and schema is not VolumeSchema.mbr):          # noqa: W503
                 raise ValueError('MBR structure type with non-MBR')
-            # XXX: ensure the special case of the 'mbr' type doesn't extend
-            # beyond the confines of the mbr
+            # XXX: Ensure the special case of the 'mbr' type doesn't extend
+            # beyond the confines of the mbr.
             if not offset and structure_type != 'mbr' and last_offset < MiB(1):
                 offset = MiB(1)
             if not offset:
                 offset = last_offset
             last_offset = offset + size
-
+            # Extract the rest of the structure data.
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
             if (structure_type == 'mbr' and
