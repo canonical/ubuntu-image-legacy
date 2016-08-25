@@ -190,7 +190,9 @@ class ModelAssertionBuilder(State):
             if part.filesystem_label == 'system-boot':
                 # XXX: Bad special-casing.  `snap prepare-image` currently
                 # installs to /boot/grub, but we need to map this to
-                # /EFI/ubuntu.
+                # /EFI/ubuntu.  This is because we are using a SecureBoot
+                # signed bootloader image which has this path embedded, so we
+                # need to install our files to there.
                 self.bootfs = target_dir
                 ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
                 os.makedirs(ubuntu, exist_ok=True)
