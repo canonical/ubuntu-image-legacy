@@ -10,7 +10,7 @@ from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, MiB, run, snap
 from ubuntu_image.image import Image
-from ubuntu_image.parser import parse as parse_yaml, FileSystemType
+from ubuntu_image.parser import parse as FileSystemType, parse_yaml
 from ubuntu_image.state import State
 
 
@@ -214,12 +214,12 @@ class ModelAssertionBuilder(State):
         volume = list(volumes)[0]
         self.bootfs_sizes = {}
         # At least one structure is required.
-        for partnum, part in enumerate(volume.structures):
-            target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            if part.filesystem == FileSystemType.none:
+        for i, part in enumerate(volume.structures):
+            partnum = 'part{}'.format(i)
+            target_dir = os.path.join(self.workdir, partnum)
+            if part.filesystem is FileSystemType.none:
                 continue
-            self.bootfs_sizes['part{}'.format(partnum)] = \
-                self._calculate_dirsize(target_dir)
+            self.bootfs_sizes[partnum] = self._calculate_dirsize(target_dir)
         self._next.append(self.prepare_filesystems)
 
     def prepare_filesystems(self):
