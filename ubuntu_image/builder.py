@@ -310,9 +310,7 @@ class ModelAssertionBuilder(State):
             if part.type == 'mbr':
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
-            # that the offset and size are always multiples of 1MiB.  We
-            # should actually prefer multiples of 4MiB for optimal
-            # performance on modern disks.
+            # that the offset and size are always multiples of 1MiB.
             partdef = '{}:{}M:+{}M'.format(
                 part_id, part.offset // MiB(1), size // MiB(1))
             image.partition(new=partdef)
