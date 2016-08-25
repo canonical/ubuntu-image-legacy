@@ -1,5 +1,5 @@
-ubuntu-image (0.1) UNRELEASED; urgency=medium
+ubuntu-image (0.1ubuntu1) yakkety; urgency=medium
 
-  * Initial release. (Closes: #XXXXXX)
+  * Initial release.
 
- -- Zygmunt Krynicki <zygmunt.krynicki@canonical.com>  Tue, 17 May 2016 23:12:58 +0200
+ -- Barry Warsaw <barry@ubuntu.com>  Thu, 25 Aug 2016 17:11:25 -0400

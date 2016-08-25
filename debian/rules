@@ -1,11 +1,31 @@
 #!/usr/bin/make -f
+
 export PYBUILD_NAME=ubuntu-image
+#export PYBUILD_VERBOSE=1
+#export DH_VERBOSE=1
+
+export pkgversion=$(shell dpkg-parsechangelog --show-field version)
+
 
 %:
 	dh $@ --with=python3 --buildsystem=pybuild
 
-# Override dh_install to ensure that /usr/bin/ubuntu-image is in the dedicated package 
+# Override dh_install to ensure that /usr/bin/ubuntu-image is in the dedicated
+# package.
 override_dh_install:
 	dh_install
 	mkdir -p debian/ubuntu-image/usr/bin
-	mv debian/python3-ubuntu-image/usr/bin/ubuntu-image debian/ubuntu-image/usr/bin/
+	mv debian/python3-ubuntu-image/usr/bin/ubuntu-image \
+	   debian/ubuntu-image/usr/bin/
+
+override_dh_installman:
+	PYTHONPATH=$(CURDIR) help2man -n ubuntu-image -s 1 \
+		-o debian/ubuntu-image.1 \
+		--version-string=$(pkgversion) \
+		--no-discard-stderr --no-info \
+		debian/ubuntu-image/usr/bin/ubuntu-image
+	dh_installman
+
+override_dh_auto_clean:
+	rm -f debian/ubuntu-image.1
+	dh_auto_clean

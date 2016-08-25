@@ -5,8 +5,9 @@ Maintainer: Barry Warsaw <barry@ubuntu.com>
 Build-Depends: debhelper (>= 9),
                dh-python,
                dosfstools,
-               e2fsprogs,
+               e2fsprogs (>= 1.43),
                gdisk,
+               help2man,
                mtools,
                python3-all,
                python3-attr,
@@ -19,8 +20,7 @@ Build-Depends: debhelper (>= 9),
                python3-voluptuous,
                python3-yaml,
                snapd (>= 2.0.11~ppa0),
-               sudo,
-               tox
+               tox,
 Standards-Version: 3.9.8
 Homepage: http://launchpad.net/ubuntu-image
 
@@ -28,11 +28,10 @@ Package: ubuntu-image
 Architecture: all
 Depends: python3-ubuntu-image(= ${binary:Version}),
          ${misc:Depends},
-         ${python3:Depends}
+         ${python3:Depends},
 Description: toolkit for building Ubuntu images.
- TBD
  .
- This package contains the ubuntu-image executable
+ This package contains the ubuntu-image program.
 
 Package: python3-ubuntu-image
 Architecture: all
@@ -40,10 +39,15 @@ Section: python
 Depends: dosfstools,
          e2fsprogs (>= 1.43~),
          mtools,
+         python3-attr,
+         python3-pkg-resources,
+         python3-setuptools,
+         python3-voluptuous,
+         python3-yaml,
+         snapd,
          snapd (>= 2.0.11~ppa0),
          ${misc:Depends},
-         ${python3:Depends}
-Description: toolkit for building Ubuntu images (python3 module)
- TBD
+         ${python3:Depends},
+Description: toolkit for building Ubuntu images
  .
- This package contains the ubuntu-image python3 library.
+ This package contains the ubuntu-image library for Python 3.
