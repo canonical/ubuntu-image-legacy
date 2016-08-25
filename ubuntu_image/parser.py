@@ -6,7 +6,7 @@ import attr
 from enum import Enum
 from io import StringIO
 from operator import methodcaller
-from ubuntu_image.helpers import as_size, transform, MiB
+from ubuntu_image.helpers import MiB, as_size, transform
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from yaml import load
