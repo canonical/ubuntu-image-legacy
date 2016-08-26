@@ -6,6 +6,7 @@ import shutil
 import logging
 
 from contextlib import ExitStack, contextmanager
+from math import ceil
 from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, run, snap
@@ -314,7 +315,7 @@ class ModelAssertionBuilder(State):
         for i, part in enumerate(structures):
             image.copy_blob(self.boot_images[i],
                             bs='1M', seek=part.offset // MiB(1),
-                            count=part.size // MiB(1),
+                            count=ceil(part.size / MiB(1)),
                             conv='notrunc')
             if part.type == 'mbr':
                 continue                            # pragma: nocover
