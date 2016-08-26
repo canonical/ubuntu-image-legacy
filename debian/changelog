@@ -1,3 +1,9 @@
+ubuntu-image (0.2ubuntu1) yakkety; urgency=medium
+
+  * Some additional fixes needed for RTM.
+
+ -- Barry Warsaw <barry@ubuntu.com>  Fri, 26 Aug 2016 10:35:03 -0400
+
 ubuntu-image (0.1ubuntu1) yakkety; urgency=medium
 
   * Initial release.
