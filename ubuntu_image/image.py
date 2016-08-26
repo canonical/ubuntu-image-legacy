@@ -109,6 +109,20 @@ class Image:
         # - log stderr
         return status.stdout
 
+    def write_value_at_offset(self, value, offset):
+        """Write the given value to the specified absolute offset.
+
+        The value is interpreted as a 32-bit integer, and is written out
+        in little-endian format.
+
+        :param value: A value to be written to disk; max 32-bits in size.
+        :type value: int
+        :param offset: The offset in bytes into the image where the value
+            should be written.
+        :type size: int
+        """
+        pass
+
 
 def extract(snap_path):                             # pragma: nocover
     """Extract the gadget.yml file from a path to a .snap.
