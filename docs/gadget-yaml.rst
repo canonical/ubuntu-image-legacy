@@ -114,7 +114,9 @@ offset
 offset-write
     (*optional*) Location in which the offset of this structure is written
     into.  It may be specified relative to another structure item with the
-    syntax ``label+1234``.
+    syntax ``label+1234``.  The offset is written out in LBA48 pointer
+    format, i.e. a 32-bit little-endian value containing the index of the
+    disk sector.
 
 size
     (*required*) Size of the structure.
@@ -178,7 +180,11 @@ content
     ``offset-write``
         (*optional*) Optional location into which the offset of this content
         entry is to be written.  It may be specified relative to another
-        structure item with the syntax ``label+1234``.
+        structure item with the syntax ``label+1234``.  The offset is written
+        out in LBA48 pointer format, i.e. a 32-bit little-endian value
+        containing the index of the disk sector.  It is therefore unsupported
+        to use offset-write on any content element whose offset is not an even
+        multiple of the sector size.
     ``size``
         (*optional*) Size of the content bits.  If not specified, defaults to
         the total length of the contained data.
