@@ -6,9 +6,10 @@ import shutil
 import logging
 
 from contextlib import ExitStack, contextmanager
+from math import ceil
 from operator import attrgetter
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB, MiB, run, snap
+from ubuntu_image.helpers import MiB, run, snap
 from ubuntu_image.image import Image
 from ubuntu_image.parser import FileSystemType, parse as parse_yaml
 from ubuntu_image.state import State
@@ -29,7 +30,7 @@ def mount(img):
         yield mountpoint
 
 
-def _mkfs_ext4(img_file, contents_dir):
+def _mkfs_ext4(img_file, contents_dir, label='writable'):
     """Encapsulate the `mkfs.ext4` invocation.
 
     As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
@@ -39,13 +40,13 @@ def _mkfs_ext4(img_file, contents_dir):
     that case, we have to sudo loop mount the ext4 file system and
     populate it that way.  Which sucks because sudo.
     """
-    cmd = 'mkfs.ext4 -L writable -O -metadata_csum {} -d {}'.format(
-        img_file, contents_dir)
+    cmd = 'mkfs.ext4 -L {} -O -metadata_csum {} -d {}'.format(
+        label, img_file, contents_dir)
     proc = run(cmd, check=False)
     if proc.returncode == 0:                           # pragma: notravis
         # We have a new enough e2fsprogs, so we're done.
         return
-    run('mkfs.ext4 -L writable {}'.format(img_file))   # pragma: notravis
+    run('mkfs.ext4 -L {} {}'.format(label, img_file))  # pragma: notravis
     with mount(img_file) as mountpoint:                # pragma: notravis
         # fixme: everything is terrible.
         run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
@@ -190,7 +191,9 @@ class ModelAssertionBuilder(State):
             if part.filesystem_label == 'system-boot':
                 # XXX: Bad special-casing.  `snap prepare-image` currently
                 # installs to /boot/grub, but we need to map this to
-                # /EFI/ubuntu.
+                # /EFI/ubuntu.  This is because we are using a SecureBoot
+                # signed bootloader image which has this path embedded, so we
+                # need to install our files to there.
                 self.bootfs = target_dir
                 ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
                 os.makedirs(ubuntu, exist_ok=True)
@@ -236,10 +239,20 @@ class ModelAssertionBuilder(State):
                 part_img, part.size))
             if part.filesystem is FileSystemType.vfat:   # pragma: nobranch
                 run('mkfs.vfat {}'.format(part_img))
+            # XXX: Does not handle the case of partitions at the end of the
+            # image.
+            next_avail = part.offset + part.size
         # The image for the root partition.
+        #
+        # XXX: Hard-codes 4GB image size.   Hard-codes last sector for backup
+        # GPT.
+        avail_space = (4000000000 - next_avail - 4 * 1024) // MiB(1)
+        if self.rootfs_size / MiB(1) > avail_space:   # pragma: nocover
+            raise AssertionError('No room for root filesystem data')
+        self.rootfs_size = avail_space
         self.root_img = os.path.join(self.images, 'root.img')
-        run('dd if=/dev/zero of={} count=0 bs=1GB seek=2'.format(
-            self.root_img))
+        run('dd if=/dev/zero of={} count=0 bs={}M seek=1'.format(
+            self.root_img, avail_space))
         # We defer creating the root file system image because we have to
         # populate it at the same time.  See mkfs.ext4(8) for details.
         self._next.append(self.populate_filesystems)
@@ -251,9 +264,24 @@ class ModelAssertionBuilder(State):
         for partnum, part in enumerate(volume.structures):
             part_img = self.boot_images[partnum]
             part_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            if part.filesystem is FileSystemType.none:
-                # XXX: We need to handle raw partitions here.
-                continue                                    # pragma: nocover
+            if part.filesystem is FileSystemType.none:   # pragma: nocover
+                image = Image(part_img, part.size)
+                offset = 0
+                for file in part.content:
+                    src = os.path.join(self.unpackdir, 'gadget', file.image)
+                    file_size = os.path.getsize(src)
+                    if file.size is not None and file.size < file_size:
+                        raise AssertionError('Size {} < size of {}'
+                                             .format(file.size, file.image))
+                    if file.size is not None:
+                        file_size = file.size
+                    # XXX: We need to check for overlapping images.
+                    if file.offset is not None:
+                        offset = file.offset
+                    # XXX: We must check offset+size vs. the target image.
+                    image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
+                    offset += file_size
+
             elif part.filesystem is FileSystemType.vfat:    # pragma: nobranch
                 sourcefiles = SPACE.join(
                     os.path.join(part_dir, filename)
@@ -262,7 +290,7 @@ class ModelAssertionBuilder(State):
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=dict(MTOOLS_SKIP_CHECK='1'))
             elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
-                _mkfs_ext4(self.part_img, part_dir)
+                _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
         _mkfs_ext4(self.root_img, self.rootfs)
@@ -270,22 +298,7 @@ class ModelAssertionBuilder(State):
 
     def make_disk(self):
         self.disk_img = os.path.join(self.images, 'disk.img')
-        image = Image(self.disk_img, GiB(4))
-        # Create BIOS boot partition
-        #
-        # The partition is 1MiB in size, as recommended by various
-        # partitioning guides.  The actual required size is much, much
-        # smaller.
-        #
-        # https://www.gnu.org/software/grub/manual/html_node/BIOS-installation.html#BIOS-installation
-        # image.partition(new='1:4MiB:+1MiB')
-        # image.partition(typecode='1:21686148-6449-6E6F-744E-656564454649')
-        # image.partition(change_name='1:grub')
-        # image.copy_blob(self.boot_img,
-        #                 bs='1MiB', seek=4, count=1, conv='notrunc')
-        #
-        # Create EFI system partition
-        #
+        image = Image(self.disk_img, 4000000000)
         part_id = 1
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
@@ -301,7 +314,7 @@ class ModelAssertionBuilder(State):
         for i, part in enumerate(structures):
             image.copy_blob(self.boot_images[i],
                             bs='1M', seek=part.offset // MiB(1),
-                            count=part.size // MiB(1),
+                            count=ceil(part.size / MiB(1)),
                             conv='notrunc')
             if part.type == 'mbr':
                 continue                            # pragma: nocover
@@ -315,14 +328,16 @@ class ModelAssertionBuilder(State):
                 image.partition(
                     change_name='{}:{}'.format(part_id, part.name))
             part_id += 1
+            next_offset = (part.offset + part.size) // MiB(1)
         # Create main snappy writable partition
-        # XXX: remove the fixed offset
-        image.partition(new='{}:72MiB:+3646MiB'.format(part_id))
-        image.partition(typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'
-                                 .format(part_id))
+        image.partition(
+            new='{}:{}M:+{}M'.format(part_id, next_offset, self.rootfs_size))
+        image.partition(
+            typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'.format(part_id))
         image.partition(change_name='{}:writable'.format(part_id))
         image.copy_blob(self.root_img,
-                        bs='1M', seek=72, count=3646, conv='notrunc')
+                        bs='1M', seek=next_offset, count=self.rootfs_size,
+                        conv='notrunc')
         self._next.append(self.finish)
 
     def finish(self):
