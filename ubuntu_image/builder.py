@@ -246,8 +246,8 @@ class ModelAssertionBuilder(State):
         # XXX: Hard-codes 4GB image size.   Hard-codes last sector for backup
         # GPT.
         avail_space = (4000000000 - next_avail - 4*1024) // MiB(1)
-        assert self.rootfs_size / MiB(1) < avail_space, \
-            'No room for root filesystem data'
+        if self.rootfs_size / MiB(1) > avail_space:
+            raise AssertionError('No room for root filesystem data')
         self.rootfs_size = avail_space
         self.root_img = os.path.join(self.images, 'root.img')
         run('dd if=/dev/zero of={} count=0 bs={}M seek=1'.format(
