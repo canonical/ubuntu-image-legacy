@@ -243,11 +243,11 @@ class ModelAssertionBuilder(State):
             # image.
             next_avail = part.offset + part.size
         # The image for the root partition.
-
+        #
         # XXX: Hard-codes 4GB image size.   Hard-codes last sector for backup
         # GPT.
-        avail_space = (4000000000 - next_avail - 4*1024) // MiB(1)
-        if self.rootfs_size / MiB(1) > avail_space:
+        avail_space = (4000000000 - next_avail - 4 * 1024) // MiB(1)
+        if self.rootfs_size / MiB(1) > avail_space:   # pragma: nocover
             raise AssertionError('No room for root filesystem data')
         self.rootfs_size = avail_space
         self.root_img = os.path.join(self.images, 'root.img')
@@ -264,7 +264,7 @@ class ModelAssertionBuilder(State):
         for partnum, part in enumerate(volume.structures):
             part_img = self.boot_images[partnum]
             part_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            if part.filesystem is FileSystemType.none:
+            if part.filesystem is FileSystemType.none:   # pragma: nocover
                 image = Image(part_img, part.size)
                 offset = 0
                 for file in part.content:
@@ -299,7 +299,6 @@ class ModelAssertionBuilder(State):
     def make_disk(self):
         self.disk_img = os.path.join(self.images, 'disk.img')
         image = Image(self.disk_img, 4000000000)
-
         part_id = 1
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
@@ -331,10 +330,10 @@ class ModelAssertionBuilder(State):
             part_id += 1
             next_offset = (part.offset + part.size) // MiB(1)
         # Create main snappy writable partition
-        image.partition(new='{}:{}M:+{}M'
-                            .format(part_id, next_offset, self.rootfs_size))
-        image.partition(typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'
-                                 .format(part_id))
+        image.partition(
+            new='{}:{}M:+{}M'.format(part_id, next_offset, self.rootfs_size))
+        image.partition(
+            typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'.format(part_id))
         image.partition(change_name='{}:writable'.format(part_id))
         image.copy_blob(self.root_img,
                         bs='1M', seek=next_offset, count=self.rootfs_size,
