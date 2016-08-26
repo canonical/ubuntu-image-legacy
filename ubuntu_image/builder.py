@@ -264,8 +264,23 @@ class ModelAssertionBuilder(State):
             part_img = self.boot_images[partnum]
             part_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             if part.filesystem is FileSystemType.none:
-                # XXX: We need to handle raw partitions here.
-                continue                                    # pragma: nocover
+                image = Image(part_img, part.size)
+                offset = 0
+                for file in part.content:
+                    src = os.path.join(self.unpackdir, 'gadget', file.image)
+                    file_size = os.path.getsize(src)
+                    if file.size is not None and file.size < file_size:
+                        raise AssertionError('Size {} < size of {}'
+                                             .format(file.size, file.image))
+                    if file.size is not None:
+                        file_size = file.size
+                    # XXX: We need to check for overlapping images.
+                    if file.offset is not None:
+                        offset = file.offset
+                    # XXX: We must check offset+size vs. the target image.
+                    image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
+                    offset += file_size
+
             elif part.filesystem is FileSystemType.vfat:    # pragma: nobranch
                 sourcefiles = SPACE.join(
                     os.path.join(part_dir, filename)
