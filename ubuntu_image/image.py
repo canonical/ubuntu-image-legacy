@@ -3,6 +3,7 @@
 import os
 
 from enum import Enum
+from struct import pack
 from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
 from ubuntu_image.parser import parse
@@ -121,7 +122,11 @@ class Image:
             should be written.
         :type size: int
         """
-        pass
+        binary_value = pack('<I', value)
+        with open(self.path, 'ab+') as file:
+            if file.seek(offset) != offset:
+                raise ValueError('write offset beyond end of file')
+            file.write(binary_value)
 
 
 def extract(snap_path):                             # pragma: nocover
