@@ -3,6 +3,7 @@
 import os
 
 from enum import Enum
+from struct import pack
 from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
 from ubuntu_image.parser import parse
@@ -108,6 +109,24 @@ class Image:
         # - check status
         # - log stderr
         return status.stdout
+
+    def write_value_at_offset(self, value, offset):   # pragma: nocover
+        """Write the given value to the specified absolute offset.
+
+        The value is interpreted as a 32-bit integer, and is written out
+        in little-endian format.
+
+        :param value: A value to be written to disk; max 32-bits in size.
+        :type value: int
+        :param offset: The offset in bytes into the image where the value
+            should be written.
+        :type size: int
+        """
+        binary_value = pack('<I', value)
+        with open(self.path, 'rb+') as file:
+            if file.seek(offset) != offset:
+                raise ValueError('write offset beyond end of file')
+            file.write(binary_value)
 
 
 def extract(snap_path):                             # pragma: nocover

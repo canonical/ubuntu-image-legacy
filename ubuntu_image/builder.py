@@ -311,7 +311,13 @@ class ModelAssertionBuilder(State):
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
         structures = sorted(volume.structures, key=attrgetter('offset'))
+        offset_writes = []
+        part_offsets = {}
         for i, part in enumerate(structures):
+            if part.name:                           # pragma: nocover
+                part_offsets[part.name] = part.offset
+            if part.offset_write:                   # pragma: nocover
+                offset_writes.append((part.offset, part.offset_write))
             image.copy_blob(self.boot_images[i],
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
@@ -338,6 +344,12 @@ class ModelAssertionBuilder(State):
         image.copy_blob(self.root_img,
                         bs='1M', seek=next_offset, count=self.rootfs_size,
                         conv='notrunc')
+        for value, dest in offset_writes:           # pragma: nobranch
+            # decipher non-numeric offset_write values
+            if isinstance(dest, tuple):             # pragma: nocover
+                dest = part_offsets[dest[0]] + dest[1]
+            # XXX: Hard-coding of 512-byte sectors.
+            image.write_value_at_offset(value // 512, dest)
         self._next.append(self.finish)
 
     def finish(self):
