@@ -347,7 +347,7 @@ class ModelAssertionBuilder(State):
                         conv='notrunc')
         for (value, dest) in offset_writes:
             # decipher non-numeric offset_write values
-            if dest is RelativeOffset:
+            if type(dest) is tuple:
                 dest = part_offsets[dest[0]] + dest[1]
 
             # XXX: Hard-coding of 512-byte sectors.
