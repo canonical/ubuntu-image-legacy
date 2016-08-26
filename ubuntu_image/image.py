@@ -110,7 +110,7 @@ class Image:
         # - log stderr
         return status.stdout
 
-    def write_value_at_offset(self, value, offset):
+    def write_value_at_offset(self, value, offset):   # pragma: nocover
         """Write the given value to the specified absolute offset.
 
         The value is interpreted as a 32-bit integer, and is written out
