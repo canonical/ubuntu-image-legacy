@@ -10,8 +10,9 @@ from math import ceil
 from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, run, snap
-from ubuntu_image.image import Image
-from ubuntu_image.parser import BootLoader, FileSystemType, parse as parse_yaml
+from ubuntu_image.image import Image, MBRImage
+from ubuntu_image.parser import BootLoader, FileSystemType,\
+                                parse as parse_yaml, VolumeSchema
 from ubuntu_image.state import State
 
 
@@ -331,7 +332,6 @@ class ModelAssertionBuilder(State):
 
     def make_disk(self):
         self.disk_img = os.path.join(self.images, 'disk.img')
-        image = Image(self.disk_img, 4000000000)
         part_id = 1
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
@@ -343,6 +343,13 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
+        # XXX: This ought to be a single constructor that figures out the
+        # class for us when we pass in the schema.
+        if volume.schema == VolumeSchema.mbr:
+            image = MBRImage(self.disk_img, 4000000000)
+        else:
+            image = Image(self.disk_img, 4000000000)
+
         structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
         part_offsets = {}
@@ -364,6 +371,10 @@ class ModelAssertionBuilder(State):
             part_args = {}
             part_args['new'] = partdef
             part_args['typecode'] = part.type
+            # XXX: special-casing.
+            if (volume.schema == VolumeSchema.mbr and
+               part.filesystem_label == 'system-boot'):
+                part_args['activate'] = True
             if part.name is not None:               # pragma: nobranch
                 part_args['change_name'] = part.name
             image.partition(part_id, **part_args)
@@ -374,7 +385,8 @@ class ModelAssertionBuilder(State):
                         new='{}M:+{}M'.format(next_offset, self.rootfs_size),
                         typecode=('83',
                                   '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
-        image.partition(part_id, change_name='writable')
+        if volume.schema == VolumeSchema.gpt:
+            image.partition(part_id, change_name='writable')
         image.copy_blob(self.root_img,
                         bs='1M', seek=next_offset, count=self.rootfs_size,
                         conv='notrunc')

@@ -133,6 +133,55 @@ class Image:
             file.write(binary_value)
 
 
+class MBRImage(Image):
+    def __init__(self, path, size):
+        """sfdisk needs different options for new disks vs. existing partition
+        tables, so cope with that here.
+        """
+        super().__init__(path, size)
+        self.initialized = False
+
+    def partition(self, partnum, **sfdisk_args):
+        """Manipulate the MBR contained in the image file.
+
+        The manipulation is done using ``sfdisk`` for consistency.  The
+        device operated on is the image file represented by this
+        instance.  The keyword arguments are given in ``sgdisk`` format,
+        so are parsed for handing off to ``sfdisk`` instead.
+        """
+        # Put together the sfdisk command.
+        args = ['sfdisk', self.path]
+        if self.initialized:
+            args.append('--append')
+
+        self.initialized = True
+
+        input = []
+        for key, value in sfdisk_args.items():
+            if key == 'new':
+                offset, size = value.split(':')
+                input.append('start={}, size={}'.format(offset, size))
+            elif key == 'activate':
+                input.append('bootable')
+            elif key == 'typecode':
+                if isinstance(value, tuple):
+                    value = value[0]
+                input.append('type={}'.format(value))
+            else:
+                raise ValueError('{} option not supported for MBR partitions'
+                                 .format(key))
+
+        input = 'part{}: {}'.format(partnum, ','.join(input))
+        # Run the command.  We'll capture stderr for logging purposes.
+        #
+        # TBD:
+        # - check status of the returned CompletedProcess
+        # - handle errors
+        # - log stdout/stderr
+        run(args, input=input, stdout=PIPE, stderr=PIPE,
+            universal_newlines=True)
+
+
 def extract(snap_path):                             # pragma: nocover
     """Extract the gadget.yml file from a path to a .snap.
 
