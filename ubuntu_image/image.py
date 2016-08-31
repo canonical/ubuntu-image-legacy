@@ -67,7 +67,7 @@ class Image:
         # - log stdout/stderr
         run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
 
-    def partition(self, **sgdisk_args):
+    def partition(self, partnum, **sgdisk_args):
         """Manipulate the GPT contained in the image file.
 
         The manipulation is done using ``sgdisk`` for consistency.  The
@@ -83,7 +83,11 @@ class Image:
         # Put together the sgdisk command.
         args = ['sgdisk']
         for key, value in sgdisk_args.items():
-            args.append('--{}={}'.format(key.replace('_', '-'), value))
+            # special case of gpt vs. mbr type codes
+            if key == 'typecode' and isinstance(value, tuple):
+                value = value[1]
+            args.append('--{}={}:{}'
+                        .format(key.replace('_', '-'), partnum, value))
         # End the command args with the image file.
         args.append(self.path)
         # Run the command.  We'll capture stderr for logging purposes.

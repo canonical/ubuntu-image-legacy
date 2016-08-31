@@ -359,21 +359,22 @@ class ModelAssertionBuilder(State):
                 continue                            # pragma: nocover
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
-            partdef = '{}:{}M:+{}M'.format(
-                part_id, part.offset // MiB(1), part.size // MiB(1))
-            image.partition(new=partdef)
-            image.partition(typecode='{}:{}'.format(part_id, part.type[1]))
+            partdef = '{}M:+{}M'.format(
+                part.offset // MiB(1), part.size // MiB(1))
+            part_args = {}
+            part_args['new'] = partdef
+            part_args['typecode'] = part.type
             if part.name is not None:               # pragma: nobranch
-                image.partition(
-                    change_name='{}:{}'.format(part_id, part.name))
+                part_args['change_name'] = part.name
+            image.partition(part_id, **part_args)
             part_id += 1
             next_offset = (part.offset + part.size) // MiB(1)
         # Create main snappy writable partition
-        image.partition(
-            new='{}:{}M:+{}M'.format(part_id, next_offset, self.rootfs_size))
-        image.partition(
-            typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'.format(part_id))
-        image.partition(change_name='{}:writable'.format(part_id))
+        image.partition(part_id,
+                        new='{}M:+{}M'.format(next_offset, self.rootfs_size),
+                        typecode=('83',
+                                  '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
+        image.partition(part_id, change_name='writable')
         image.copy_blob(self.root_img,
                         bs='1M', seek=next_offset, count=self.rootfs_size,
                         conv='notrunc')

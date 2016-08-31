@@ -76,9 +76,9 @@ class TestImage(TestCase):
         # partitioning guides.  The actual required size is much, much
         # smaller.
         image = Image(self.img, MiB(10))
-        image.partition(new='1:4MiB:+1MiB')
-        image.partition(typecode='1:21686148-6449-6E6F-744E-656564454649')
-        image.partition(change_name='1:grub')
+        image.partition(1, new='4MiB:+1MiB')
+        image.partition(1, typecode='21686148-6449-6E6F-744E-656564454649')
+        image.partition(1, change_name='grub')
         mbr = image.diagnostics(Diagnostics.mbr)
         # We should see that the disk size is 10MiB.
         self.assertRegex(mbr, '10.0 MiB')
