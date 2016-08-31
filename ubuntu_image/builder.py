@@ -11,7 +11,7 @@ from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, run, snap
 from ubuntu_image.image import Image
-from ubuntu_image.parser import FileSystemType, parse as parse_yaml
+from ubuntu_image.parser import BootLoader, FileSystemType, parse as parse_yaml
 from ubuntu_image.state import State
 
 
@@ -181,9 +181,16 @@ class ModelAssertionBuilder(State):
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
-        boot = os.path.join(self.unpackdir, 'image', 'boot', 'grub')
-        # At least one structure is required.
+
         volume = list(self.gadget.volumes.values())[0]
+        if volume.bootloader is BootLoader.uboot:
+            boot = os.path.join(self.unpackdir, 'image', 'boot', 'uboot')
+        elif volume.bootloader is BootLoader.grub:
+            boot = os.path.join(self.unpackdir, 'image', 'boot', 'grub')
+        else:
+            raise ValueError("unsupported bootloader value {}"
+                             .format(volume.bootloader))
+        # At least one structure is required.
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             # XXX: Use fs label for the moment, until we get a proper way to
