@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, run, snap
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import BootLoader, FileSystemType,\
-                                parse as parse_yaml, VolumeSchema
+                                VolumeSchema, parse as parse_yaml
 from ubuntu_image.state import State
 
 
