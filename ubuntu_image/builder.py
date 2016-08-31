@@ -212,8 +212,31 @@ class ModelAssertionBuilder(State):
                 for file in part.content:
                     src = os.path.join(self.unpackdir, 'gadget', file.source)
                     dst = os.path.join(target_dir, file.target)
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    shutil.copy(src, dst)
+                    if not file.source.endswith('/'):
+                        # XXX: If this is a directory instead of a file, give
+                        # a useful error message instead of stacktracing.
+                        os.makedirs(os.path.dirname(dst), exist_ok=True)
+                        shutil.copy(src, dst)
+                    else:
+                        # XXX: If this is a file instead of a directory, give
+                        # a useful error message instead of stacktracing.
+
+                        # The target of a recursive directory copy is the
+                        # target directory name, with or without a trailing
+                        # slash necessary at least to handle the case of
+                        # recursive copy into the root directory), so make
+                        # sure here that it exists.
+                        os.makedirs(dst, exist_ok=True)
+                        target = file.target.rstrip('/')
+                        for filename in os.listdir(src):
+                            sub_src = os.path.join(src, filename)
+                            dst = os.path.join(target_dir, target,
+                                               filename)
+                            if sub_src is dir:
+                                shutil.copytree(sub_src, dst, symlinks=True,
+                                                ignore_dangling_symlinks=True)
+                            else:
+                                shutil.copy(sub_src, dst)
 
         self._next.append(self.calculate_bootfs_size)
 
