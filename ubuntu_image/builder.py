@@ -10,8 +10,9 @@ from math import ceil
 from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, run, snap
-from ubuntu_image.image import Image
-from ubuntu_image.parser import FileSystemType, parse as parse_yaml
+from ubuntu_image.image import Image, MBRImage
+from ubuntu_image.parser import BootLoader, FileSystemType,\
+                                VolumeSchema, parse as parse_yaml
 from ubuntu_image.state import State
 
 
@@ -181,21 +182,31 @@ class ModelAssertionBuilder(State):
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
-        boot = os.path.join(self.unpackdir, 'image', 'boot', 'grub')
-        # At least one structure is required.
+
         volume = list(self.gadget.volumes.values())[0]
+        # At least one structure is required.
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             # XXX: Use fs label for the moment, until we get a proper way to
             # identify the boot partition.
             if part.filesystem_label == 'system-boot':
-                # XXX: Bad special-casing.  `snap prepare-image` currently
-                # installs to /boot/grub, but we need to map this to
-                # /EFI/ubuntu.  This is because we are using a SecureBoot
-                # signed bootloader image which has this path embedded, so we
-                # need to install our files to there.
                 self.bootfs = target_dir
-                ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
+                if volume.bootloader is BootLoader.uboot:
+                    boot = os.path.join(self.unpackdir, 'image', 'boot',
+                                        'uboot')
+                    ubuntu = target_dir
+                elif volume.bootloader is BootLoader.grub:
+                    boot = os.path.join(self.unpackdir, 'image', 'boot',
+                                        'grub')
+                    # XXX: Bad special-casing.  `snap prepare-image` currently
+                    # installs to /boot/grub, but we need to map this to
+                    # /EFI/ubuntu.  This is because we are using a SecureBoot
+                    # signed bootloader image which has this path embedded, so
+                    # we need to install our files to there.
+                    ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
+                else:
+                    raise ValueError("unsupported bootloader value {}"
+                                     .format(volume.bootloader))
                 os.makedirs(ubuntu, exist_ok=True)
                 for filename in os.listdir(boot):
                     src = os.path.join(boot, filename)
@@ -205,8 +216,31 @@ class ModelAssertionBuilder(State):
                 for file in part.content:
                     src = os.path.join(self.unpackdir, 'gadget', file.source)
                     dst = os.path.join(target_dir, file.target)
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    shutil.copy(src, dst)
+                    if not file.source.endswith('/'):
+                        # XXX: If this is a directory instead of a file, give
+                        # a useful error message instead of stacktracing.
+                        os.makedirs(os.path.dirname(dst), exist_ok=True)
+                        shutil.copy(src, dst)
+                    else:
+                        # XXX: If this is a file instead of a directory, give
+                        # a useful error message instead of stacktracing.
+
+                        # The target of a recursive directory copy is the
+                        # target directory name, with or without a trailing
+                        # slash necessary at least to handle the case of
+                        # recursive copy into the root directory), so make
+                        # sure here that it exists.
+                        os.makedirs(dst, exist_ok=True)
+                        target = file.target.rstrip('/')
+                        for filename in os.listdir(src):
+                            sub_src = os.path.join(src, filename)
+                            dst = os.path.join(target_dir, target,
+                                               filename)
+                            if sub_src is dir:
+                                shutil.copytree(sub_src, dst, symlinks=True,
+                                                ignore_dangling_symlinks=True)
+                            else:
+                                shutil.copy(sub_src, dst)
 
         self._next.append(self.calculate_bootfs_size)
 
@@ -298,7 +332,6 @@ class ModelAssertionBuilder(State):
 
     def make_disk(self):
         self.disk_img = os.path.join(self.images, 'disk.img')
-        image = Image(self.disk_img, 4000000000)
         part_id = 1
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
@@ -310,6 +343,13 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
+        # XXX: This ought to be a single constructor that figures out the
+        # class for us when we pass in the schema.
+        if volume.schema == VolumeSchema.mbr:
+            image = MBRImage(self.disk_img, 4000000000)
+        else:
+            image = Image(self.disk_img, 4000000000)
+
         structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
         part_offsets = {}
@@ -326,21 +366,27 @@ class ModelAssertionBuilder(State):
                 continue                            # pragma: nocover
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
-            partdef = '{}:{}M:+{}M'.format(
-                part_id, part.offset // MiB(1), part.size // MiB(1))
-            image.partition(new=partdef)
-            image.partition(typecode='{}:{}'.format(part_id, part.type[1]))
+            partdef = '{}M:+{}M'.format(
+                part.offset // MiB(1), part.size // MiB(1))
+            part_args = {}
+            part_args['new'] = partdef
+            part_args['typecode'] = part.type
+            # XXX: special-casing.
+            if (volume.schema == VolumeSchema.mbr and
+               part.filesystem_label == 'system-boot'):
+                part_args['activate'] = True
             if part.name is not None:               # pragma: nobranch
-                image.partition(
-                    change_name='{}:{}'.format(part_id, part.name))
+                part_args['change_name'] = part.name
+            image.partition(part_id, **part_args)
             part_id += 1
             next_offset = (part.offset + part.size) // MiB(1)
         # Create main snappy writable partition
-        image.partition(
-            new='{}:{}M:+{}M'.format(part_id, next_offset, self.rootfs_size))
-        image.partition(
-            typecode='{}:0FC63DAF-8483-4772-8E79-3D69D8477DE4'.format(part_id))
-        image.partition(change_name='{}:writable'.format(part_id))
+        image.partition(part_id,
+                        new='{}M:+{}M'.format(next_offset, self.rootfs_size),
+                        typecode=('83',
+                                  '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
+        if volume.schema == VolumeSchema.gpt:
+            image.partition(part_id, change_name='writable')
         image.copy_blob(self.root_img,
                         bs='1M', seek=next_offset, count=self.rootfs_size,
                         conv='notrunc')
