@@ -183,26 +183,29 @@ class ModelAssertionBuilder(State):
         # itself) needs to be moved to the bootfs directory.
 
         volume = list(self.gadget.volumes.values())[0]
-        if volume.bootloader is BootLoader.uboot:
-            boot = os.path.join(self.unpackdir, 'image', 'boot', 'uboot')
-        elif volume.bootloader is BootLoader.grub:
-            boot = os.path.join(self.unpackdir, 'image', 'boot', 'grub')
-        else:
-            raise ValueError("unsupported bootloader value {}"
-                             .format(volume.bootloader))
         # At least one structure is required.
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             # XXX: Use fs label for the moment, until we get a proper way to
             # identify the boot partition.
             if part.filesystem_label == 'system-boot':
-                # XXX: Bad special-casing.  `snap prepare-image` currently
-                # installs to /boot/grub, but we need to map this to
-                # /EFI/ubuntu.  This is because we are using a SecureBoot
-                # signed bootloader image which has this path embedded, so we
-                # need to install our files to there.
                 self.bootfs = target_dir
-                ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
+                if volume.bootloader is BootLoader.uboot:
+                    boot = os.path.join(self.unpackdir, 'image', 'boot',
+                                        'uboot')
+                    ubuntu = target_dir
+                elif volume.bootloader is BootLoader.grub:
+                    boot = os.path.join(self.unpackdir, 'image', 'boot',
+                                        'grub')
+                    # XXX: Bad special-casing.  `snap prepare-image` currently
+                    # installs to /boot/grub, but we need to map this to
+                    # /EFI/ubuntu.  This is because we are using a SecureBoot
+                    # signed bootloader image which has this path embedded, so
+                    # we need to install our files to there.
+                    ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
+                else:
+                    raise ValueError("unsupported bootloader value {}"
+                                     .format(volume.bootloader))
                 os.makedirs(ubuntu, exist_ok=True)
                 for filename in os.listdir(boot):
                     src = os.path.join(boot, filename)
