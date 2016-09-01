@@ -110,8 +110,10 @@ def run(command, *, check=True, **args):
 
 
 def snap(model_assertion, root_dir, channel=None, extra_snaps=None):   # pragma: notravis
-    raw_cmd = 'snap prepare-image {} {} {} {}'
+    snap_cmd = os.environ.get("UBUNTU_IMAGE_SNAP_CMD", "snap")
+    raw_cmd = '{} prepare-image {} {} {} {}'
     cmd = raw_cmd.format(
+        snap_cmd,
         '' if channel is None else '--channel={}'.format(channel),
         '' if extra_snaps is None else " ".join(["--extra-snaps={}".format(e)
                                                  for e in extra_snaps]),
