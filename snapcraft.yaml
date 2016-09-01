@@ -1,0 +1,25 @@
+name: ubuntu-image
+summary: Create Ubuntu images
+description: |
+  Use this tool to create Ubuntu images.
+version: 0.4
+confinement: devmode
+
+apps:
+  ubuntu-image:
+    command: usr/bin/ubuntu-image
+
+parts:
+  ubuntu-image:
+    plugin: python3
+    source: https://github.com/mvo5/ubuntu-image.git
+    source-type: git
+    python-packages:
+      - python-debian
+      - attrs
+      - voluptuous
+      - PyYAML
+    snap:
+      - usr
+    stage-packages:
+      - mtools
