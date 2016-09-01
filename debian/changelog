@@ -4,6 +4,7 @@ ubuntu-image (0.5ubuntu1) UNRELEASED; urgency=medium
     version available in the target release, in which case the versioned
     dependency is not required; or we don't, in which case the testsuite
     already degrades gracefully and we should avoid blocking the build.
+  * fix regression in gpt partition handling.
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 31 Aug 2016 22:26:18 -0700
 
