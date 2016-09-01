@@ -117,13 +117,6 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):   # pragma:
                                                  for e in extra_snaps]),
         model_assertion,
         root_dir)
-    # This environment variable is a temporary workaround to prevent `snap
-    # prepare-image` from failing with an unverified signature on the
-    # model.assertion.  We obviously can't sign it with the real root keys,
-    # and there's no other way to inject testing data.
-    #
-    # $PATH is needed because without it `snap prepare-image` can't find
-    # /usr/bin/squashfs.  This is currently unexplained.
-    env = dict(UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL='1')
-    env.update(os.environ)
-    run(cmd, env=env, stdout=None, stderr=None)
+    # Note that we do no longer hardcode the environment here.
+    # Set UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL=1 in the tests
+    run(cmd, stdout=None, stderr=None)
