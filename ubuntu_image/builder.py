@@ -135,7 +135,7 @@ class ModelAssertionBuilder(State):
         # Run `snap prepare-image` on the model.assertion.  sudo is currently
         # required in all cases, but eventually, it won't be necessary at
         # least for UEFI support.
-        snap(self.args.model_assertion, self.unpackdir, self.args.channel)
+        snap(self.args.model_assertion, self.unpackdir, self.args.channel, self.args.extra_snaps)
         self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):

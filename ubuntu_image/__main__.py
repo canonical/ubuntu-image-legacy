@@ -35,6 +35,11 @@ def parseargs(argv=None):
     parser.add_argument('-c', '--channel',
                         default=None,
                         help=_('For snap-based images, the channel to use'))
+    parser.add_argument('--extra-snaps',
+                        default=None,
+                        action='append',
+                        help=_("""For snap-based images, the extra snaps to
+                                  install"""))
     parser.add_argument('-w', '--workdir',
                         default=None,
                         help=_("""The working directory in which to download

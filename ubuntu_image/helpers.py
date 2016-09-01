@@ -106,10 +106,12 @@ def run(command, *, check=True, **args):
     return proc
 
 
-def snap(model_assertion, root_dir, channel=None):   # pragma: notravis
-    raw_cmd = 'snap prepare-image {} {} {}'
+def snap(model_assertion, root_dir, channel=None, extra_snaps=None):   # pragma: notravis
+    raw_cmd = 'snap prepare-image {} {} {} {}'
     cmd = raw_cmd.format(
         '' if channel is None else '--channel={}'.format(channel),
+        '' if extra_snaps is None else " ".join(["--extra-snaps={}".format(e)
+                                                 for e in extra_snaps]),
         model_assertion,
         root_dir)
     # This environment variable is a temporary workaround to prevent `snap
