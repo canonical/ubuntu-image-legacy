@@ -94,9 +94,11 @@ def run(command, *, check=True, **args):
     runnable_command = (
         command.split() if 'shell' not in args
         else command)
+    stdout = args.pop("stdout", PIPE)
+    stderr = args.pop("stderr", PIPE)
     proc = subprocess_run(
         runnable_command,
-        stdout=PIPE, stderr=PIPE,
+        stdout=stdout, stderr=stderr,
         universal_newlines=True,
         **args)
     if check and proc.returncode != 0:
@@ -124,4 +126,4 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):   # pragma:
     # /usr/bin/squashfs.  This is currently unexplained.
     env = dict(UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL='1',
                PATH=os.environ["PATH"])
-    run(cmd, env=env)
+    run(cmd, env=env, stdout=None, stderr=None)
