@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.5
+version: 0.5+mvo1
 confinement: devmode
 
 apps:
@@ -23,3 +23,10 @@ parts:
       - usr
     stage-packages:
       - mtools
+  snapd:
+    plugin: go
+    source: https://github.com/snapcore/snapd
+    source-type: git
+    go-importpath: github.com/snapcore/snapd
+    snap:
+      - bin/snap
