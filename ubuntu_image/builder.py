@@ -87,6 +87,10 @@ class ModelAssertionBuilder(State):
         self.gadget = None
         self.args = args
         self.unpackdir = None
+        self.cloud_init = (
+            None
+            if args.cloud_init is None
+            else args.cloud_init)
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -104,6 +108,7 @@ class ModelAssertionBuilder(State):
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
             unpackdir=self.unpackdir,
+            cloud_init=self.cloud_init,
             )
         return state
 
@@ -121,6 +126,7 @@ class ModelAssertionBuilder(State):
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
         self.unpackdir = state['unpackdir']
+        self.cloud_init = state['cloud_init']
 
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self.workdir, 'root')
@@ -149,6 +155,15 @@ class ModelAssertionBuilder(State):
         src = os.path.join(self.unpackdir, 'image')
         dst = os.path.join(self.rootfs, 'system-data')
         shutil.move(os.path.join(src, 'var'), os.path.join(dst, 'var'))
+        seed_dir = os.path.join(dst, 'var', 'lib', 'cloud', 'seed')
+        cloud_dir = os.path.join(seed_dir, 'nocloud-net')
+        os.makedirs(cloud_dir)
+        metadata_file = os.path.join(cloud_dir, 'meta-data')
+        with open(metadata_file, 'w', encoding='utf-8') as f:
+            print("instance-id: nocloud-static", file=f)
+        if self.cloud_init is not None:
+            userdata_file = os.path.join(cloud_dir, 'user-data')
+            shutil.copy(self.cloud_init, userdata_file)
         # This is just a mount point.
         os.makedirs(os.path.join(dst, 'boot'))
         self._next.append(self.calculate_rootfs_size)

@@ -43,6 +43,9 @@ def parseargs(argv=None):
                         after this program exits.  If not given, a temporary
                         working directory is used instead, which *is* deleted
                         after this program exits."""))
+    parser.add_argument('--cloud-init',
+                        default=None,
+                        help=_("cloud-config data to be copied in the image"))
     parser.add_argument('-o', '--output',
                         default=None,
                         help=_('The output file for the disk image'))
