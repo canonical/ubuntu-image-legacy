@@ -285,8 +285,10 @@ class ModelAssertionBuilder(State):
             raise AssertionError('No room for root filesystem data')
         self.rootfs_size = avail_space
         self.root_img = os.path.join(self.images, 'root.img')
-        run('dd if=/dev/zero of={} count=0 bs={}M seek=1'.format(
-            self.root_img, avail_space))
+        # create empty file with holes
+        with open(self.root_img,  "w"):
+            pass
+        os.truncate(self.root_img, avail_space * MiB(1))
         # We defer creating the root file system image because we have to
         # populate it at the same time.  See mkfs.ext4(8) for details.
         self._next.append(self.populate_filesystems)
