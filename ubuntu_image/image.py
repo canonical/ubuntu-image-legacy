@@ -82,7 +82,8 @@ class Image:
         """
         # Put together the sgdisk command.
         args = ['sgdisk']
-        for key, value in sgdisk_args.items():
+        for key, value in sorted(sgdisk_args.items(),
+                                 key=lambda x: '' if x[0] == 'new' else x[0]):
             # special case of gpt vs. mbr type codes
             if key == 'typecode' and isinstance(value, tuple):
                 value = value[1]
