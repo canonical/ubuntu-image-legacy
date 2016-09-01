@@ -322,7 +322,7 @@ class ModelAssertionBuilder(State):
                     for filename in os.listdir(part_dir)
                     )
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
-                    env=dict(MTOOLS_SKIP_CHECK='1'))
+                    env=dict(MTOOLS_SKIP_CHECK='1', PATH=os.environ["PATH"]))
             elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
                 _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
