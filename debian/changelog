@@ -1,3 +1,10 @@
+ubuntu-image (0.4ubuntu1) yakkety; urgency=medium
+
+  * More image building fixes: uboot, mbr support now implemented, which
+    lets the rpi2 image build.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 31 Aug 2016 18:27:20 -0700
+
 ubuntu-image (0.3ubuntu1) yakkety; urgency=medium
 
   * More image building fixes.
