@@ -2,6 +2,7 @@
 
 import re
 import sys
+import os
 
 from subprocess import PIPE, run as subprocess_run
 
@@ -122,5 +123,5 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):   # pragma:
     # $PATH is needed because without it `snap prepare-image` can't find
     # /usr/bin/squashfs.  This is currently unexplained.
     env = dict(UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL='1',
-               PATH='/usr/bin')
+               PATH=os.environ["PATH"])
     run(cmd, env=env)
