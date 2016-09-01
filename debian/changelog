@@ -1,4 +1,4 @@
-ubuntu-image (0.5ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.5ubuntu1) yakkety; urgency=medium
 
   * Relax versioned build-dependency on e2fsprogs.  Either we have this
     version available in the target release, in which case the versioned
@@ -6,7 +6,7 @@ ubuntu-image (0.5ubuntu1) UNRELEASED; urgency=medium
     already degrades gracefully and we should avoid blocking the build.
   * fix regression in gpt partition handling.
 
- -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 31 Aug 2016 22:26:18 -0700
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 01 Sep 2016 01:52:30 -0700
 
 ubuntu-image (0.4ubuntu1) yakkety; urgency=medium
 
