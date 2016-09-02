@@ -4,8 +4,8 @@ import os
 
 from enum import Enum
 from struct import pack
-from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
+from ubuntu_image.helpers import SPACE, run
 from ubuntu_image.parser import parse
 
 
@@ -55,17 +55,15 @@ class Image:
         :type blob_path: str
         """
         # Put together the dd command.
-        args = ['dd', 'of={}'.format(self.path), 'if={}'.format(blob_path),
-                'conv=sparse']
-        for key, value in dd_args.items():
-            args.append('{}={}'.format(key, value))
+        args = SPACE.join('{}={}'.format(key, value)
+                          for key, value in dd_args.items())
         # Run the command.  We'll capture stderr for logging purposes.
         #
         # TBD:
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        run('dd of={} if={} {} conv=sparse'.format(self.path, blob_path, args))
 
     def partition(self, partnum, **sgdisk_args):
         """Manipulate the GPT contained in the image file.
@@ -97,7 +95,7 @@ class Image:
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        run(args)
 
     def diagnostics(self, which):
         """Return diagnostics string.
@@ -108,8 +106,7 @@ class Image:
         :return: Printed output from the chosen ``sgdisk`` command.
         :rtype: str
         """
-        args = ('sgdisk', which.value, self.path)
-        status = run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        status = run('sgdisk {} {}'.format(which.value, self.path))
         # TBD:
         # - check status
         # - log stderr
@@ -179,8 +176,7 @@ class MBRImage(Image):
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(args, input=input, stdout=PIPE, stderr=PIPE,
-            universal_newlines=True)
+        run(SPACE.join(args))
 
 
 def extract(snap_path):                             # pragma: nocover
@@ -194,7 +190,6 @@ def extract(snap_path):                             # pragma: nocover
     """
     with TemporaryDirectory() as destination:
         gadget_dir = os.path.join(destination, 'gadget')
-        run(['unsquashfs', '-d', gadget_dir, snap_path],
-            stderr=PIPE, stdout=PIPE)
+        run('/usr/bin/unsquashfs -d {} {}'.format(gadget_dir, snap_path))
         gadget_yaml = os.path.join(gadget_dir, 'meta', 'gadget.yaml')
         return parse(gadget_yaml)

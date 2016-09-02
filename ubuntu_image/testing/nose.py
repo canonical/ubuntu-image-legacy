@@ -14,7 +14,7 @@ from hashlib import sha256
 from nose2.events import Plugin
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import as_bool, snap
+from ubuntu_image.helpers import as_bool, run as real_run, snap as real_snap
 from unittest.mock import patch
 from zipfile import ZipFile
 
@@ -31,10 +31,29 @@ def teardown(testobj):
     """Global doctest teardown."""
 
 
+def mock_run(command, *, check=True, **args):
+    # In the test suite, we have to mock out the run() call two do two things.
+    # First, it must not print progress to stdout/stderr since this clutters
+    # up the test output.  Since the default is to capture these, it's enough
+    # to just remove any keyword arguments from args.
+    #
+    # Second, it must set UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL so that we
+    # can use our test data model.assertion, which obviously isn't signed.
+    args.pop('stdout', None)
+    args.pop('stderr', None)
+    env = args.setdefault('env', {})
+    env['UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL'] = '1'
+    real_run(command, check=check, **args)
+
+
 class MockerBase:
     def __init__(self, tmpdir):
         self._tmpdir = tmpdir
-        self._patcher = patch('ubuntu_image.builder.snap', self.run)
+        self._patcher = patch('ubuntu_image.builder.snap', self.snap_mock)
+
+    def snap_mock(self, model_assertion, root_dir,
+                  channel=None, extra_snaps=None):
+        raise NotImplementedError
 
     def _checksum(self, model_assertion, channel):
         # Hash the contents of the model.assertion file + the channel name and
@@ -55,14 +74,16 @@ class MockerBase:
 
 
 class SecondAndOnwardMock(MockerBase):
-    def run(self, model_assertion, root_dir, channel=None):
+    def snap_mock(self, model_assertion, root_dir,
+                  channel=None, extra_snaps=None):
         run_tmp = os.path.join(
             self._tmpdir,
             self._checksum(model_assertion, channel))
         tmp_root = os.path.join(run_tmp, 'root')
         if not os.path.isdir(run_tmp):
             os.makedirs(tmp_root)
-            snap(model_assertion, tmp_root, channel)
+            with patch('ubuntu_image.helpers.run', mock_run):
+                real_snap(model_assertion, tmp_root, channel)
         # copytree() requires that the destination directories do not exist.
         # Since this code only ever executes during the test suite, and even
         # though only when mocking `snap` for speed, this is always safe.
@@ -71,7 +92,8 @@ class SecondAndOnwardMock(MockerBase):
 
 
 class AlwaysMock(MockerBase):
-    def run(self, model_assertion, root_dir, channel=None):
+    def snap_mock(self, model_assertion, root_dir,
+                  channel=None, extra_snaps=None):
         zipfile = resource_filename(
             'ubuntu_image.tests.data',
             '{}.zip'.format(self._checksum(model_assertion, channel)))
