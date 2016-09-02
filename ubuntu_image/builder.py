@@ -284,7 +284,11 @@ class ModelAssertionBuilder(State):
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                 part_img, part.size))
             if part.filesystem is FileSystemType.vfat:   # pragma: nobranch
-                run('mkfs.vfat {}'.format(part_img))
+                if part.filesystem_label:
+                    fslabel = "-n {}".format(part.filesystem_label)
+                else:
+                    fslabel = ""
+                run('mkfs.vfat {} {}'.format(fslabel, part_img))
             # XXX: Does not handle the case of partitions at the end of the
             # image.
             next_avail = part.offset + part.size
