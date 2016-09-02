@@ -34,4 +34,4 @@ before_install:
 script:
     - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && docker run --detach=false foundations/xenial:v7 /bin/sh -c "cd /root/code; git pull; mk-build-deps --remove --install --tool \"/usr/bin/apt-get -y\"; IN_TRAVIS=travis tox" || docker run --detach=false foundations/xenial:v7 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; mk-build-deps --remove --install --tool \"/usr/bin/apt-get -y\"; IN_TRAVIS=travis tox"'
 script:
-    - 'docker run --detach=false foundations/xenial:v7 /bin/sh -c "cd /root/code; git pull; snapcraft && file ubuntu_image*.snap"'
+    - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && /bin/true || docker run --detach=false foundations/xenial:v7 /bin/sh -c "docker run --detach=false foundations/xenial:v7 /bin/sh -c "cd /root/code; git fetch origin +refs/pull/$TRAVIS_PULL_REQUEST/merge; git checkout -qf FETCH_HEAD; snapcraft && file ubuntu_image*.snap"'
