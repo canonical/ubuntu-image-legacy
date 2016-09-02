@@ -138,11 +138,8 @@ class TestModelAssertionBuilder(TestCase):
             # Fake some state expected by the method under test.
             state.unpackdir = resources.enter_context(TemporaryDirectory())
             image_dir = os.path.join(state.unpackdir, 'image')
-            os.makedirs(image_dir)
-            with open(os.path.join(image_dir, 'snap'), 'w'):
-                pass
-            with open(os.path.join(image_dir, 'var'), 'w'):
-                pass
+            os.makedirs(os.path.join(image_dir, 'snap'))
+            os.makedirs(os.path.join(image_dir, 'var'))
             state.rootfs = resources.enter_context(TemporaryDirectory())
             system_data = os.path.join(state.rootfs, 'system-data')
             os.makedirs(system_data)
