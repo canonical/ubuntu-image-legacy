@@ -5,3 +5,7 @@ dist
 .coverage*
 htmlcov
 version.txt
+parts
+prime
+stage
+*.snap
