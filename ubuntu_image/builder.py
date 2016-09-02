@@ -152,8 +152,6 @@ class ModelAssertionBuilder(State):
         src = os.path.join(self.unpackdir, 'image')
         dst = os.path.join(self.rootfs, 'system-data')
         shutil.move(os.path.join(src, 'var'), os.path.join(dst, 'var'))
-        assert os.path.isdir(os.path.join(dst, 'var', 'lib')), (
-            os.listdir(os.path.join(dst, 'var')))
         seed_dir = os.path.join(dst, 'var', 'lib', 'cloud', 'seed')
         cloud_dir = os.path.join(seed_dir, 'nocloud-net')
         os.makedirs(cloud_dir, exist_ok=True)
