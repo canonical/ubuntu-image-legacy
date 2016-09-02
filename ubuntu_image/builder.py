@@ -87,10 +87,7 @@ class ModelAssertionBuilder(State):
         self.gadget = None
         self.args = args
         self.unpackdir = None
-        self.cloud_init = (
-            None
-            if args.cloud_init is None
-            else args.cloud_init)
+        self.cloud_init = args.cloud_init
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -159,8 +156,8 @@ class ModelAssertionBuilder(State):
         cloud_dir = os.path.join(seed_dir, 'nocloud-net')
         os.makedirs(cloud_dir, exist_ok=True)
         metadata_file = os.path.join(cloud_dir, 'meta-data')
-        with open(metadata_file, 'w', encoding='utf-8') as f:
-            print("instance-id: nocloud-static", file=f)
+        with open(metadata_file, 'w', encoding='utf-8') as fp:
+            print('instance-id: nocloud-static', file=fp)
         if self.cloud_init is not None:
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
