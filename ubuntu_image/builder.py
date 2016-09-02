@@ -157,7 +157,7 @@ class ModelAssertionBuilder(State):
         shutil.move(os.path.join(src, 'var'), os.path.join(dst, 'var'))
         seed_dir = os.path.join(dst, 'var', 'lib', 'cloud', 'seed')
         cloud_dir = os.path.join(seed_dir, 'nocloud-net')
-        os.makedirs(cloud_dir)
+        os.makedirs(cloud_dir, exist_ok=True)
         metadata_file = os.path.join(cloud_dir, 'meta-data')
         with open(metadata_file, 'w', encoding='utf-8') as f:
             print("instance-id: nocloud-static", file=f)
