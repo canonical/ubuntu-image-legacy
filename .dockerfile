@@ -13,7 +13,7 @@ RUN add-apt-repository --yes ppa:canonical-foundations/ubuntu-image
 RUN apt-get update && apt-get dist-upgrade -y
 
 # To make sure the file can be snapcrafted.
-RUN apt install snapcraft
+RUN apt install --yes snapcraft
 
 # Grab the origin/master branch as a baseline.
 RUN git clone --depth=50 https://github.com/CanonicalLtd/ubuntu-image.git /root/code
