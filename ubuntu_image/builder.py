@@ -138,7 +138,7 @@ class ModelAssertionBuilder(State):
         # Run `snap prepare-image` on the model.assertion.  sudo is currently
         # required in all cases, but eventually, it won't be necessary at
         # least for UEFI support.
-        snap(self.args.model_assertion, self.unpackdir, self.args.channel)
+        snap(self.args.model_assertion, self.unpackdir, self.args.channel, self.args.extra_snaps)
         self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):
@@ -284,7 +284,11 @@ class ModelAssertionBuilder(State):
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                 part_img, part.size))
             if part.filesystem is FileSystemType.vfat:   # pragma: nobranch
-                run('mkfs.vfat {}'.format(part_img))
+                if part.filesystem_label:
+                    fslabel = "-n {}".format(part.filesystem_label)
+                else:
+                    fslabel = ""
+                run('mkfs.vfat {} {}'.format(fslabel, part_img))
             # XXX: Does not handle the case of partitions at the end of the
             # image.
             next_avail = part.offset + part.size
@@ -297,8 +301,10 @@ class ModelAssertionBuilder(State):
             raise AssertionError('No room for root filesystem data')
         self.rootfs_size = avail_space
         self.root_img = os.path.join(self.images, 'root.img')
-        run('dd if=/dev/zero of={} count=0 bs={}M seek=1'.format(
-            self.root_img, avail_space))
+        # create empty file with holes
+        with open(self.root_img,  "w"):
+            pass
+        os.truncate(self.root_img, avail_space * MiB(1))
         # We defer creating the root file system image because we have to
         # populate it at the same time.  See mkfs.ext4(8) for details.
         self._next.append(self.populate_filesystems)
@@ -334,7 +340,7 @@ class ModelAssertionBuilder(State):
                     for filename in os.listdir(part_dir)
                     )
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
-                    env=dict(MTOOLS_SKIP_CHECK='1'))
+                    env=dict(MTOOLS_SKIP_CHECK='1', PATH=os.environ["PATH"]))
             elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
                 _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be

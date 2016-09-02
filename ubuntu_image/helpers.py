@@ -2,6 +2,7 @@
 
 import re
 import sys
+import os
 
 from subprocess import PIPE, run as subprocess_run
 
@@ -93,9 +94,11 @@ def run(command, *, check=True, **args):
     runnable_command = (
         command.split() if 'shell' not in args
         else command)
+    stdout = args.pop("stdout", PIPE)
+    stderr = args.pop("stderr", PIPE)
     proc = subprocess_run(
         runnable_command,
-        stdout=PIPE, stderr=PIPE,
+        stdout=stdout, stderr=stderr,
         universal_newlines=True,
         **args)
     if check and proc.returncode != 0:
@@ -106,19 +109,16 @@ def run(command, *, check=True, **args):
     return proc
 
 
-def snap(model_assertion, root_dir, channel=None):   # pragma: notravis
-    raw_cmd = 'snap prepare-image {} {} {}'
+def snap(model_assertion, root_dir, channel=None, extra_snaps=None):   # pragma: notravis
+    snap_cmd = os.environ.get("UBUNTU_IMAGE_SNAP_CMD", "snap")
+    raw_cmd = '{} prepare-image {} {} {} {}'
     cmd = raw_cmd.format(
+        snap_cmd,
         '' if channel is None else '--channel={}'.format(channel),
+        '' if extra_snaps is None else " ".join(["--extra-snaps={}".format(e)
+                                                 for e in extra_snaps]),
         model_assertion,
         root_dir)
-    # This environment variable is a temporary workaround to prevent `snap
-    # prepare-image` from failing with an unverified signature on the
-    # model.assertion.  We obviously can't sign it with the real root keys,
-    # and there's no other way to inject testing data.
-    #
-    # $PATH is needed because without it `snap prepare-image` can't find
-    # /usr/bin/squashfs.  This is currently unexplained.
-    env = dict(UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL='1',
-               PATH='/usr/bin')
-    run(cmd, env=env)
+    # Note that we do no longer hardcode the environment here.
+    # Set UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL=1 in the tests
+    run(cmd, stdout=None, stderr=None)
