@@ -86,11 +86,11 @@ class TestMainWithModel(TestCase):
         # Capture builtin print() output.
         self._stdout = StringIO()
         self._stderr = StringIO()
-        ## self._resources.enter_context(
-        ##     patch('argparse._sys.stdout', self._stdout))
-        ## # Capture stderr since this is where argparse will spew to.
-        ## self._resources.enter_context(
-        ##     patch('argparse._sys.stderr', self._stderr))
+        self._resources.enter_context(
+            patch('argparse._sys.stdout', self._stdout))
+        # Capture stderr since this is where argparse will spew to.
+        self._resources.enter_context(
+            patch('argparse._sys.stderr', self._stderr))
         # Set up a few other useful things for these tests.
         self._resources.enter_context(
             patch('ubuntu_image.__main__.logging.basicConfig'))
