@@ -285,7 +285,7 @@ class ModelAssertionBuilder(State):
                 part_img, part.size))
             if part.filesystem is FileSystemType.vfat:   # pragma: nobranch
                 if part.filesystem_label:
-                    fslabel = "-n {}".format(part.filesystem_label)
+                    fslabel = "-F 32 -n {}".format(part.filesystem_label)
                 else:
                     fslabel = ""
                 run('mkfs.vfat {} {}'.format(fslabel, part_img))
@@ -335,12 +335,12 @@ class ModelAssertionBuilder(State):
                     offset += file_size
 
             elif part.filesystem is FileSystemType.vfat:    # pragma: nobranch
-                sourcefiles = SPACE.join(
-                    os.path.join(part_dir, filename)
-                    for filename in os.listdir(part_dir)
-                    )
-                run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
-                    env=dict(MTOOLS_SKIP_CHECK='1', PATH=os.environ["PATH"]))
+                # FIXME: use mcopy insteat, once it stopped eating filesystems
+                # LP: #1619718
+                with mount(part_img) as mountpoint:
+                    # fixme: everything is even more terrible.
+                    run('sudo cp -dR {}/* {}'.format(
+                        part_dir, mountpoint), shell=True, stdout=None, stderr=None)
             elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
                 _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
