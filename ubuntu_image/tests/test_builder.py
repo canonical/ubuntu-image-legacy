@@ -47,6 +47,7 @@ class TestModelAssertionBuilder(TestCase):
             workdir=None,
             output=output,
             model_assertion=self.model_assertion,
+            cloud_init=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
         state.run_thru('calculate_bootfs_size')
@@ -107,6 +108,7 @@ class TestModelAssertionBuilder(TestCase):
             workdir=None,
             model_assertion=self.model_assertion,
             output=None,
+            cloud_init=None,
             )
         with ExitStack() as resources:
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -129,17 +131,15 @@ class TestModelAssertionBuilder(TestCase):
             workdir=None,
             model_assertion=self.model_assertion,
             output=None,
+            cloud_init=None,
             )
         with ExitStack() as resources:
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
             state.unpackdir = resources.enter_context(TemporaryDirectory())
             image_dir = os.path.join(state.unpackdir, 'image')
-            os.makedirs(image_dir)
-            with open(os.path.join(image_dir, 'snap'), 'w'):
-                pass
-            with open(os.path.join(image_dir, 'var'), 'w'):
-                pass
+            os.makedirs(os.path.join(image_dir, 'snap'))
+            os.makedirs(os.path.join(image_dir, 'var'))
             state.rootfs = resources.enter_context(TemporaryDirectory())
             system_data = os.path.join(state.rootfs, 'system-data')
             os.makedirs(system_data)
