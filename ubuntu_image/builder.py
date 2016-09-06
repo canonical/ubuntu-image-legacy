@@ -288,6 +288,7 @@ class ModelAssertionBuilder(State):
                     # this needs verification.
                     if part.filesystem_label
                     else '')
+                # XXX: hard-coding of sector size
                 run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                     label_option, part_img))
             # XXX: Does not handle the case of partitions at the end of the
