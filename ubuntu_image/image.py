@@ -55,15 +55,17 @@ class Image:
         :type blob_path: str
         """
         # Put together the dd command.
-        args = SPACE.join('{}={}'.format(key, value)
-                          for key, value in dd_args.items())
+        args = ['dd', 'of={}'.format(self.path), 'if={}'.format(blob_path),
+                'conv=sparse']
+        for key, value in dd_args.items():
+            args.append('{}={}'.format(key, value))
         # Run the command.  We'll capture stderr for logging purposes.
         #
         # TBD:
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run('dd of={} if={} {} conv=sparse'.format(self.path, blob_path, args))
+        run(args)
 
     def partition(self, partnum, **sgdisk_args):
         """Manipulate the GPT contained in the image file.
@@ -106,7 +108,7 @@ class Image:
         :return: Printed output from the chosen ``sgdisk`` command.
         :rtype: str
         """
-        status = run('sgdisk {} {}'.format(which.value, self.path))
+        status = run('sgdisk', which.value, self.path)
         # TBD:
         # - check status
         # - log stderr
@@ -176,7 +178,7 @@ class MBRImage(Image):
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(SPACE.join(args))
+        run(args, input=input)
 
 
 def extract(snap_path):                             # pragma: nocover
@@ -190,6 +192,6 @@ def extract(snap_path):                             # pragma: nocover
     """
     with TemporaryDirectory() as destination:
         gadget_dir = os.path.join(destination, 'gadget')
-        run('/usr/bin/unsquashfs -d {} {}'.format(gadget_dir, snap_path))
+        run(['/usr/bin/unsquashfs', '-d', gadget_dir, snap_path])
         gadget_yaml = os.path.join(gadget_dir, 'meta', 'gadget.yaml')
         return parse(gadget_yaml)
