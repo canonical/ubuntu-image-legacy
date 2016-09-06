@@ -108,7 +108,7 @@ class Image:
         :return: Printed output from the chosen ``sgdisk`` command.
         :rtype: str
         """
-        status = run('sgdisk', which.value, self.path)
+        status = run(['sgdisk', which.value, self.path])
         # TBD:
         # - check status
         # - log stderr
