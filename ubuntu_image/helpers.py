@@ -1,5 +1,6 @@
 """Useful helper functions."""
 
+import os
 import re
 import sys
 
@@ -9,12 +10,16 @@ from subprocess import PIPE, run as subprocess_run
 __all__ = [
     'GiB',
     'MiB',
+    'SPACE',
     'as_bool',
     'as_size',
     'run',
     'snap',
     'transform',
     ]
+
+
+SPACE = ' '
 
 
 def GiB(count):
@@ -91,34 +96,35 @@ def transform(caught_excs, new_exc):
 
 def run(command, *, check=True, **args):
     runnable_command = (
-        command.split() if 'shell' not in args
+        command.split() if isinstance(command, str) and 'shell' not in args
         else command)
+    stdout = args.pop('stdout', PIPE)
+    stderr = args.pop('stderr', PIPE)
     proc = subprocess_run(
         runnable_command,
-        stdout=PIPE, stderr=PIPE,
+        stdout=stdout, stderr=stderr,
         universal_newlines=True,
         **args)
     if check and proc.returncode != 0:
         sys.stderr.write('COMMAND FAILED: {}'.format(command))
-        sys.stderr.write(proc.stdout)
-        sys.stderr.write(proc.stderr)
+        if proc.stdout is not None:
+            sys.stderr.write(proc.stdout)
+        if proc.stderr is not None:
+            sys.stderr.write(proc.stderr)
         proc.check_returncode()
     return proc
 
 
-def snap(model_assertion, root_dir, channel=None):   # pragma: notravis
-    raw_cmd = 'snap prepare-image {} {} {}'
+def snap(model_assertion, root_dir,
+         channel=None, extra_snaps=None):                   # pragma: notravis
+    snap_cmd = os.environ.get('UBUNTU_IMAGE_SNAP_CMD', 'snap')
+    raw_cmd = '{} prepare-image {} {} {} {}'
     cmd = raw_cmd.format(
-        '' if channel is None else '--channel={}'.format(channel),
+        snap_cmd,
+        ('' if channel is None else '--channel={}'.format(channel)),
+        ('' if extra_snaps is None
+         else SPACE.join('--extra-snaps={}'.format(extra)
+                         for extra in extra_snaps)),
         model_assertion,
         root_dir)
-    # This environment variable is a temporary workaround to prevent `snap
-    # prepare-image` from failing with an unverified signature on the
-    # model.assertion.  We obviously can't sign it with the real root keys,
-    # and there's no other way to inject testing data.
-    #
-    # $PATH is needed because without it `snap prepare-image` can't find
-    # /usr/bin/squashfs.  This is currently unexplained.
-    env = dict(UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL='1',
-               PATH='/usr/bin')
-    run(cmd, env=env)
+    run(cmd, stdout=None, stderr=None, env=dict(PATH=os.environ['PATH']))
