@@ -32,7 +32,7 @@ def teardown(testobj):
 
 
 def mock_run(command, *, check=True, **args):
-    # In the test suite, we have to mock out the run() call two do two things.
+    # In the test suite, we have to mock out the run() call to do two things.
     # First, it must not print progress to stdout/stderr since this clutters
     # up the test output.  Since the default is to capture these, it's enough
     # to just remove any keyword arguments from args.
