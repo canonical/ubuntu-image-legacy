@@ -422,7 +422,8 @@ class ModelAssertionBuilder(State):
         self._next.append(self.finish)
 
     def finish(self):
-        # Move the completed disk image to destination location, since the
-        # temporary scratch directory is about to get removed.
-        shutil.move(self.disk_img, self.output)
+        # Copy the completed disk image to destination location, since the
+        # temporary scratch directory is about to get removed. Copy to
+        # ensure our sparse file remains sparse
+        run(["cp", "--sparse=always", self.disk_img, self.output])
         self._next.append(self.close)
