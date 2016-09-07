@@ -1,3 +1,14 @@
+ubuntu-image (0.6ubuntu1) UNRELEASED; urgency=medium
+
+  * Add --extra-snaps option to support specifying extra snaps to include.
+    LP: #1619219.
+  * Show output of snap prep-image, so that the user gets download progress
+    instead of long pauses with no activity.  LP: #1619194.
+  * Only set UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL in tests, now that
+    model assertions are live.  LP: #1619374.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 07 Sep 2016 08:20:48 -0700
+
 ubuntu-image (0.5ubuntu1) yakkety; urgency=medium
 
   * Relax versioned build-dependency on e2fsprogs.  Either we have this
