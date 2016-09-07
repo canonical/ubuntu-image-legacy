@@ -135,10 +135,8 @@ class ModelAssertionBuilder(State):
         self._next.append(self.prepare_image)
 
     def prepare_image(self):
-        # Run `snap prepare-image` on the model.assertion.  sudo is currently
-        # required in all cases, but eventually, it won't be necessary at
-        # least for UEFI support.
-        snap(self.args.model_assertion, self.unpackdir, self.args.channel, self.args.extra_snaps)
+        snap(self.args.model_assertion, self.unpackdir,
+             self.args.channel, self.args.extra_snaps)
         self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):
@@ -283,12 +281,16 @@ class ModelAssertionBuilder(State):
             self.boot_images.append(part_img)
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                 part_img, part.size))
-            if part.filesystem is FileSystemType.vfat:   # pragma: nobranch
-                if part.filesystem_label:
-                    fslabel = "-F 32 -n {}".format(part.filesystem_label)
-                else:
-                    fslabel = ""
-                run('mkfs.vfat {} {}'.format(fslabel, part_img))
+            if part.filesystem is FileSystemType.vfat:      # pragma: nobranch
+                label_option = (
+                    '-n {}'.format(part.filesystem_label)
+                    # XXX I think this could be None or the empty string, but
+                    # this needs verification.
+                    if part.filesystem_label
+                    else '')
+                # XXX: hard-coding of sector size
+                run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
+                    label_option, part_img))
             # XXX: Does not handle the case of partitions at the end of the
             # image.
             next_avail = part.offset + part.size
@@ -301,8 +303,8 @@ class ModelAssertionBuilder(State):
             raise AssertionError('No room for root filesystem data')
         self.rootfs_size = avail_space
         self.root_img = os.path.join(self.images, 'root.img')
-        # create empty file with holes
-        with open(self.root_img,  "w"):
+        # Create empty file with holes.
+        with open(self.root_img,  'w'):
             pass
         os.truncate(self.root_img, avail_space * MiB(1))
         # We defer creating the root file system image because we have to

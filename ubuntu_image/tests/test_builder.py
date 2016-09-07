@@ -48,6 +48,7 @@ class TestModelAssertionBuilder(TestCase):
             output=output,
             model_assertion=self.model_assertion,
             cloud_init=None,
+            extra_snaps=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
         state.run_thru('calculate_bootfs_size')
@@ -109,6 +110,7 @@ class TestModelAssertionBuilder(TestCase):
             model_assertion=self.model_assertion,
             output=None,
             cloud_init=None,
+            extra_snaps=[],
             )
         with ExitStack() as resources:
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -132,6 +134,7 @@ class TestModelAssertionBuilder(TestCase):
             model_assertion=self.model_assertion,
             output=None,
             cloud_init=None,
+            extra_snaps=None,
             )
         with ExitStack() as resources:
             state = resources.enter_context(XXXModelAssertionBuilder(args))

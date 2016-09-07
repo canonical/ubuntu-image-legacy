@@ -4,8 +4,8 @@ import os
 
 from enum import Enum
 from struct import pack
-from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
+from ubuntu_image.helpers import run
 from ubuntu_image.parser import parse
 
 
@@ -65,7 +65,7 @@ class Image:
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        run(args)
 
     def partition(self, partnum, **sgdisk_args):
         """Manipulate the GPT contained in the image file.
@@ -97,7 +97,7 @@ class Image:
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        run(args)
 
     def diagnostics(self, which):
         """Return diagnostics string.
@@ -108,8 +108,7 @@ class Image:
         :return: Printed output from the chosen ``sgdisk`` command.
         :rtype: str
         """
-        args = ('sgdisk', which.value, self.path)
-        status = run(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        status = run(['sgdisk', which.value, self.path])
         # TBD:
         # - check status
         # - log stderr
@@ -179,8 +178,7 @@ class MBRImage(Image):
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(args, input=input, stdout=PIPE, stderr=PIPE,
-            universal_newlines=True)
+        run(args, input=input)
 
 
 def extract(snap_path):                             # pragma: nocover
@@ -194,7 +192,6 @@ def extract(snap_path):                             # pragma: nocover
     """
     with TemporaryDirectory() as destination:
         gadget_dir = os.path.join(destination, 'gadget')
-        run(['unsquashfs', '-d', gadget_dir, snap_path],
-            stderr=PIPE, stdout=PIPE)
+        run(['/usr/bin/unsquashfs', '-d', gadget_dir, snap_path])
         gadget_yaml = os.path.join(gadget_dir, 'meta', 'gadget.yaml')
         return parse(gadget_yaml)
