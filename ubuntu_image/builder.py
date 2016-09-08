@@ -9,7 +9,7 @@ from contextlib import ExitStack, contextmanager
 from math import ceil
 from operator import attrgetter
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import MiB, run, snap
+from ubuntu_image.helpers import MiB, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import BootLoader, FileSystemType,\
                                 VolumeSchema, parse as parse_yaml
@@ -424,5 +424,5 @@ class ModelAssertionBuilder(State):
     def finish(self):
         # Move the completed disk image to destination location, since the
         # temporary scratch directory is about to get removed.
-        shutil.move(self.disk_img, self.output)
+        shutil.move(self.disk_img, self.output, copy_function=sparse_copy)
         self._next.append(self.close)

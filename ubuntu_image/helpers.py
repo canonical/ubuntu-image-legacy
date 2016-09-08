@@ -15,6 +15,7 @@ __all__ = [
     'as_size',
     'run',
     'snap',
+    'sparse_copy',
     'transform',
     ]
 
@@ -128,3 +129,10 @@ def snap(model_assertion, root_dir,
         model_assertion,
         root_dir)
     run(cmd, stdout=None, stderr=None, env=dict(PATH=os.environ['PATH']))
+
+
+def sparse_copy(src, dst, *, follow_symlinks=True):
+    args = ['cp', '-p', '--sparse=always', src, dst]
+    if not follow_symlinks:
+        args.append('-P')
+    run(args)
