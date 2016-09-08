@@ -127,4 +127,4 @@ def snap(model_assertion, root_dir,
                          for extra in extra_snaps)),
         model_assertion,
         root_dir)
-    run(cmd, stdout=None, stderr=None, env=dict(PATH=os.environ['PATH']))
+    run(cmd, stdout=None, stderr=None)
