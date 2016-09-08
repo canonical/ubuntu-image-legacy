@@ -1,3 +1,9 @@
+ubuntu-image (0.6ubuntu3) yakkety; urgency=medium
+
+  * Make the mtools a versioned dep for real, not a versioned build-dep.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 08 Sep 2016 00:45:37 -0700
+
 ubuntu-image (0.6ubuntu2) yakkety; urgency=medium
 
   * Add a versioned dependency on a fixed mtools.  LP: #1619718.
