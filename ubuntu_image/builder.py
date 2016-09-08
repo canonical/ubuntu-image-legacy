@@ -337,15 +337,12 @@ class ModelAssertionBuilder(State):
                     offset += file_size
 
             elif part.filesystem is FileSystemType.vfat:    # pragma: nobranch
-                sourcefiles = SPACE.join(
-                    os.path.join(part_dir, filename)
-                    for filename in os.listdir(part_dir)
-                    )
-                # XXX Make sure the $PATH gets propagated to the mcopy(1)
-                # subprocess.  For unknown reasons it might not yet be set
-                # up.  See PR#46 for details.
-                run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
-                    env=dict(MTOOLS_SKIP_CHECK='1'))
+                # FIXME: use mcopy insteat, once it stopped eating filesystems
+                # LP: #1619718
+                with mount(part_img) as mountpoint:
+                    # fixme: everything is even more terrible.
+                    run('sudo cp -dR {}/* {}'.format(
+                        part_dir, mountpoint), shell=True, stdout=None, stderr=None)
             elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
                 _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
