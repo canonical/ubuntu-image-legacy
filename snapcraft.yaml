@@ -21,6 +21,7 @@ parts:
       - PyYAML
     snap:
       - usr
+      - sbin
     stage-packages:
       - mtools
       - e2fsprogs
