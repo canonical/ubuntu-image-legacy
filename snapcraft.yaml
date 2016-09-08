@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.5+mvo1
+version: 0.5+mvo8
 confinement: devmode
 
 apps:
@@ -21,8 +21,10 @@ parts:
       - PyYAML
     snap:
       - usr
+      - sbin
     stage-packages:
       - mtools
+      - e2fsprogs
   snapd:
     plugin: go
     source: https://github.com/snapcore/snapd
