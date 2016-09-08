@@ -1,3 +1,9 @@
+ubuntu-image (0.6ubuntu2) UNRELEASED; urgency=medium
+
+  * Add a versioned dependency on a fixed mtools.  LP: #1619718.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 08 Sep 2016 00:02:04 -0700
+
 ubuntu-image (0.6ubuntu1) yakkety; urgency=medium
 
   * Add --extra-snaps option to support specifying extra snaps to include.
