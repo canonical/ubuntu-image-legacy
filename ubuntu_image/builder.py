@@ -341,11 +341,10 @@ class ModelAssertionBuilder(State):
                     os.path.join(part_dir, filename)
                     for filename in os.listdir(part_dir)
                     )
-                # XXX Make sure the $PATH gets propagated to the mcopy(1)
-                # subprocess.  For unknown reasons it might not yet be set
-                # up.  See PR#46 for details.
+                env = dict(MTOOLS_SKIP_CHECK='1')
+                env.update(os.environ)
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
-                    env=dict(MTOOLS_SKIP_CHECK='1'))
+                    env=env)
             elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
                 _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
