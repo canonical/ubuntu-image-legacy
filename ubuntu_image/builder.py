@@ -341,7 +341,7 @@ class ModelAssertionBuilder(State):
                     os.path.join(part_dir, filename)
                     for filename in os.listdir(part_dir)
                     )
-                env=dict(MTOOLS_SKIP_CHECK='1')
+                env = dict(MTOOLS_SKIP_CHECK='1')
                 env.update(os.environ)
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
