@@ -3,16 +3,20 @@ series: 16
 authority-id: my-brand
 brand-id: my-brand
 model: canonical-pc-amd64
-class: general
-allowed-modes: classic, developer
-required-snaps: 
 architecture: amd64
-store: canonical
 gadget: pc
 kernel: pc-kernel
-core: ubuntu-core
 timestamp: 2016-01-02T10:00:00-05:00
 body-length: 0
 sign-key-sha3-384: Jv8_JiHiIzJVcO9M55pPdqSDWUvuhfDIBJUS-3VW7F_idjix7Ffn5qMxB21ZQuij
 
-openpgpg 2cln
+AcLBXAQAAQoABgUCV8lRJQAKCRDgT5vottzAEqStD/9aYgsXamkaP0vcUvh39ptDk0mT7WH7xi3T
+Zmo5OmW55RpqljWktHldgMx0OFVL6JM7aXVrk5igVYViaOuxt5IoZRXWglcfyhcx43Ib1yNdzarX
+WP6TwLVRLWzvAXk40q82wtV4Ga4wfDB9l2b3thMVgfWBbmNZA7TPawX/qsYUano+4bNjoKz0BiiQ
+xgfhO6FTBMaKGHL6XWwVGS8QBLwruSos1npv7G3+F98FIgdk6+lK32l6ChGBG7nYpzsH/gvToZhn
+0NBY5RX8TGDKOEOVqJYQF61I7G4XGG26q3MXu3PtnbTZJdScAplaypkB/IrO01RJ88ApzjCWn+lO
+3K2ukvRYbuNtnsftDRYwpORDJf1SSM6IDLSlWgy7N20E1PV1y6cWtWRkEkneFnvrp/xN9kuBPg0p
+GOlSHgj30BTyQY6lOpVSy24ScZZiYJ91r9V0EeDWgMCMr6mK+4rdnPNyGzJuJq6wNhuQb3dPx0rv
+9qrv6+6/GP3F64hVpuw35TlLTWId3Y4h4gTCPPfJNTnT2smDPO2hCpuxL7VewoNsDm8BCHDHZ0TT
+nEKcb0LQzf2nMYavXTiD8pQevosyQh8uy7lnrKhFznK4OMtnx1WodoLpoGa7HzSms3nEnIZh/y7Z
+zG1zq93sfO0G19JZiu0YMyEMDeTtyB4WH01xOqH4oA==
