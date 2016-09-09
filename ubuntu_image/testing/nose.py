@@ -41,7 +41,7 @@ def mock_run(command, *, check=True, **args):
     # can use our test data model.assertion, which obviously isn't signed.
     args.pop('stdout', None)
     args.pop('stderr', None)
-    env = args.setdefault('env', {})
+    env = args.setdefault('env', os.environ)
     env['UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL'] = '1'
     real_run(command, check=check, **args)
 
