@@ -81,6 +81,7 @@ class ModelAssertionBuilder(State):
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
+        self.image_size = 0
         self.bootfs = None
         self.bootfs_sizes = None
         self.images = None
@@ -107,6 +108,7 @@ class ModelAssertionBuilder(State):
             root_img=self.root_img,
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
+            image_size=self.image_size,
             unpackdir=self.unpackdir,
             cloud_init=self.cloud_init,
             )
@@ -125,6 +127,7 @@ class ModelAssertionBuilder(State):
         self.root_img = state['root_img']
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
+        self.image_size = state['image_size']
         self.unpackdir = state['unpackdir']
         self.cloud_init = state['cloud_init']
 
@@ -173,13 +176,15 @@ class ModelAssertionBuilder(State):
                 total += os.path.getsize(os.path.join(dirpath, filename))
         # Fudge factor for incidentals.
         total *= 1.5
-        return total
+        return ceil(total)
 
     def calculate_rootfs_size(self):
         # Calculate the size of the root file system.  Basically, I'm trying
         # to reproduce du(1) close enough without having to call out to it and
         # parse its output.
-        self.rootfs_size = self._calculate_dirsize(self.rootfs)
+        # On a 100MiB filesystem, ext4 takes a little over 7MiB for the
+        # metadata.  Use 8MiB as a minimum padding here.
+        self.rootfs_size = self._calculate_dirsize(self.rootfs) + MiB(8)
         self._next.append(self.pre_populate_bootfs_contents)
 
     def pre_populate_bootfs_contents(self):
@@ -299,17 +304,15 @@ class ModelAssertionBuilder(State):
             next_avail = part.offset + part.size
         # The image for the root partition.
         #
-        # XXX: Hard-codes 4GB image size.   Hard-codes last sector for backup
-        # GPT.
-        avail_space = (4000000000 - next_avail - 4 * 1024) // MiB(1)
-        if self.rootfs_size / MiB(1) > avail_space:   # pragma: nocover
-            raise AssertionError('No room for root filesystem data')
-        self.rootfs_size = avail_space
+        # XXX: Hard-codes last 34 512-byte sectors for backup GPT,
+        # empirically derived from sgdisk behavior.
+        self.image_size = ceil((self.rootfs_size + next_avail) /
+                               1024 + 17) * 1024
         self.root_img = os.path.join(self.images, 'root.img')
         # Create empty file with holes.
         with open(self.root_img,  'w'):
             pass
-        os.truncate(self.root_img, avail_space * MiB(1))
+        os.truncate(self.root_img, self.rootfs_size)
         # We defer creating the root file system image because we have to
         # populate it at the same time.  See mkfs.ext4(8) for details.
         self._next.append(self.populate_filesystems)
@@ -371,9 +374,9 @@ class ModelAssertionBuilder(State):
         # XXX: This ought to be a single constructor that figures out the
         # class for us when we pass in the schema.
         if volume.schema == VolumeSchema.mbr:
-            image = MBRImage(self.disk_img, 4000000000)
+            image = MBRImage(self.disk_img, self.image_size)
         else:
-            image = Image(self.disk_img, 4000000000)
+            image = Image(self.disk_img, self.image_size)
 
         structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
@@ -407,13 +410,15 @@ class ModelAssertionBuilder(State):
             next_offset = (part.offset + part.size) // MiB(1)
         # Create main snappy writable partition
         image.partition(part_id,
-                        new='{}M:+{}M'.format(next_offset, self.rootfs_size),
+                        new='{}M:+{}K'.format(next_offset,
+                                              self.rootfs_size // 1024),
                         typecode=('83',
                                   '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
         if volume.schema == VolumeSchema.gpt:
             image.partition(part_id, change_name='writable')
         image.copy_blob(self.root_img,
-                        bs='1M', seek=next_offset, count=self.rootfs_size,
+                        bs='1M', seek=next_offset,
+                        count=ceil(self.rootfs_size / MiB(1)),
                         conv='notrunc')
         for value, dest in offset_writes:           # pragma: nobranch
             # decipher non-numeric offset_write values
