@@ -3,6 +3,8 @@ ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
   * Don't build 4GB images, instead build images just as large as needed
     to hold the contents and let ubuntu-core resize them dynamically on
     first boot.  LP: #1619362.
+  * Ensure cross-filesystem copies don't accidentally de-sparsify our
+    image.
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Sep 2016 04:06:30 +0000
 
