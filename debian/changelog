@@ -1,3 +1,16 @@
+ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
+
+  * Don't build 4GB images, instead build images just as large as needed
+    to hold the contents and let ubuntu-core resize them dynamically on
+    first boot.  LP: #1619362.
+  * Ensure cross-filesystem copies don't accidentally de-sparsify our
+    image.
+  * Declare Testsuite: autopkgtest-pkg-python in debian/control so that the
+    package is visible to the test infrastructure.
+  * Update model.assertion test file to be compatible with snapd 2.14.2.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Sep 2016 04:06:30 +0000
+
 ubuntu-image (0.6ubuntu3) yakkety; urgency=medium
 
   * Make the mtools a versioned dep for real, not a versioned build-dep.

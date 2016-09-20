@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.5+mvo8
+version: 0.5+real1
 confinement: devmode
 
 apps:
@@ -12,7 +12,7 @@ apps:
 parts:
   ubuntu-image:
     plugin: python3
-    source: https://github.com/mvo5/ubuntu-image.git
+    source: https://github.com/CanonicalLtd/ubuntu-image.git
     source-type: git
     python-packages:
       - python-debian

@@ -258,12 +258,12 @@ def parse(stream_or_string):
             # hybrids and 'mbr' are allowed for either schema, but GUID-only
             # is only allowed for GPT, while 2-digit-only is only allowed for
             # MBR.  Note too that 2-item tuples are also already ensured.
-            if (isinstance(structure_type, UUID)
-                    and schema is not VolumeSchema.gpt):          # noqa: W503
+            if (isinstance(structure_type, UUID) and
+                    schema is not VolumeSchema.gpt):
                 raise ValueError('GUID structure type with non-GPT')
-            elif (isinstance(structure_type, str)
-                    and structure_type != 'mbr'                   # noqa: W503
-                    and schema is not VolumeSchema.mbr):          # noqa: W503
+            elif (isinstance(structure_type, str) and
+                    structure_type != 'mbr' and
+                    schema is not VolumeSchema.mbr):
                 raise ValueError('MBR structure type with non-MBR')
             # XXX: Ensure the special case of the 'mbr' type doesn't extend
             # beyond the confines of the mbr.

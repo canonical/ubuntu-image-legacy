@@ -23,6 +23,7 @@ Build-Depends: debhelper (>= 9),
                tox,
 Standards-Version: 3.9.8
 Homepage: http://launchpad.net/ubuntu-image
+Testsuite: autopkgtest-pkg-python
 
 Package: ubuntu-image
 Architecture: all
