@@ -27,54 +27,76 @@ def parseargs(argv=None):
         prog=PROGRAM,
         description=_('Generate a bootable disk image.'),
         )
-    parser.add_argument('model_assertion', nargs='?',
-                        help=_('Path to the model assertion'))
-    parser.add_argument('--version', action='version',
-                        version='{} {}'.format(PROGRAM, __version__))
-    parser.add_argument('-c', '--channel',
-                        default=None,
-                        help=_('For snap-based images, the channel to use'))
-    parser.add_argument('--extra-snaps',
-                        default=None, action='append',
-                        help=_("""For snap-based images, the extra snaps to
-                        install."""))
-    parser.add_argument('--cloud-init',
-                        default=None,
-                        help=_("cloud-config data to be copied in the image"))
-    parser.add_argument('-o', '--output',
-                        default=None,
-                        help=_('The output file for the disk image'))
-    parser.add_argument('-d', '--debug',
-                        default=False, action='store_true',
-                        help=_('Enable debugging output'))
-    parser.add_argument('-w', '--workdir',
-                        default=None,
-                        help=_("""The working directory in which to download
-                        and unpack all the source files for the image.  This
-                        directory can exist or not, and it is not removed
-                        after this program exits.  If not given, a temporary
-                        working directory is used instead, which *is* deleted
-                        after this program exits."""))
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('-u', '--until',
-                       default=None, metavar='STEP',
-                       help=_("""Run the state machine until the given STEP,
-                       non-inclusively.  STEP can be a name or number.
-                       The state will be saved in a .ubuntu-image.pck file in
-                       the working directory, and can be resumed with -r.  Use
-                       -w if you want to resume the process later."""))
-    group.add_argument('-t', '--thru',
-                       default=None, metavar='STEP',
-                       help=_("""Run the state machine through the given STEP,
-                       inclusively.  STEP can be a name or number.  The state
-                       will be saved in a .ubuntu-image.pck file in the
-                       working directory and can be resumed with -r.  Use -w
-                       if you want to resume the process later."""))
-    parser.add_argument('-r', '--resume',
-                        default=False, action='store_true',
-                        help=_("""Continue the state machine from the
-                        previously saved state.  It is an error if there is no
-                        previous state."""))
+    parser.add_argument(
+        '--version', action='version',
+        version='{} {}'.format(PROGRAM, __version__))
+    # Common options.
+    common_group = parser.add_argument_group(_('Common options'))
+    common_group.add_argument(
+        'model_assertion', nargs='?',
+        help=_("""Path to the model assertion file.  This argument must be
+        given unless the state machine is being resumed, in which case it
+        cannot be given."""))
+    common_group.add_argument(
+        '-d', '--debug',
+        default=False, action='store_true',
+        help=_('Enable debugging output'))
+    common_group.add_argument(
+        '-o', '--output',
+        default=None, metavar='FILENAME',
+        help=_("""The generated disk image file.  If not given, the image will
+        be put in a file called disk.img in the working directory (in which
+        case, you probably want to specify -w)."""))
+    common_group.add_argument(
+        '-w', '--workdir',
+        default=None, metavar='DIRECTORY',
+        help=_("""The working directory in which to download and unpack all
+        the source files for the image.  This directory can exist or not, and
+        it is not removed after this program exits.  If not given, a temporary
+        working directory is used instead, which *is* deleted after this
+        program exits."""))
+    # Snap-based image options.
+    snap_group = parser.add_argument_group(
+        _('Image contents options'),
+        _("""Additional options for defining the contents of snap-based
+        images."""))
+    snap_group.add_argument(
+        '--extra-snaps',
+        default=None, action='append',
+        help=_("""Extra snaps to install.  This is passed through to `snap
+        prepare-image`."""))
+    snap_group.add_argument(
+        '--cloud-init',
+        default=None, metavar='USER-DATA-FILE',
+        help=_('cloud-config data to be copied to the image'))
+    snap_group.add_argument(
+        '-c', '--channel',
+        default=None,
+        help=_('The snap channel to use'))
+    # State machine options.
+    state_group = parser.add_argument_group(
+        _('State machine options'),
+        _("""Options for controlling the internal state machine.  These
+        options are mutually exclusive.  When -u or -t is given, the state
+        machine can be resumed later with -r, but -w must be given in that
+        case since the state is saved in a .ubuntu-image.pck file in the
+        working directory."""))
+    state_group = state_group.add_mutually_exclusive_group()
+    state_group.add_argument(
+        '-u', '--until',
+        default=None, metavar='STEP',
+        help=_("""Run the state machine until the given STEP, non-inclusively.
+        STEP can be a name or number."""))
+    state_group.add_argument(
+        '-t', '--thru',
+        default=None, metavar='STEP',
+        help=_("""Run the state machine through the given STEP, inclusively.
+        STEP can be a name or number."""))
+    state_group.add_argument(
+        '-r', '--resume',
+        default=False, action='store_true',
+        help=_("""Continue the state machine from the previously saved state.
+        It is an error if there is no previous state."""))
     args = parser.parse_args(argv)
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
