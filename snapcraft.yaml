@@ -11,7 +11,7 @@ apps:
 
 parts:
   ubuntu-image:
-    plugin: python3
+    plugin: python
     source: https://github.com/CanonicalLtd/ubuntu-image.git
     source-type: git
     python-packages:
@@ -20,7 +20,7 @@ parts:
       - voluptuous
       - PyYAML
     snap:
-      - bin
+      - bin/ubuntu-image
       - usr
       - sbin
     stage-packages:
