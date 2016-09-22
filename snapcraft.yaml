@@ -2,12 +2,12 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.5+real1
+version: 0.7+real1
 confinement: devmode
 
 apps:
   ubuntu-image:
-    command: usr/bin/ubuntu-image
+    command: bin/ubuntu-image
 
 parts:
   ubuntu-image:
@@ -20,6 +20,7 @@ parts:
       - voluptuous
       - PyYAML
     snap:
+      - bin
       - usr
       - sbin
     stage-packages:
