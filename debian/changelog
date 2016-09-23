@@ -1,5 +1,6 @@
 ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
 
+  [ Steve Langasek ]
   * Don't build 4GB images, instead build images just as large as needed
     to hold the contents and let ubuntu-core resize them dynamically on
     first boot.  LP: #1619362.
@@ -10,6 +11,9 @@ ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
     - Declare Testsuite: autopkgtest-pkg-python in debian/control so that the
       package is visible to the test infrastructure.
     - Remove e2fsprogs from Build-Depends and Depends as per lintian.
+
+  [ Barry Warsaw ]
+  * Repair snapcraft.yaml for Python plugin changes.
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Sep 2016 04:06:30 +0000
 
