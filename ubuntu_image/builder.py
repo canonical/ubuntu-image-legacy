@@ -47,7 +47,8 @@ def _mkfs_ext4(img_file, contents_dir, label='writable'):
     if proc.returncode == 0:                           # pragma: notravis
         # We have a new enough e2fsprogs, so we're done.
         return
-    run('mkfs.ext4 -L {} {}'.format(label, img_file))  # pragma: notravis
+    run('mkfs.ext4 -L -T default {} {}'.format(
+        label, img_file))                              # pragma: notravis
     # Only do this if the directory is non-empty.
     if not os.listdir(contents_dir):
         return
