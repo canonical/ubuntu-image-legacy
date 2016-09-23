@@ -66,15 +66,14 @@ def parseargs(argv=None):
         default=None,
         help=_('The snap channel to use'))
     # State machine options.
-    state_group = parser.add_argument_group(
+    inclusive_state_group = parser.add_argument_group(
         _('State machine options'),
-        _("""Options for controlling the internal state machine.  These
-        options are mutually exclusive.  When -u or -t is given, the state
-        machine can be resumed later with -r, but -w must be given in that
-        case since the state is saved in a .ubuntu-image.pck file in the
+        _("""Options for controlling the internal state machine.  Other than
+        -w, these options are mutually exclusive.  When -u or -t is given, the
+        state machine can be resumed later with -r, but -w must be given in
+        that case since the state is saved in a .ubuntu-image.pck file in the
         working directory."""))
-    state_group = state_group.add_mutually_exclusive_group()
-    state_group.add_argument(
+    inclusive_state_group.add_argument(
         '-w', '--workdir',
         default=None, metavar='DIRECTORY',
         help=_("""The working directory in which to download and unpack all
@@ -83,6 +82,7 @@ def parseargs(argv=None):
         working directory is used instead, which *is* deleted after this
         program exits.  Use -w if you want to be able to resume a partial
         state machine run."""))
+    state_group = inclusive_state_group.add_mutually_exclusive_group()
     state_group.add_argument(
         '-u', '--until',
         default=None, metavar='STEP',
