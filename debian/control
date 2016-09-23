@@ -5,7 +5,6 @@ Maintainer: Barry Warsaw <barry@ubuntu.com>
 Build-Depends: debhelper (>= 9),
                dh-python,
                dosfstools,
-               e2fsprogs,
                gdisk,
                help2man,
                mtools,
@@ -38,7 +37,6 @@ Package: python3-ubuntu-image
 Architecture: all
 Section: python
 Depends: dosfstools,
-         e2fsprogs,
          mtools (>= 4.0.18-2ubuntu0),
          python3-attr,
          python3-pkg-resources,
