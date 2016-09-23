@@ -47,14 +47,6 @@ def parseargs(argv=None):
         help=_("""The generated disk image file.  If not given, the image will
         be put in a file called disk.img in the working directory (in which
         case, you probably want to specify -w)."""))
-    common_group.add_argument(
-        '-w', '--workdir',
-        default=None, metavar='DIRECTORY',
-        help=_("""The working directory in which to download and unpack all
-        the source files for the image.  This directory can exist or not, and
-        it is not removed after this program exits.  If not given, a temporary
-        working directory is used instead, which *is* deleted after this
-        program exits."""))
     # Snap-based image options.
     snap_group = parser.add_argument_group(
         _('Image contents options'),
@@ -82,6 +74,15 @@ def parseargs(argv=None):
         case since the state is saved in a .ubuntu-image.pck file in the
         working directory."""))
     state_group = state_group.add_mutually_exclusive_group()
+    state_group.add_argument(
+        '-w', '--workdir',
+        default=None, metavar='DIRECTORY',
+        help=_("""The working directory in which to download and unpack all
+        the source files for the image.  This directory can exist or not, and
+        it is not removed after this program exits.  If not given, a temporary
+        working directory is used instead, which *is* deleted after this
+        program exits.  Use -w if you want to be able to resume a partial
+        state machine run."""))
     state_group.add_argument(
         '-u', '--until',
         default=None, metavar='STEP',
