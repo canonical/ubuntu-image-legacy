@@ -6,9 +6,14 @@ ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
     first boot.  LP: #1619362.
   * Ensure cross-filesystem copies don't accidentally de-sparsify our
     image.
-  * Declare Testsuite: autopkgtest-pkg-python in debian/control so that the
-    package is visible to the test infrastructure.
   * Update model.assertion test file to be compatible with snapd 2.14.2.
+  * debian/control:
+    - Declare Testsuite: autopkgtest-pkg-python in debian/control so that the
+      package is visible to the test infrastructure.
+    - Remove e2fsprogs from Build-Depends and Depends as per lintian.
+
+  [ Barry Warsaw ]
+  * Repair snapcraft.yaml for Python plugin changes.
 
   [ Barry Warsaw ]
   * Reorganize and flesh out command line options.
