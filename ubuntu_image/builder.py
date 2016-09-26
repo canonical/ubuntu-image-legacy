@@ -41,13 +41,14 @@ def _mkfs_ext4(img_file, contents_dir, label='writable'):
     that case, we have to sudo loop mount the ext4 file system and
     populate it that way.  Which sucks because sudo.
     """
-    cmd = 'mkfs.ext4 -L {} -O -metadata_csum -T default {} -d {}'.format(
+    cmd = ('mkfs.ext4 -L {} -O -metadata_csum -T default -O uninit_bg {} '
+           '-d {}').format(
         label, img_file, contents_dir)
     proc = run(cmd, check=False)
     if proc.returncode == 0:                           # pragma: notravis
         # We have a new enough e2fsprogs, so we're done.
         return
-    run('mkfs.ext4 -L -T default {} {}'.format(
+    run('mkfs.ext4 -L -T default -O uninit_bg {} {}'.format(
         label, img_file))                              # pragma: notravis
     # Only do this if the directory is non-empty.
     if not os.listdir(contents_dir):
