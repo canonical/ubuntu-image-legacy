@@ -22,7 +22,7 @@ _logger = logging.getLogger('ubuntu-image')
 
 @contextmanager
 def mount(img):
-    with ExitStack() as resources:                  # pragma: notravis
+    with ExitStack() as resources:
         tmpdir = resources.enter_context(TemporaryDirectory())
         mountpoint = os.path.join(tmpdir, 'root-mount')
         os.makedirs(mountpoint)
@@ -42,18 +42,17 @@ def _mkfs_ext4(img_file, contents_dir, label='writable'):
     populate it that way.  Which sucks because sudo.
     """
     cmd = ('mkfs.ext4 -L {} -O -metadata_csum -T default -O uninit_bg {} '
-           '-d {}').format(
-        label, img_file, contents_dir)
+           '-d {}').format(label, img_file, contents_dir)
     proc = run(cmd, check=False)
-    if proc.returncode == 0:                           # pragma: notravis
+    if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
         return
     run('mkfs.ext4 -L -T default -O uninit_bg {} {}'.format(
-        label, img_file))                              # pragma: notravis
+        label, img_file))
     # Only do this if the directory is non-empty.
     if not os.listdir(contents_dir):
         return
-    with mount(img_file) as mountpoint:                # pragma: notravis
+    with mount(img_file) as mountpoint:
         # fixme: everything is terrible.
         run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
             contents_dir, mountpoint), shell=True)
@@ -174,7 +173,7 @@ class ModelAssertionBuilder(State):
     def _calculate_dirsize(self, path):
         total = 0
         for dirpath, dirnames, filenames in os.walk(path):
-            for filename in filenames:              # pragma: notravis
+            for filename in filenames:
                 total += os.path.getsize(os.path.join(dirpath, filename))
         # Fudge factor for incidentals.
         total *= 1.5
@@ -198,7 +197,7 @@ class ModelAssertionBuilder(State):
             os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
-    def populate_bootfs_contents(self):             # pragma: notravis
+    def populate_bootfs_contents(self):
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
@@ -274,7 +273,7 @@ class ModelAssertionBuilder(State):
             partnum = 'part{}'.format(i)
             target_dir = os.path.join(self.workdir, partnum)
             if part.filesystem is FileSystemType.none:
-                continue                            # pragma: nocover
+                continue
             self.bootfs_sizes[partnum] = self._calculate_dirsize(target_dir)
         self._next.append(self.prepare_filesystems)
 
@@ -291,7 +290,7 @@ class ModelAssertionBuilder(State):
             self.boot_images.append(part_img)
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                 part_img, part.size))
-            if part.filesystem is FileSystemType.vfat:      # pragma: nobranch
+            if part.filesystem is FileSystemType.vfat:
                 label_option = (
                     '-n {}'.format(part.filesystem_label)
                     # XXX I think this could be None or the empty string, but
@@ -326,7 +325,7 @@ class ModelAssertionBuilder(State):
         for partnum, part in enumerate(volume.structures):
             part_img = self.boot_images[partnum]
             part_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            if part.filesystem is FileSystemType.none:   # pragma: nocover
+            if part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0
                 for file in part.content:
@@ -343,8 +342,7 @@ class ModelAssertionBuilder(State):
                     # XXX: We must check offset+size vs. the target image.
                     image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
                     offset += file_size
-
-            elif part.filesystem is FileSystemType.vfat:    # pragma: nobranch
+            elif part.filesystem is FileSystemType.vfat:
                 sourcefiles = SPACE.join(
                     os.path.join(part_dir, filename)
                     for filename in os.listdir(part_dir)
@@ -353,7 +351,7 @@ class ModelAssertionBuilder(State):
                 env.update(os.environ)
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
-            elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
+            elif part.filesystem is FileSystemType.ext4:
                 _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
@@ -384,16 +382,16 @@ class ModelAssertionBuilder(State):
         offset_writes = []
         part_offsets = {}
         for i, part in enumerate(structures):
-            if part.name:                           # pragma: nocover
+            if part.name:
                 part_offsets[part.name] = part.offset
-            if part.offset_write:                   # pragma: nocover
+            if part.offset_write:
                 offset_writes.append((part.offset, part.offset_write))
             image.copy_blob(self.boot_images[i],
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
             if part.type == 'mbr':
-                continue                            # pragma: nocover
+                continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
             partdef = '{}M:+{}M'.format(
@@ -405,7 +403,7 @@ class ModelAssertionBuilder(State):
             if (volume.schema == VolumeSchema.mbr and
                part.filesystem_label == 'system-boot'):
                 part_args['activate'] = True
-            if part.name is not None:               # pragma: nobranch
+            if part.name is not None:
                 part_args['change_name'] = part.name
             image.partition(part_id, **part_args)
             part_id += 1
@@ -422,9 +420,9 @@ class ModelAssertionBuilder(State):
                         bs='1M', seek=next_offset,
                         count=ceil(self.rootfs_size / MiB(1)),
                         conv='notrunc')
-        for value, dest in offset_writes:           # pragma: nobranch
+        for value, dest in offset_writes:
             # decipher non-numeric offset_write values
-            if isinstance(dest, tuple):             # pragma: nocover
+            if isinstance(dest, tuple):
                 dest = part_offsets[dest[0]] + dest[1]
             # XXX: Hard-coding of 512-byte sectors.
             image.write_value_at_offset(value // 512, dest)
