@@ -107,11 +107,13 @@ def run(command, *, check=True, **args):
         universal_newlines=True,
         **args)
     if check and proc.returncode != 0:
-        sys.stderr.write('COMMAND FAILED: {}'.format(command))
+        sys.__stderr__.write('COMMAND FAILED: {}'.format(command))
+        # Use the real stdout and stderr; the obvious attributes might be
+        # mocked out.
         if proc.stdout is not None:
-            sys.stderr.write(proc.stdout)
+            sys.__stderr__.write(proc.stdout)
         if proc.stderr is not None:
-            sys.stderr.write(proc.stderr)
+            sys.__stderr__.write(proc.stderr)
         proc.check_returncode()
     return proc
 
