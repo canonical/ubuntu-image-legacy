@@ -8,8 +8,8 @@ from itertools import product
 from pkg_resources import resource_filename
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
-from ubuntu_image.testing.helpers import IN_TRAVIS, XXXModelAssertionBuilder
-from unittest import TestCase, skipIf
+from ubuntu_image.testing.helpers import XXXModelAssertionBuilder
+from unittest import TestCase
 from unittest.mock import patch
 
 
@@ -37,7 +37,6 @@ class TestModelAssertionBuilder(TestCase):
         self.model_assertion = resource_filename(
             'ubuntu_image.tests.data', 'model.assertion')
 
-    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_fs_contents(self):
         # Run the action model assertion builder through the steps needed to
         # at least call `snap prepare-image`.
