@@ -37,7 +37,7 @@ class TestHelpers(TestCase):
         stderr = StringIO()
         with ExitStack() as resources:
             resources.enter_context(
-                patch('ubuntu_image.helpers.sys.stderr', stderr))
+                patch('ubuntu_image.helpers.sys.__stderr__', stderr))
             resources.enter_context(
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
