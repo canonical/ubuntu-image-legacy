@@ -6,6 +6,8 @@ This tool is used to build Ubuntu images.  Currently it only builds Snappy
 images from a model assertion, but it will be generalized to build more
 (eventually all) Ubuntu images.
 
+This is full of awesome.
+
 
 Requirements
 ============
