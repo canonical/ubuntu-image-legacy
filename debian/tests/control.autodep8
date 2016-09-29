@@ -6,4 +6,4 @@ Test-Command: man ubuntu-image
 Depends: @, man-db
 
 Test-Command: tox
-Depends: @builddeps@, git
+Depends: @builddeps@
