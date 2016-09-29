@@ -9,7 +9,7 @@ from pkg_resources import resource_filename
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.testing.helpers import XXXModelAssertionBuilder
-from unittest import TestCase
+from unittest import TestCase, skipIf
 from unittest.mock import patch
 
 
@@ -37,6 +37,8 @@ class TestModelAssertionBuilder(TestCase):
         self.model_assertion = resource_filename(
             'ubuntu_image.tests.data', 'model.assertion')
 
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
     def test_fs_contents(self):
         # Run the action model assertion builder through the steps needed to
         # at least call `snap prepare-image`.

@@ -2,5 +2,7 @@ Test-Command: ubuntu-image --help
 
 Test-Command: ubuntu-image --version
 
+Test-Command: tox
+
 Test-Command: man ubuntu-image
 Depends: @, man-db

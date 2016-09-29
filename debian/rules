@@ -1,8 +1,8 @@
 #!/usr/bin/make -f
 
 export PYBUILD_NAME=ubuntu-image
-export PYBUILD_TEST_TOX=1
-export PYBUILD_VERBOSE=1
+#export PYBUILD_VERBOSE=1
+export UBUNTU_IMAGE_TESTS_NO_NETWORK=1
 #export DH_VERBOSE=1
 
 export pkgversion=$(shell dpkg-parsechangelog --show-field version)
@@ -26,6 +26,18 @@ override_dh_installman:
 		--no-discard-stderr --no-info \
 		debian/ubuntu-image/usr/bin/ubuntu-image
 	dh_installman
+
+override_dh_auto_test:
+	dh_auto_test -- --system=custom \
+		--test-args='{interpreter} -m nose2 -vv'
+	dh_auto_test -- --system=custom \
+		--test-args='{interpreter} -m flake8 ubuntu_image && echo "QA: FLAKE8 CLEAN"'
+	dh_auto_test -- --system=custom \
+		--test-args='{interpreter} -m coverage run --rcfile=coverage.ini -m nose2 -v'
+	dh_auto_test -- --system=custom \
+		--test-args='{interpreter} -m coverage combine --rcfile=coverage.ini'
+	dh_auto_test -- --system=custom \
+		--test-args='{interpreter} -m coverage report -m --rcfile=coverage.ini'
 
 override_dh_auto_clean:
 	rm -f debian/ubuntu-image.1
