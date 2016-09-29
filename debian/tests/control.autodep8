@@ -6,4 +6,4 @@
 #Depends: @, man-db
 
 Test-Command: tox
-Depends: tox, python3-debian
+Depends: @builddeps@
