@@ -1,9 +1,9 @@
-#Test-Command: ubuntu-image --help
+Test-Command: ubuntu-image --help
 
-#Test-Command: ubuntu-image --version
+Test-Command: ubuntu-image --version
 
-#Test-Command: man ubuntu-image
-#Depends: @, man-db
+Test-Command: man ubuntu-image
+Depends: @, man-db
 
 Test-Command: tox
 Depends: @builddeps@, git
