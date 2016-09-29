@@ -6,4 +6,4 @@
 #Depends: @, man-db
 
 Test-Command: tox
-Depends: @builddeps@
+Depends: @builddeps@, git
