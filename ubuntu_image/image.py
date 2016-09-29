@@ -114,7 +114,7 @@ class Image:
         # - log stderr
         return status.stdout
 
-    def write_value_at_offset(self, value, offset):   # pragma: nocover
+    def write_value_at_offset(self, value, offset):
         """Write the given value to the specified absolute offset.
 
         The value is interpreted as a 32-bit integer, and is written out
@@ -181,7 +181,7 @@ class MBRImage(Image):
         run(args, input=input)
 
 
-def extract(snap_path):                             # pragma: nocover
+def extract(snap_path):
     """Extract the gadget.yml file from a path to a .snap.
 
     :param snap_path: File system path to a .snap.

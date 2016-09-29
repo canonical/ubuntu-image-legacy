@@ -119,7 +119,7 @@ def run(command, *, check=True, **args):
 
 
 def snap(model_assertion, root_dir,
-         channel=None, extra_snaps=None):                   # pragma: notravis
+         channel=None, extra_snaps=None):
     snap_cmd = os.environ.get('UBUNTU_IMAGE_SNAP_CMD', 'snap')
     raw_cmd = '{} prepare-image {} {} {} {}'
     cmd = raw_cmd.format(
