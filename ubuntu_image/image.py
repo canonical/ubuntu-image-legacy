@@ -126,11 +126,17 @@ class Image:
             should be written.
         :type size: int
         """
+        # We do not want to allow writing past the end of the file to silently
+        # extend it, but because we open the file in + mode, a seek past the
+        # end of the file plus the write *will* silently extend it.  LBYL, but
+        # don't forget we start at zero!  And don't forget that we're writing
+        # 4 bytes so we can't seek to a position >= size + 4.
+        if os.path.getsize(self.path) - 4 < offset:
+            raise ValueError('write offset beyond end of file')
         binary_value = pack('<I', value)
-        with open(self.path, 'rb+') as file:
-            if file.seek(offset) != offset:
-                raise ValueError('write offset beyond end of file')
-            file.write(binary_value)
+        with open(self.path, 'rb+') as fp:
+            fp.seek(offset)
+            fp.write(binary_value)
 
 
 class MBRImage(Image):
@@ -153,7 +159,6 @@ class MBRImage(Image):
         args = ['sfdisk', self.path]
         if self.initialized:
             args.append('--append')
-
         self.initialized = True
 
         input = []
