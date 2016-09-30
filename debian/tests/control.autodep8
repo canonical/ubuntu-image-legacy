@@ -7,14 +7,11 @@ Depends: @, man-db
 
 # Something in the tox/pip/setuptools stack requires git.
 
-Tests: unittests
 Test-Command: tox -e py35
 Depends: @builddeps@, git
 
-Tests: qa
 Test-Command: tox -e qa
 Depends: @builddeps@, git
 
-Tests: coverage
 Test-Command: tox -e coverage
 Depends: @builddeps@, git
