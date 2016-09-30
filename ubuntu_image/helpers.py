@@ -118,8 +118,7 @@ def run(command, *, check=True, **args):
     return proc
 
 
-def snap(model_assertion, root_dir,
-         channel=None, extra_snaps=None):
+def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
     snap_cmd = os.environ.get('UBUNTU_IMAGE_SNAP_CMD', 'snap')
     raw_cmd = '{} prepare-image {} {} {} {}'
     cmd = raw_cmd.format(
