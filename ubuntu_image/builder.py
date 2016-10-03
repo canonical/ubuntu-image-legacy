@@ -5,11 +5,10 @@ import os
 import shutil
 import logging
 
-from contextlib import ExitStack, contextmanager
 from math import ceil
 from operator import attrgetter
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import MiB, run, snap, sparse_copy
+from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import BootLoader, FileSystemType,\
                                 VolumeSchema, parse as parse_yaml
@@ -18,44 +17,6 @@ from ubuntu_image.state import State
 
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
-
-
-@contextmanager
-def mount(img):
-    with ExitStack() as resources:
-        tmpdir = resources.enter_context(TemporaryDirectory())
-        mountpoint = os.path.join(tmpdir, 'root-mount')
-        os.makedirs(mountpoint)
-        run('sudo mount -oloop {} {}'.format(img, mountpoint))
-        resources.callback(run, 'sudo umount {}'.format(mountpoint))
-        yield mountpoint
-
-
-def _mkfs_ext4(img_file, contents_dir, label='writable'):
-    """Encapsulate the `mkfs.ext4` invocation.
-
-    As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
-    you to populate the ext4 partition at creation time, with the
-    contents of an existing directory.  Unfortunately, we're targeting
-    Ubuntu 16.04, which has e2fsprogs 1.42.X without the -d flag.  In
-    that case, we have to sudo loop mount the ext4 file system and
-    populate it that way.  Which sucks because sudo.
-    """
-    cmd = ('mkfs.ext4 -L {} -O -metadata_csum -T default -O uninit_bg {} '
-           '-d {}').format(label, img_file, contents_dir)
-    proc = run(cmd, check=False)
-    if proc.returncode == 0:
-        # We have a new enough e2fsprogs, so we're done.
-        return
-    run('mkfs.ext4 -L -T default -O uninit_bg {} {}'.format(
-        label, img_file))
-    # Only do this if the directory is non-empty.
-    if not os.listdir(contents_dir):
-        return
-    with mount(img_file) as mountpoint:
-        # fixme: everything is terrible.
-        run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
-            contents_dir, mountpoint), shell=True)
 
 
 class ModelAssertionBuilder(State):
@@ -352,10 +313,10 @@ class ModelAssertionBuilder(State):
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
             elif part.filesystem is FileSystemType.ext4:
-                _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
+                mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
-        _mkfs_ext4(self.root_img, self.rootfs)
+        mkfs_ext4(self.root_img, self.rootfs)
         self._next.append(self.make_disk)
 
     def make_disk(self):

@@ -5,9 +5,12 @@ import os
 from contextlib import ExitStack
 from io import StringIO
 from pkg_resources import resource_filename
-from tempfile import TemporaryDirectory
+from shutil import copytree
+from subprocess import run as subprocess_run
+from tempfile import NamedTemporaryFile, TemporaryDirectory
+from types import SimpleNamespace
 from ubuntu_image.helpers import (
-    GiB, MiB, as_bool, as_size, run, snap, sparse_copy, transform)
+    GiB, MiB, as_bool, as_size, mkfs_ext4, run, snap, sparse_copy, transform)
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -28,6 +31,39 @@ class FakeProcNoOutput:
 
     def check_returncode(self):
         pass
+
+
+class MountMocker:
+    def __init__(self, results_dir):
+        self.mountpoint = None
+        self.results_dir = results_dir
+
+    def run(self, command, *args, **kws):
+        if command.startswith('mkfs.ext4'):
+            if '-d' in command.split():
+                # Simulate a failing call on <= Ubuntu 16.04 where mkfs.ext4
+                # doesn't yet support the -d optio.n
+                return SimpleNamespace(returncode=1)
+            # Otherwise, pretend to have created an ext4 file system.
+            pass
+        elif command.startswith('sudo mount'):
+            # We don't want to require sudo for the test suite, so let's not
+            # actually do the mount.  Instead, just record the mount point,
+            # which will be a temporary directory, so that we can verify its
+            # contents later.
+            self.mountpoint = command.split()[-1]
+        elif command.startswith('sudo umount'):
+            # Just ignore the umount command since we never mounted anything,
+            # and it's a temporary directory anyway.
+            pass
+        elif command.startswith('sudo cp'):
+            # Pass this command upward, but without the sudo.
+            subprocess_run(command[5:], *args, **kws)
+            # Now, because mount() called from mkfs_ext4() will cull its own
+            # temporary directory, and that tempdir is the mountpoint captured
+            # above, copy the entire contents of the mount point directory to
+            # a results tempdir that we can check below for a passing grade.
+            copytree(self.mountpoint, self.results_dir)
 
 
 class TestHelpers(TestCase):
@@ -155,3 +191,43 @@ class TestHelpers(TestCase):
             args[0],
             ['snap', 'prepare-image', '--extra-snaps=foo', '--extra-snaps=bar',
              model, tmpdir])
+
+    def test_mkfs_ext4(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            results_dir = os.path.join(tmpdir, 'results')
+            mock = MountMocker(results_dir)
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            # Create a temporary directory and populate it with some stuff.
+            contents_dir = resources.enter_context(TemporaryDirectory())
+            with open(os.path.join(contents_dir, 'a.dat'), 'wb') as fp:
+                fp.write(b'01234')
+            with open(os.path.join(contents_dir, 'b.dat'), 'wb') as fp:
+                fp.write(b'56789')
+            # And a fake image file.
+            img_file = resources.enter_context(NamedTemporaryFile())
+            mkfs_ext4(img_file, contents_dir)
+            # Two files were put in the "mountpoint" directory, but because of
+            # above, we have to check them in the results copy.
+            with open(os.path.join(mock.results_dir, 'a.dat'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'01234')
+            with open(os.path.join(mock.results_dir, 'b.dat'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'56789')
+
+    def test_mkfs_ext4_no_contents(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            results_dir = os.path.join(tmpdir, 'results')
+            mock = MountMocker(results_dir)
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            # Create a temporary directory, but this time without contents.
+            contents_dir = resources.enter_context(TemporaryDirectory())
+            # And a fake image file.
+            img_file = resources.enter_context(NamedTemporaryFile())
+            mkfs_ext4(img_file, contents_dir)
+            # Because there were no contents, the `sudo cp` was never called,
+            # the mock's shutil.copytree() was also never called, therefore
+            # the results_dir was never created.
+            self.assertFalse(os.path.exists(results_dir))

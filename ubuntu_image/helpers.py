@@ -4,7 +4,9 @@ import os
 import re
 import sys
 
+from contextlib import ExitStack, contextmanager
 from subprocess import PIPE, run as subprocess_run
+from tempfile import TemporaryDirectory
 
 
 __all__ = [
@@ -13,6 +15,7 @@ __all__ = [
     'SPACE',
     'as_bool',
     'as_size',
+    'mkfs_ext4',
     'run',
     'snap',
     'sparse_copy',
@@ -137,3 +140,41 @@ def sparse_copy(src, dst, *, follow_symlinks=True):
     if not follow_symlinks:
         args.append('-P')
     run(args)
+
+
+@contextmanager
+def mount(img):
+    with ExitStack() as resources:
+        tmpdir = resources.enter_context(TemporaryDirectory())
+        mountpoint = os.path.join(tmpdir, 'root-mount')
+        os.makedirs(mountpoint)
+        run('sudo mount -oloop {} {}'.format(img, mountpoint))
+        resources.callback(run, 'sudo umount {}'.format(mountpoint))
+        yield mountpoint
+
+
+def mkfs_ext4(img_file, contents_dir, label='writable'):
+    """Encapsulate the `mkfs.ext4` invocation.
+
+    As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
+    you to populate the ext4 partition at creation time, with the
+    contents of an existing directory.  Unfortunately, we're targeting
+    Ubuntu 16.04, which has e2fsprogs 1.42.X without the -d flag.  In
+    that case, we have to sudo loop mount the ext4 file system and
+    populate it that way.  Which sucks because sudo.
+    """
+    cmd = ('mkfs.ext4 -L {} -O -metadata_csum -T default -O uninit_bg {} '
+           '-d {}').format(label, img_file, contents_dir)
+    proc = run(cmd, check=False)
+    if proc.returncode == 0:
+        # We have a new enough e2fsprogs, so we're done.
+        return
+    run('mkfs.ext4 -L -T default -O uninit_bg {} {}'.format(
+        label, img_file))
+    # Only do this if the directory is non-empty.
+    if not os.listdir(contents_dir):
+        return
+    with mount(img_file) as mountpoint:
+        # fixme: everything is terrible.
+        run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
+            contents_dir, mountpoint), shell=True)
