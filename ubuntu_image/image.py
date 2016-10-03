@@ -191,19 +191,3 @@ class MBRImage(Image):
         # - handle errors
         # - log stdout/stderr
         run(args, input=input_arg)
-
-
-def extract(snap_path):
-    """Extract the gadget.yml file from a path to a .snap.
-
-    :param snap_path: File system path to a .snap.
-    :type snap_path: str
-    :return: The dictionary represented by the meta/gadget.yaml file contained
-        in the snap.
-    :rtype: dict
-    """
-    with TemporaryDirectory() as destination:
-        gadget_dir = os.path.join(destination, 'gadget')
-        run(['/usr/bin/unsquashfs', '-d', gadget_dir, snap_path])
-        gadget_yaml = os.path.join(gadget_dir, 'meta', 'gadget.yaml')
-        return parse(gadget_yaml)

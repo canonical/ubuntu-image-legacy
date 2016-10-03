@@ -144,6 +144,20 @@ class TestImage(TestCase):
             # No boot-flag star.
             info, [device, '3033', '4032', '1000', '500K', 'dd', 'unknown'])
 
+    def test_mbr_image_partition_tuple_typecode(self):
+        # See the spec; type codes can by hybrid mbr/gpt style.
+        image = MBRImage(self.img, MiB(2))
+        self.assertFalse(image.initialized)
+        image.partition(
+            1, new='33:3000', activate=True,
+            typecode=('83', '00000000-0000-0000-0000-0000deadbeef'))
+        self.assertTrue(image.initialized)
+        proc = run('sfdisk --list {}'.format(self.img))
+        info = proc.stdout.splitlines()[-1].split()
+        device = self.img + '1'
+        self.assertEqual(
+            info, [device, '*', '33', '3032', '3000', '1.5M', '83', 'Linux'])
+
     def test_mbr_image_partition_bad_keyword(self):
         image = MBRImage(self.img, MiB(2))
         self.assertRaises(
