@@ -152,3 +152,37 @@ class TestModelAssertionBuilder(TestCase):
             state._next.append(state.populate_rootfs_contents)
             next(state)
             self.assertEqual(set(os.listdir(system_data)), {'boot', 'var'})
+
+    def test_populate_rootfs_contents_with_cloud_init(self):
+        with ExitStack() as resources:
+            cloud_init = resources.enter_context(
+                NamedTemporaryFile('w', encoding='utf-8'))
+            print('cloud init user data', end='', file=cloud_init)
+            cloud_init.flush()
+            args = SimpleNamespace(
+                channel='edge',
+                workdir=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                cloud_init=cloud_init.name,
+                extra_snaps=None,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'image')
+            os.makedirs(os.path.join(image_dir, 'snap'))
+            os.makedirs(os.path.join(image_dir, 'var'))
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            system_data = os.path.join(state.rootfs, 'system-data')
+            os.makedirs(system_data)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Did the user data get copied?
+            user_data = os.path.join(
+                state.rootfs, 'system-data', 'var', 'lib', 'cloud', 'seed',
+                'nocloud-net', 'user-data')
+            with open(user_data, 'r', encoding='utf-8') as fp:
+                self.assertEqual(fp.read(), 'cloud init user data')
