@@ -5,8 +5,8 @@ import os
 from contextlib import suppress
 from struct import unpack
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB, MiB
-from ubuntu_image.image import Diagnostics, Image
+from ubuntu_image.helpers import GiB, MiB, run
+from ubuntu_image.image import Diagnostics, Image, MBRImage
 from unittest import TestCase
 
 
@@ -117,3 +117,35 @@ class TestImage(TestCase):
                 self.assertEqual(os.path.getsize(self.img), 10000)
                 results.add(pos)
         self.assertEqual(results, {9995, 9996})
+
+    def test_mbr_image_partition(self):
+        image = MBRImage(self.img, MiB(2))
+        self.assertFalse(image.initialized)
+        image.partition(1, new='33:3000', activate=True, typecode='83')
+        self.assertTrue(image.initialized)
+        proc = run('sfdisk --list {}'.format(self.img))
+        info = proc.stdout.splitlines()[-1].split()
+        device = self.img + '1'
+        self.assertEqual(
+            info, [device, '*', '33', '3032', '3000', '1.5M', '83', 'Linux'])
+
+    def test_mbr_image_partition_append(self):
+        image = MBRImage(self.img, MiB(2))
+        self.assertFalse(image.initialized)
+        # Create the first partition.
+        image.partition(1, new='33:3000', activate=True, typecode='83')
+        self.assertTrue(image.initialized)
+        # Append the next one.
+        image.partition(2, new='3032:1000', typecode='dd')
+        proc = run('sfdisk --list {}'.format(self.img))
+        info = proc.stdout.splitlines()[-1].split()
+        device = self.img + '2'
+        self.assertEqual(
+            # No boot-flag star.
+            info, [device, '3033', '4032', '1000', '500K', 'dd', 'unknown'])
+
+    def test_mbr_image_partition_bad_keyword(self):
+        image = MBRImage(self.img, MiB(2))
+        self.assertRaises(
+            ValueError,
+            image.partition, 1, new='0:100', cracktivate=1, typecode='fe')

@@ -20,6 +20,9 @@ class Diagnostics(Enum):
     gpt = '--print'
 
 
+COMMASPACE = ', '
+
+
 class Image:
     def __init__(self, path, size):
         """Initialize an image file to a given size in bytes.
@@ -141,8 +144,10 @@ class Image:
 
 class MBRImage(Image):
     def __init__(self, path, size):
-        """sfdisk needs different options for new disks vs. existing partition
-        tables, so cope with that here.
+        """Create an MBR image.
+
+        sfdisk needs different options for new disks vs. existing
+        partition tables, so cope with that here.
         """
         super().__init__(path, size)
         self.initialized = False
@@ -160,30 +165,32 @@ class MBRImage(Image):
         if self.initialized:
             args.append('--append')
         self.initialized = True
-
-        input = []
+        command_input = []
         for key, value in sfdisk_args.items():
             if key == 'new':
                 offset, size = value.split(':')
-                input.append('start={}, size={}'.format(offset, size))
+                command_input.extend([
+                    'start={}'.format(offset),
+                    'size={}'.format(size),
+                    ])
             elif key == 'activate':
-                input.append('bootable')
+                command_input.append('bootable')
             elif key == 'typecode':
                 if isinstance(value, tuple):
                     value = value[0]
-                input.append('type={}'.format(value))
+                command_input.append('type={}'.format(value))
             else:
                 raise ValueError('{} option not supported for MBR partitions'
                                  .format(key))
-
-        input = 'part{}: {}'.format(partnum, ','.join(input))
+        input_arg = 'part{}: {}'.format(
+            partnum, COMMASPACE.join(command_input))
         # Run the command.  We'll capture stderr for logging purposes.
         #
         # TBD:
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(args, input=input)
+        run(args, input=input_arg)
 
 
 def extract(snap_path):
