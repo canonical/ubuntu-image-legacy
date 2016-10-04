@@ -131,7 +131,8 @@ class ModelAssertionBuilder(State):
         os.makedirs(os.path.join(dst, 'boot'))
         self._next.append(self.calculate_rootfs_size)
 
-    def _calculate_dirsize(self, path):
+    @staticmethod
+    def _calculate_dirsize(path):
         total = 0
         for dirpath, dirnames, filenames in os.walk(path):
             for filename in filenames:
@@ -241,10 +242,10 @@ class ModelAssertionBuilder(State):
         self.bootfs_sizes = {}
         # At least one structure is required.
         for i, part in enumerate(volume.structures):
-            partnum = 'part{}'.format(i)
-            target_dir = os.path.join(self.workdir, partnum)
             if part.filesystem is FileSystemType.none:
                 continue
+            partnum = 'part{}'.format(i)
+            target_dir = os.path.join(self.workdir, partnum)
             self.bootfs_sizes[partnum] = self._calculate_dirsize(target_dir)
         self._next.append(self.prepare_filesystems)
 

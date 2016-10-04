@@ -404,3 +404,32 @@ class TestModelAssertionBuilder(TestCase):
                 next(state)
             self.assertEqual(
                 str(cm.exception), 'target must end in a slash: bt')
+
+    def test_calculate_bootfs_size_no_filesystem(self):
+        # When a part has no file system type, we can't calculate its size.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=unpackdir,
+                output=None,
+                cloud_init=None,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.calculate_bootfs_size)
+            # Craft a gadget specification.
+            part = SimpleNamespace(
+                filesystem=FileSystemType.none,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Calculate the size.
+            next(state)
+            self.assertEqual(len(state.bootfs_sizes), 0)
