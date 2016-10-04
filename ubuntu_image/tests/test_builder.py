@@ -8,8 +8,7 @@ from itertools import product
 from pkg_resources import resource_filename
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
-from ubuntu_image.helpers import MiB
-from ubuntu_image.parser import BootLoader, FileSystemType
+from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
 from ubuntu_image.testing.helpers import XXXModelAssertionBuilder
 from unittest import TestCase, skipIf
 from unittest.mock import patch
@@ -580,3 +579,46 @@ class TestModelAssertionBuilder(TestCase):
                 posargs,
                 # mkfs_ext4 positional arguments.
                 (part0_img, os.path.join(workdir, 'part0'), 'hold the door'))
+
+    def test_make_disk(self):
+        # make_disk() will use the MBRImage subclass when the volume schema is
+        # mbr instead of gpt.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=unpackdir,
+                output=None,
+                cloud_init=None,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = 4001
+            os.makedirs(state.images)
+            # Craft a gadget specification.  It doesn't need much because
+            # we're going to short-circuit out of make_disk().
+            volume = SimpleNamespace(
+                schema=VolumeSchema.mbr,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder.MBRImage',
+                      side_effect=RuntimeError))
+            # Don't blat to stderr.
+            resources.enter_context(patch('ubuntu_image.state.log'))
+            with self.assertRaises(RuntimeError):
+                next(state)
+            # Check that the MBRImage mock got called as expected.
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(posargs, (state.disk_img, state.image_size))

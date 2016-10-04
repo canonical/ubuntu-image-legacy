@@ -349,7 +349,6 @@ class ModelAssertionBuilder(State):
             image = MBRImage(self.disk_img, self.image_size)
         else:
             image = Image(self.disk_img, self.image_size)
-
         structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
         part_offsets = {}
@@ -380,20 +379,20 @@ class ModelAssertionBuilder(State):
             image.partition(part_id, **part_args)
             part_id += 1
             next_offset = (part.offset + part.size) // MiB(1)
-        # Create main snappy writable partition
-        image.partition(part_id,
-                        new='{}M:+{}K'.format(next_offset,
-                                              self.rootfs_size // 1024),
-                        typecode=('83',
-                                  '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
-        if volume.schema == VolumeSchema.gpt:
+        # Create main snappy writable partition as the last partition.
+        image.partition(
+            part_id,
+            new='{}M:+{}K'.format(next_offset, self.rootfs_size // 1024),
+            typecode=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
+        if volume.schema is VolumeSchema.gpt:
             image.partition(part_id, change_name='writable')
-        image.copy_blob(self.root_img,
-                        bs='1M', seek=next_offset,
-                        count=ceil(self.rootfs_size / MiB(1)),
-                        conv='notrunc')
+        image.copy_blob(
+            self.root_img,
+            bs='1M', seek=next_offset,
+            count=ceil(self.rootfs_size / MiB(1)),
+            conv='notrunc')
         for value, dest in offset_writes:
-            # decipher non-numeric offset_write values
+            # Decipher non-numeric offset_write values.
             if isinstance(dest, tuple):
                 dest = part_offsets[dest[0]] + dest[1]
             # XXX: Hard-coding of 512-byte sectors.
