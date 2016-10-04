@@ -159,25 +159,27 @@ class ModelAssertionBuilder(State):
         self._next.append(self.populate_bootfs_contents)
 
     def populate_bootfs_contents(self):
+        # XXX We currently support only one volume specification.
+        assert len(self.gadget.volumes) == 1, (
+            'For now, only one volume is allowed')
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
-
         volume = list(self.gadget.volumes.values())[0]
         # At least one structure is required.
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            # XXX: Use fs label for the moment, until we get a proper way to
-            # identify the boot partition.
+            # XXX: Use file system label for the moment, until we get a proper
+            # way to identify the boot partition.
             if part.filesystem_label == 'system-boot':
                 self.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
-                    boot = os.path.join(self.unpackdir, 'image', 'boot',
-                                        'uboot')
+                    boot = os.path.join(
+                        self.unpackdir, 'image', 'boot', 'uboot')
                     ubuntu = target_dir
                 elif volume.bootloader is BootLoader.grub:
-                    boot = os.path.join(self.unpackdir, 'image', 'boot',
-                                        'grub')
+                    boot = os.path.join(
+                        self.unpackdir, 'image', 'boot', 'grub')
                     # XXX: Bad special-casing.  `snap prepare-image` currently
                     # installs to /boot/grub, but we need to map this to
                     # /EFI/ubuntu.  This is because we are using a SecureBoot
@@ -185,8 +187,9 @@ class ModelAssertionBuilder(State):
                     # we need to install our files to there.
                     ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
                 else:
-                    raise ValueError("unsupported bootloader value {}"
-                                     .format(volume.bootloader))
+                    raise ValueError(
+                        'Unsupported volume bootloader value: {}'.format(
+                            volume.bootloader))
                 os.makedirs(ubuntu, exist_ok=True)
                 for filename in os.listdir(boot):
                     src = os.path.join(boot, filename)
@@ -198,13 +201,13 @@ class ModelAssertionBuilder(State):
                     dst = os.path.join(target_dir, file.target)
                     if not file.source.endswith('/'):
                         # XXX: If this is a directory instead of a file, give
-                        # a useful error message instead of stacktracing.
+                        # a useful error message instead of a traceback.
                         os.makedirs(os.path.dirname(dst), exist_ok=True)
                         shutil.copy(src, dst)
                     else:
                         # XXX: If this is a file instead of a directory, give
-                        # a useful error message instead of stacktracing.
-
+                        # a useful error message instead of a traceback.
+                        #
                         # The target of a recursive directory copy is the
                         # target directory name, with or without a trailing
                         # slash necessary at least to handle the case of
@@ -214,14 +217,12 @@ class ModelAssertionBuilder(State):
                         target = file.target.rstrip('/')
                         for filename in os.listdir(src):
                             sub_src = os.path.join(src, filename)
-                            dst = os.path.join(target_dir, target,
-                                               filename)
+                            dst = os.path.join(target_dir, target, filename)
                             if sub_src is dir:
                                 shutil.copytree(sub_src, dst, symlinks=True,
                                                 ignore_dangling_symlinks=True)
                             else:
                                 shutil.copy(sub_src, dst)
-
         self._next.append(self.calculate_bootfs_size)
 
     def calculate_bootfs_size(self):

@@ -8,6 +8,7 @@ from itertools import product
 from pkg_resources import resource_filename
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
+from ubuntu_image.parser import BootLoader, FileSystemType
 from ubuntu_image.testing.helpers import XXXModelAssertionBuilder
 from unittest import TestCase, skipIf
 from unittest.mock import patch
@@ -186,3 +187,99 @@ class TestModelAssertionBuilder(TestCase):
                 'nocloud-net', 'user-data')
             with open(user_data, 'r', encoding='utf-8') as fp:
                 self.assertEqual(fp.read(), 'cloud init user data')
+
+    def test_bootloader_options_uboot(self):
+        # This test provides coverage for populate_bootfs_contents() when the
+        # uboot bootloader is used.  The live gadget snap (only tested when we
+        # have network connectivity to the store, but good enough for now)
+        # uses the grub bootloader and covers that path.
+        #
+        # We don't want to run the entire state machine just for this test, so
+        # we start by setting up enough of the environment for the method
+        # under test to function.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=unpackdir,
+                output=None,
+                cloud_init=None,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.
+            part = SimpleNamespace(
+                filesystem_label='system-boot',
+                filesystem=FileSystemType.none,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.uboot,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
+            # Run the method, the testable effects of which copy all the files
+            # in the boot directory (i.e. <unpackdir>/image/boot/uboot) into
+            # the 'ubuntu' directory (i.e. <workdir>/part1).  So put some
+            # contents into the source directory.
+            src = os.path.join(unpackdir, 'image', 'boot', 'uboot')
+            os.makedirs(src)
+            with open(os.path.join(src, '1.dat'), 'wb') as fp:
+                fp.write(b'01234')
+            with open(os.path.join(src, '2.dat'), 'wb') as fp:
+                fp.write(b'56789')
+            next(state)
+            # Did the boot data get copied?
+            with open(os.path.join(workdir, 'part0', '1.dat'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'01234')
+            with open(os.path.join(workdir, 'part0', '2.dat'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'56789')
+
+    def test_bootloader_options_invalid(self):
+        # This test provides coverage for populate_bootfs_contents() when the
+        # bootloader has a bogus value.
+        #
+        # We don't want to run the entire state machine just for this test, so
+        # we start by setting up enough of the environment for the method
+        # under test to function.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=unpackdir,
+                output=None,
+                cloud_init=None,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.
+            part = SimpleNamespace(
+                filesystem_label='system-boot',
+                filesystem=FileSystemType.none,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader='bogus',
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Don't blat to stderr.
+            resources.enter_context(patch('ubuntu_image.state.log'))
+            with self.assertRaises(ValueError) as cm:
+                next(state)
+            self.assertEqual(
+                str(cm.exception),
+                'Unsupported volume bootloader value: bogus')
