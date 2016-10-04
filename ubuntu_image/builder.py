@@ -371,8 +371,8 @@ class ModelAssertionBuilder(State):
             part_args['new'] = partdef
             part_args['typecode'] = part.type
             # XXX: special-casing.
-            if (volume.schema == VolumeSchema.mbr and
-               part.filesystem_label == 'system-boot'):
+            if (volume.schema is VolumeSchema.mbr and
+                    part.filesystem_label == 'system-boot'):
                 part_args['activate'] = True
             if part.name is not None:
                 part_args['change_name'] = part.name
