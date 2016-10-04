@@ -195,34 +195,43 @@ class ModelAssertionBuilder(State):
                     src = os.path.join(boot, filename)
                     dst = os.path.join(ubuntu, filename)
                     shutil.move(src, dst)
+            gadget_dir = os.path.join(self.unpackdir, 'gadget')
             if part.filesystem is not FileSystemType.none:
-                for file in part.content:
-                    src = os.path.join(self.unpackdir, 'gadget', file.source)
-                    dst = os.path.join(target_dir, file.target)
-                    if not file.source.endswith('/'):
-                        # XXX: If this is a directory instead of a file, give
-                        # a useful error message instead of a traceback.
-                        os.makedirs(os.path.dirname(dst), exist_ok=True)
-                        shutil.copy(src, dst)
-                    else:
+                for content in part.content:
+                    src = os.path.join(gadget_dir, content.source)
+                    dst = os.path.join(target_dir, content.target)
+                    if content.source.endswith('/'):
+                        # This is a directory copy specification.  The target
+                        # must also end in a slash.
+                        #
                         # XXX: If this is a file instead of a directory, give
                         # a useful error message instead of a traceback.
                         #
+                        # XXX: We should assert this constraint in the parser.
+                        target, slash, tail = content.target.rpartition('/')
+                        if slash != '/' and tail != '':
+                            raise ValueError(
+                                'target must end in a slash: {}'.format(
+                                    content.target))
                         # The target of a recursive directory copy is the
                         # target directory name, with or without a trailing
                         # slash necessary at least to handle the case of
                         # recursive copy into the root directory), so make
                         # sure here that it exists.
                         os.makedirs(dst, exist_ok=True)
-                        target = file.target.rstrip('/')
                         for filename in os.listdir(src):
                             sub_src = os.path.join(src, filename)
                             dst = os.path.join(target_dir, target, filename)
-                            if sub_src is dir:
+                            if os.path.isdir(sub_src):
                                 shutil.copytree(sub_src, dst, symlinks=True,
                                                 ignore_dangling_symlinks=True)
                             else:
                                 shutil.copy(sub_src, dst)
+                    else:
+                        # XXX: If this is a directory instead of a file, give
+                        # a useful error message instead of a traceback.
+                        os.makedirs(os.path.dirname(dst), exist_ok=True)
+                        shutil.copy(src, dst)
         self._next.append(self.calculate_bootfs_size)
 
     def calculate_bootfs_size(self):
