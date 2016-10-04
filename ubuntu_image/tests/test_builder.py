@@ -8,6 +8,7 @@ from itertools import product
 from pkg_resources import resource_filename
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
+from ubuntu_image.helpers import MiB
 from ubuntu_image.parser import BootLoader, FileSystemType
 from ubuntu_image.testing.helpers import XXXModelAssertionBuilder
 from unittest import TestCase, skipIf
@@ -433,3 +434,149 @@ class TestModelAssertionBuilder(TestCase):
             # Calculate the size.
             next(state)
             self.assertEqual(len(state.bootfs_sizes), 0)
+
+    def test_populate_filesystems_none_type(self):
+        # We do a bit-wise copy when the file system has no type.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=unpackdir,
+                output=None,
+                cloud_init=None,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            state.boot_images = [part0_img]
+            # Craft a gadget specification.
+            contents1 = SimpleNamespace(
+                image='image1.img',
+                size=None,
+                offset=None,
+                )
+            contents2 = SimpleNamespace(
+                image='image2.img',
+                size=23,
+                offset=None,
+                )
+            contents3 = SimpleNamespace(
+                image='image3.img',
+                size=None,
+                offset=None,
+                )
+            contents4 = SimpleNamespace(
+                image='image4.img',
+                size=None,
+                offset=127,
+                )
+            part = SimpleNamespace(
+                filesystem=FileSystemType.none,
+                content=[contents1, contents2, contents3, contents4],
+                size=150,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # The source image.
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            with open(os.path.join(gadget_dir, 'image1.img'), 'wb') as fp:
+                fp.write(b'\1' * 47)
+            with open(os.path.join(gadget_dir, 'image2.img'), 'wb') as fp:
+                fp.write(b'\2' * 19)
+            with open(os.path.join(gadget_dir, 'image3.img'), 'wb') as fp:
+                fp.write(b'\3' * 51)
+            with open(os.path.join(gadget_dir, 'image4.img'), 'wb') as fp:
+                fp.write(b'\4' * 11)
+            # Mock out the mkfs.ext4 call, and we'll just test the contents
+            # directory (i.e. what would go in the ext4 file system).
+            resources.enter_context(patch('ubuntu_image.builder.mkfs_ext4'))
+            next(state)
+            # Check the contents of the part0 image file.
+            with open(part0_img, 'rb') as fp:
+                data = fp.read()
+            self.assertEqual(
+                data,
+                b'\1' * 47 +
+                b'\2' * 19 +
+                # 23 (specified size) - 19 (actual size).
+                b'\0' * 4 +
+                b'\3' * 51 +
+                # 127 (offset) - 121 (written byte count)
+                b'\0' * 6 +
+                b'\4' * 11 +
+                # 150 (image size) - 138 (written byte count)
+                b'\0' * 12)
+
+    def test_populate_filesystems_ext4_type(self):
+        # We do a bit-wise copy when the file system has no type.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=unpackdir,
+                output=None,
+                cloud_init=None,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            state.boot_images = [part0_img]
+            # Craft a gadget specification.
+            contents1 = SimpleNamespace(
+                image='image1.img',
+                size=None,
+                offset=None,
+                )
+            part = SimpleNamespace(
+                filesystem=FileSystemType.ext4,
+                filesystem_label='hold the door',
+                content=[contents1],
+                size=150,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # The source image.
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            with open(os.path.join(gadget_dir, 'image1.img'), 'wb') as fp:
+                fp.write(b'\1' * 47)
+            # Mock out the mkfs.ext4 call, and we'll just test the contents
+            # directory (i.e. what would go in the ext4 file system).
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder.mkfs_ext4'))
+            next(state)
+            # Check that mkfs.ext4 got called with the expected values.  It
+            # actually got called twice, but it's only the first call
+            # (i.e. the one creating the part, not the image) that we care
+            # about.
+            self.assertEqual(len(mock.call_args_list), 2)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs,
+                # mkfs_ext4 positional arguments.
+                (part0_img, os.path.join(workdir, 'part0'), 'hold the door'))

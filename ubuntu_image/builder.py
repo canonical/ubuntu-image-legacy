@@ -300,17 +300,17 @@ class ModelAssertionBuilder(State):
             if part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0
-                for file in part.content:
-                    src = os.path.join(self.unpackdir, 'gadget', file.image)
+                for content in part.content:
+                    src = os.path.join(self.unpackdir, 'gadget', content.image)
                     file_size = os.path.getsize(src)
-                    if file.size is not None and file.size < file_size:
-                        raise AssertionError('Size {} < size of {}'
-                                             .format(file.size, file.image))
-                    if file.size is not None:
-                        file_size = file.size
+                    assert content.size is None or content.size >= file_size, (
+                        'Spec size {} < actual size {} of: {}'.format(
+                            content.size, file_size, content.image))
+                    if content.size is not None:
+                        file_size = content.size
                     # XXX: We need to check for overlapping images.
-                    if file.offset is not None:
-                        offset = file.offset
+                    if content.offset is not None:
+                        offset = content.offset
                     # XXX: We must check offset+size vs. the target image.
                     image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
                     offset += file_size
@@ -324,7 +324,7 @@ class ModelAssertionBuilder(State):
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
             elif part.filesystem is FileSystemType.ext4:
-                mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
+                mkfs_ext4(part_img, part_dir, part.filesystem_label)
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
         mkfs_ext4(self.root_img, self.rootfs)
