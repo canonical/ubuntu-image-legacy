@@ -1,6 +1,9 @@
 Building
 ========
 
+This is a test.
+
+
 $ ./ubuntu-image -w ../workdir -c edge -d -u load_gadget_yaml \
   amd64-generic-mode.assertion
 
