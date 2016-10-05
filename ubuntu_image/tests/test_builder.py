@@ -6,10 +6,12 @@ import re
 from contextlib import ExitStack
 from itertools import product
 from pkg_resources import resource_filename
+from struct import unpack
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
+from ubuntu_image.helpers import MiB
 from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
-from ubuntu_image.testing.helpers import XXXModelAssertionBuilder
+from ubuntu_image.testing.helpers import XXXModelAssertionBuilder, run
 from unittest import TestCase, skipIf
 from unittest.mock import patch
 
@@ -611,6 +613,7 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            # Set up the short-circuit.
             mock = resources.enter_context(
                 patch('ubuntu_image.builder.MBRImage',
                       side_effect=RuntimeError))
@@ -622,3 +625,91 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(len(mock.call_args_list), 1)
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(posargs, (state.disk_img, state.image_size))
+
+    def test_make_disk_with_parts(self):
+        # Write all the parts to the disk at the proper offset.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=unpackdir,
+                output=None,
+                cloud_init=None,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = MiB(10)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part1 = SimpleNamespace(
+                name='alpha',
+                type='da',
+                size=MiB(1),
+                offset=MiB(2),
+                offset_write=100,
+                )
+            part2 = SimpleNamespace(
+                name='beta',
+                type='ef',
+                size=MiB(1),
+                offset=MiB(4),
+                offset_write=200,
+                )
+            volume = SimpleNamespace(
+                structures=[part1, part2],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            part1_img = os.path.join(state.images, 'part1.img')
+            with open(part1_img, 'wb') as fp:
+                fp.write(b'\2' * 12)
+            state.root_img = os.path.join(state.images, 'root.img')
+            state.rootfs_size = MiB(1)
+            with open(state.root_img, 'wb') as fp:
+                fp.write(b'\3' * 13)
+            state.boot_images = [part0_img, part1_img]
+            # Create the disk.
+            next(state)
+            # Verify some parts of the disk.img's content.  First, that we've
+            # written the part offsets at the right place.y
+            with open(state.disk_img, 'rb') as fp:
+                # Part 1's offset is written at position 100.
+                fp.seek(100)
+                # Read a 32-bit little-ending integer.  Remember
+                # struct.unpack() always returns tuples, and the values are
+                # written in sector units, which are hard-coded as 512 bytes.
+                offset = unpack('<I', fp.read(4))[0]
+                self.assertEqual(offset, MiB(2) / 512)
+                # Part 2's offset is written at position 200.
+                fp.seek(200)
+                offset = unpack('<I', fp.read(4))[0]
+                self.assertEqual(offset, MiB(4) / 512)
+                # Part 1's image lives at MiB(2).
+                fp.seek(MiB(2))
+                self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
+                # Part 2's image lives at MiB(4).
+                fp.seek(MiB(4))
+                self.assertEqual(fp.read(15), b'\2' * 12 + b'\0' * 3)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out partition is at
+                # 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\3' * 13 + b'\0' * 2)
+            # Verify the disk image's partition table.
+            proc = run('sgdisk -p {}'.format(state.disk_img))

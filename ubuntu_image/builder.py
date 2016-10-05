@@ -349,13 +349,14 @@ class ModelAssertionBuilder(State):
             image = MBRImage(self.disk_img, self.image_size)
         else:
             image = Image(self.disk_img, self.image_size)
+        # XXX LP: #1630627
         structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
         part_offsets = {}
         for i, part in enumerate(structures):
-            if part.name:
+            if part.name is not None:
                 part_offsets[part.name] = part.offset
-            if part.offset_write:
+            if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
             image.copy_blob(self.boot_images[i],
                             bs='1M', seek=part.offset // MiB(1),
@@ -365,6 +366,8 @@ class ModelAssertionBuilder(State):
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
+            #
+            # XXX Size must not be zero, which will happen if part.size < 1MiB
             partdef = '{}M:+{}M'.format(
                 part.offset // MiB(1), part.size // MiB(1))
             part_args = {}
