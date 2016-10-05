@@ -1,7 +1,7 @@
 Building
 ========
 
-This is a test of the CI system.
+This is a test of the emergency CI system.
 
 
 $ ./ubuntu-image -w ../workdir -c edge -d -u load_gadget_yaml \
