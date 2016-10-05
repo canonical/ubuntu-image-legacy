@@ -1,7 +1,7 @@
 Building
 ========
 
-This is a test.
+This is a another test.
 
 
 $ ./ubuntu-image -w ../workdir -c edge -d -u load_gadget_yaml \
