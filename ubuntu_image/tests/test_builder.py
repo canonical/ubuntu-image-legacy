@@ -9,9 +9,9 @@ from pkg_resources import resource_filename
 from struct import unpack
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
-from ubuntu_image.helpers import MiB
+from ubuntu_image.helpers import MiB, run
 from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
-from ubuntu_image.testing.helpers import XXXModelAssertionBuilder, run
+from ubuntu_image.testing.helpers import XXXModelAssertionBuilder
 from unittest import TestCase, skipIf
 from unittest.mock import patch
 
@@ -649,22 +649,29 @@ class TestModelAssertionBuilder(TestCase):
             state.image_size = MiB(10)
             os.makedirs(state.images)
             # Craft a gadget schema.
-            part1 = SimpleNamespace(
+            part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
                 )
-            part2 = SimpleNamespace(
+            part1 = SimpleNamespace(
                 name='beta',
                 type='ef',
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=200,
                 )
+            part2 = SimpleNamespace(
+                name='gamma',
+                type='mbr',
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
             volume = SimpleNamespace(
-                structures=[part1, part2],
+                structures=[part0, part1, part2],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
@@ -679,37 +686,58 @@ class TestModelAssertionBuilder(TestCase):
             part1_img = os.path.join(state.images, 'part1.img')
             with open(part1_img, 'wb') as fp:
                 fp.write(b'\2' * 12)
+            part2_img = os.path.join(state.images, 'part2.img')
+            with open(part2_img, 'wb') as fp:
+                fp.write(b'\3' * 13)
             state.root_img = os.path.join(state.images, 'root.img')
             state.rootfs_size = MiB(1)
             with open(state.root_img, 'wb') as fp:
-                fp.write(b'\3' * 13)
-            state.boot_images = [part0_img, part1_img]
+                fp.write(b'\4' * 14)
+            state.boot_images = [part2_img, part0_img, part1_img]
             # Create the disk.
             next(state)
             # Verify some parts of the disk.img's content.  First, that we've
             # written the part offsets at the right place.y
             with open(state.disk_img, 'rb') as fp:
-                # Part 1's offset is written at position 100.
+                # Part 0's offset is written at position 100.
                 fp.seek(100)
                 # Read a 32-bit little-ending integer.  Remember
                 # struct.unpack() always returns tuples, and the values are
                 # written in sector units, which are hard-coded as 512 bytes.
                 offset = unpack('<I', fp.read(4))[0]
                 self.assertEqual(offset, MiB(2) / 512)
-                # Part 2's offset is written at position 200.
+                # Part 1's offset is written at position 200.
                 fp.seek(200)
                 offset = unpack('<I', fp.read(4))[0]
                 self.assertEqual(offset, MiB(4) / 512)
-                # Part 1's image lives at MiB(2).
+                # Part 0's image lives at MiB(2).
                 fp.seek(MiB(2))
                 self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
-                # Part 2's image lives at MiB(4).
+                # Part 1's image lives at MiB(4).
                 fp.seek(MiB(4))
                 self.assertEqual(fp.read(15), b'\2' * 12 + b'\0' * 3)
-                # The root file system lives at the end, which in this case is
-                # at the 5MiB location (e.g. the farthest out partition is at
-                # 4MiB and has 1MiB in size.
-                fp.seek(MiB(5))
+                # Part 2's image is an MBR so it must live at offset 0.
+                fp.seek(0)
                 self.assertEqual(fp.read(15), b'\3' * 13 + b'\0' * 2)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out non-mbr
+                # partition is at 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
             # Verify the disk image's partition table.
             proc = run('sgdisk -p {}'.format(state.disk_img))
+            # While there's more useful information in the sgdisk output, all
+            # we care about for now is the three partitions.  The MBR
+            # partition is *not* represented here since it lives at the start
+            # of the disk before the partition table (i.e. it's not a
+            # partition).
+            lines = [line.split() for line in proc.stdout.splitlines()[-3:]]
+            self.assertEqual(
+                lines[0],
+                ['1', '4096', '6143', '1024.0', 'KiB', '8300', 'alpha'])
+            self.assertEqual(
+                lines[1],
+                ['2', '8192', '10239', '1024.0', 'KiB', '8300', 'beta'])
+            self.assertEqual(
+                lines[2],
+                ['3', '10240', '12287', '1024.0', 'KiB', '8300', 'writable'])
