@@ -325,6 +325,9 @@ class ModelAssertionBuilder(State):
                     env=env)
             elif part.filesystem is FileSystemType.ext4:
                 mkfs_ext4(part_img, part_dir, part.filesystem_label)
+            else:
+                raise AssertionError('Invalid part filesystem type: {}'.format(
+                    part.filesystem))
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
         mkfs_ext4(self.root_img, self.rootfs)
@@ -368,18 +371,18 @@ class ModelAssertionBuilder(State):
             # that the offset and size are always multiples of 1MiB.
             #
             # XXX Size must not be zero, which will happen if part.size < 1MiB
-            partdef = '{}M:+{}M'.format(
-                part.offset // MiB(1), part.size // MiB(1))
-            part_args = {}
-            part_args['new'] = partdef
-            part_args['typecode'] = part.type
+            partition_args = dict(
+                new='{}M:+{}M'.format(
+                    part.offset // MiB(1), part.size // MiB(1)),
+                typecode=part.type,
+                )
             # XXX: special-casing.
             if (volume.schema is VolumeSchema.mbr and
                     part.filesystem_label == 'system-boot'):
-                part_args['activate'] = True
+                partition_args['activate'] = True
             if part.name is not None:
-                part_args['change_name'] = part.name
-            image.partition(part_id, **part_args)
+                partition_args['change_name'] = part.name
+            image.partition(part_id, **partition_args)
             part_id += 1
             next_offset = (part.offset + part.size) // MiB(1)
         # Create main snappy writable partition as the last partition.
