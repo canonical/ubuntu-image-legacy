@@ -14,9 +14,8 @@ ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
 
   [ Barry Warsaw ]
   * Repair snapcraft.yaml for Python plugin changes.
-
-  [ Barry Warsaw ]
   * Reorganize and flesh out command line options.
+  * 100% test coverage (LP: #1617445)
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Sep 2016 04:06:30 +0000
 
