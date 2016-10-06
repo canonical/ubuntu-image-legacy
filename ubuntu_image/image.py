@@ -4,9 +4,7 @@ import os
 
 from enum import Enum
 from struct import pack
-from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import run
-from ubuntu_image.parser import parse
 
 
 __all__ = [
