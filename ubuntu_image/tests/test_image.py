@@ -2,9 +2,11 @@
 
 import os
 
+from contextlib import suppress
+from struct import unpack
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB, MiB
-from ubuntu_image.image import Diagnostics, Image
+from ubuntu_image.helpers import GiB, MiB, run
+from ubuntu_image.image import Diagnostics, Image, MBRImage
 from unittest import TestCase
 
 
@@ -70,7 +72,7 @@ class TestImage(TestCase):
             self.assertEqual(fp.read(25), b'\0' * 25)
 
     def test_partition(self):
-        # Create BIOS boot partition
+        # Create BIOS boot partition.
         #
         # The partition is 1MiB in size, as recommended by various
         # partitioning guides.  The actual required size is much, much
@@ -85,3 +87,79 @@ class TestImage(TestCase):
         gpt = image.diagnostics(Diagnostics.gpt)
         # We should see that there is 1 partition named grub.
         self.assertRegex(gpt, 'grub')
+
+    def test_write_value_at_offset(self):
+        image = Image(self.img, MiB(2))
+        image.write_value_at_offset(801, 130031)
+        # Now open the path independently, seek to the given offset, and read
+        # 4 bytes, then interpret it as a little-endian 32-bit integer.
+        with open(image.path, 'rb') as fp:
+            fp.seek(130031)
+            # Unpack always returns a tuple, but there's only one item there.
+            value, *ignore = unpack('<I', fp.read(4))
+        self.assertEqual(value, 801)
+
+    def test_write_value_at_offset_past_end(self):
+        image = Image(self.img, 10000)
+        self.assertRaises(ValueError, image.write_value_at_offset, 801, 130031)
+        # And the file's size hasn't changed.
+        self.assertEqual(os.path.getsize(self.img), 10000)
+
+    def test_write_value_at_offsets_near_end(self):
+        image = Image(self.img, 10000)
+        # Attempt to write a bunch of values near the end of the file.  Since
+        # the value will always be a 32-bit value, any positions farther out
+        # than 4 bytes before the end will fail.
+        results = set()
+        for pos in range(9995, 10002):
+            with suppress(ValueError):
+                image.write_value_at_offset(801, pos)
+                self.assertEqual(os.path.getsize(self.img), 10000)
+                results.add(pos)
+        self.assertEqual(results, {9995, 9996})
+
+    def test_mbr_image_partition(self):
+        image = MBRImage(self.img, MiB(2))
+        self.assertFalse(image.initialized)
+        image.partition(1, new='33:3000', activate=True, typecode='83')
+        self.assertTrue(image.initialized)
+        proc = run('sfdisk --list {}'.format(self.img))
+        info = proc.stdout.splitlines()[-1].split()
+        device = self.img + '1'
+        self.assertEqual(
+            info, [device, '*', '33', '3032', '3000', '1.5M', '83', 'Linux'])
+
+    def test_mbr_image_partition_append(self):
+        image = MBRImage(self.img, MiB(2))
+        self.assertFalse(image.initialized)
+        # Create the first partition.
+        image.partition(1, new='33:3000', activate=True, typecode='83')
+        self.assertTrue(image.initialized)
+        # Append the next one.
+        image.partition(2, new='3032:1000', typecode='dd')
+        proc = run('sfdisk --list {}'.format(self.img))
+        info = proc.stdout.splitlines()[-1].split()
+        device = self.img + '2'
+        self.assertEqual(
+            # No boot-flag star.
+            info, [device, '3033', '4032', '1000', '500K', 'dd', 'unknown'])
+
+    def test_mbr_image_partition_tuple_typecode(self):
+        # See the spec; type codes can by hybrid mbr/gpt style.
+        image = MBRImage(self.img, MiB(2))
+        self.assertFalse(image.initialized)
+        image.partition(
+            1, new='33:3000', activate=True,
+            typecode=('83', '00000000-0000-0000-0000-0000deadbeef'))
+        self.assertTrue(image.initialized)
+        proc = run('sfdisk --list {}'.format(self.img))
+        info = proc.stdout.splitlines()[-1].split()
+        device = self.img + '1'
+        self.assertEqual(
+            info, [device, '*', '33', '3032', '3000', '1.5M', '83', 'Linux'])
+
+    def test_mbr_image_partition_bad_keyword(self):
+        image = MBRImage(self.img, MiB(2))
+        self.assertRaises(
+            ValueError,
+            image.partition, 1, new='0:100', cracktivate=1, typecode='fe')

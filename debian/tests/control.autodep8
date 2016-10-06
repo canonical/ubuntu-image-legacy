@@ -4,3 +4,14 @@ Test-Command: ubuntu-image --version
 
 Test-Command: man ubuntu-image
 Depends: @, man-db
+
+# Something in the tox/pip/setuptools stack requires git.
+
+Test-Command: tox -e py35
+Depends: @builddeps@, git
+
+Test-Command: tox -e qa
+Depends: @builddeps@, git
+
+Test-Command: tox -e coverage
+Depends: @builddeps@, git

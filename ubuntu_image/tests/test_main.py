@@ -122,6 +122,8 @@ class TestMainWithModel(TestCase):
             main(('--resume',))
         self.assertEqual(cm.exception.code, 2)
 
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
     @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_resume(self):
         self._resources.enter_context(patch(

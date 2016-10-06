@@ -5,11 +5,10 @@ import os
 import shutil
 import logging
 
-from contextlib import ExitStack, contextmanager
 from math import ceil
 from operator import attrgetter
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import MiB, run, snap, sparse_copy
+from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import BootLoader, FileSystemType,\
                                 VolumeSchema, parse as parse_yaml
@@ -18,45 +17,6 @@ from ubuntu_image.state import State
 
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
-
-
-@contextmanager
-def mount(img):
-    with ExitStack() as resources:                  # pragma: notravis
-        tmpdir = resources.enter_context(TemporaryDirectory())
-        mountpoint = os.path.join(tmpdir, 'root-mount')
-        os.makedirs(mountpoint)
-        run('sudo mount -oloop {} {}'.format(img, mountpoint))
-        resources.callback(run, 'sudo umount {}'.format(mountpoint))
-        yield mountpoint
-
-
-def _mkfs_ext4(img_file, contents_dir, label='writable'):
-    """Encapsulate the `mkfs.ext4` invocation.
-
-    As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
-    you to populate the ext4 partition at creation time, with the
-    contents of an existing directory.  Unfortunately, we're targeting
-    Ubuntu 16.04, which has e2fsprogs 1.42.X without the -d flag.  In
-    that case, we have to sudo loop mount the ext4 file system and
-    populate it that way.  Which sucks because sudo.
-    """
-    cmd = ('mkfs.ext4 -L {} -O -metadata_csum -T default -O uninit_bg {} '
-           '-d {}').format(
-        label, img_file, contents_dir)
-    proc = run(cmd, check=False)
-    if proc.returncode == 0:                           # pragma: notravis
-        # We have a new enough e2fsprogs, so we're done.
-        return
-    run('mkfs.ext4 -L -T default -O uninit_bg {} {}'.format(
-        label, img_file))                              # pragma: notravis
-    # Only do this if the directory is non-empty.
-    if not os.listdir(contents_dir):
-        return
-    with mount(img_file) as mountpoint:                # pragma: notravis
-        # fixme: everything is terrible.
-        run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
-            contents_dir, mountpoint), shell=True)
 
 
 class ModelAssertionBuilder(State):
@@ -171,10 +131,11 @@ class ModelAssertionBuilder(State):
         os.makedirs(os.path.join(dst, 'boot'))
         self._next.append(self.calculate_rootfs_size)
 
-    def _calculate_dirsize(self, path):
+    @staticmethod
+    def _calculate_dirsize(path):
         total = 0
         for dirpath, dirnames, filenames in os.walk(path):
-            for filename in filenames:              # pragma: notravis
+            for filename in filenames:
                 total += os.path.getsize(os.path.join(dirpath, filename))
         # Fudge factor for incidentals.
         total *= 1.5
@@ -198,26 +159,28 @@ class ModelAssertionBuilder(State):
             os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
-    def populate_bootfs_contents(self):             # pragma: notravis
+    def populate_bootfs_contents(self):
+        # XXX We currently support only one volume specification.
+        assert len(self.gadget.volumes) == 1, (
+            'For now, only one volume is allowed')
         # The unpack directory has a boot/ directory inside it.  The contents
         # of this directory (but not the parent <unpack>/boot directory
         # itself) needs to be moved to the bootfs directory.
-
         volume = list(self.gadget.volumes.values())[0]
         # At least one structure is required.
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            # XXX: Use fs label for the moment, until we get a proper way to
-            # identify the boot partition.
+            # XXX: Use file system label for the moment, until we get a proper
+            # way to identify the boot partition.
             if part.filesystem_label == 'system-boot':
                 self.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
-                    boot = os.path.join(self.unpackdir, 'image', 'boot',
-                                        'uboot')
+                    boot = os.path.join(
+                        self.unpackdir, 'image', 'boot', 'uboot')
                     ubuntu = target_dir
                 elif volume.bootloader is BootLoader.grub:
-                    boot = os.path.join(self.unpackdir, 'image', 'boot',
-                                        'grub')
+                    boot = os.path.join(
+                        self.unpackdir, 'image', 'boot', 'grub')
                     # XXX: Bad special-casing.  `snap prepare-image` currently
                     # installs to /boot/grub, but we need to map this to
                     # /EFI/ubuntu.  This is because we are using a SecureBoot
@@ -225,43 +188,51 @@ class ModelAssertionBuilder(State):
                     # we need to install our files to there.
                     ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
                 else:
-                    raise ValueError("unsupported bootloader value {}"
-                                     .format(volume.bootloader))
+                    raise ValueError(
+                        'Unsupported volume bootloader value: {}'.format(
+                            volume.bootloader))
                 os.makedirs(ubuntu, exist_ok=True)
                 for filename in os.listdir(boot):
                     src = os.path.join(boot, filename)
                     dst = os.path.join(ubuntu, filename)
                     shutil.move(src, dst)
+            gadget_dir = os.path.join(self.unpackdir, 'gadget')
             if part.filesystem is not FileSystemType.none:
-                for file in part.content:
-                    src = os.path.join(self.unpackdir, 'gadget', file.source)
-                    dst = os.path.join(target_dir, file.target)
-                    if not file.source.endswith('/'):
-                        # XXX: If this is a directory instead of a file, give
-                        # a useful error message instead of stacktracing.
-                        os.makedirs(os.path.dirname(dst), exist_ok=True)
-                        shutil.copy(src, dst)
-                    else:
+                for content in part.content:
+                    src = os.path.join(gadget_dir, content.source)
+                    dst = os.path.join(target_dir, content.target)
+                    if content.source.endswith('/'):
+                        # This is a directory copy specification.  The target
+                        # must also end in a slash.
+                        #
                         # XXX: If this is a file instead of a directory, give
-                        # a useful error message instead of stacktracing.
-
+                        # a useful error message instead of a traceback.
+                        #
+                        # XXX: We should assert this constraint in the parser.
+                        target, slash, tail = content.target.rpartition('/')
+                        if slash != '/' and tail != '':
+                            raise ValueError(
+                                'target must end in a slash: {}'.format(
+                                    content.target))
                         # The target of a recursive directory copy is the
                         # target directory name, with or without a trailing
                         # slash necessary at least to handle the case of
                         # recursive copy into the root directory), so make
                         # sure here that it exists.
                         os.makedirs(dst, exist_ok=True)
-                        target = file.target.rstrip('/')
                         for filename in os.listdir(src):
                             sub_src = os.path.join(src, filename)
-                            dst = os.path.join(target_dir, target,
-                                               filename)
-                            if sub_src is dir:
+                            dst = os.path.join(target_dir, target, filename)
+                            if os.path.isdir(sub_src):
                                 shutil.copytree(sub_src, dst, symlinks=True,
                                                 ignore_dangling_symlinks=True)
                             else:
                                 shutil.copy(sub_src, dst)
-
+                    else:
+                        # XXX: If this is a directory instead of a file, give
+                        # a useful error message instead of a traceback.
+                        os.makedirs(os.path.dirname(dst), exist_ok=True)
+                        shutil.copy(src, dst)
         self._next.append(self.calculate_bootfs_size)
 
     def calculate_bootfs_size(self):
@@ -271,10 +242,10 @@ class ModelAssertionBuilder(State):
         self.bootfs_sizes = {}
         # At least one structure is required.
         for i, part in enumerate(volume.structures):
+            if part.filesystem is FileSystemType.none:
+                continue
             partnum = 'part{}'.format(i)
             target_dir = os.path.join(self.workdir, partnum)
-            if part.filesystem is FileSystemType.none:
-                continue                            # pragma: nocover
             self.bootfs_sizes[partnum] = self._calculate_dirsize(target_dir)
         self._next.append(self.prepare_filesystems)
 
@@ -291,7 +262,7 @@ class ModelAssertionBuilder(State):
             self.boot_images.append(part_img)
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                 part_img, part.size))
-            if part.filesystem is FileSystemType.vfat:      # pragma: nobranch
+            if part.filesystem is FileSystemType.vfat:
                 label_option = (
                     '-n {}'.format(part.filesystem_label)
                     # XXX I think this could be None or the empty string, but
@@ -326,25 +297,24 @@ class ModelAssertionBuilder(State):
         for partnum, part in enumerate(volume.structures):
             part_img = self.boot_images[partnum]
             part_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            if part.filesystem is FileSystemType.none:   # pragma: nocover
+            if part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0
-                for file in part.content:
-                    src = os.path.join(self.unpackdir, 'gadget', file.image)
+                for content in part.content:
+                    src = os.path.join(self.unpackdir, 'gadget', content.image)
                     file_size = os.path.getsize(src)
-                    if file.size is not None and file.size < file_size:
-                        raise AssertionError('Size {} < size of {}'
-                                             .format(file.size, file.image))
-                    if file.size is not None:
-                        file_size = file.size
+                    assert content.size is None or content.size >= file_size, (
+                        'Spec size {} < actual size {} of: {}'.format(
+                            content.size, file_size, content.image))
+                    if content.size is not None:
+                        file_size = content.size
                     # XXX: We need to check for overlapping images.
-                    if file.offset is not None:
-                        offset = file.offset
+                    if content.offset is not None:
+                        offset = content.offset
                     # XXX: We must check offset+size vs. the target image.
                     image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
                     offset += file_size
-
-            elif part.filesystem is FileSystemType.vfat:    # pragma: nobranch
+            elif part.filesystem is FileSystemType.vfat:
                 sourcefiles = SPACE.join(
                     os.path.join(part_dir, filename)
                     for filename in os.listdir(part_dir)
@@ -353,11 +323,14 @@ class ModelAssertionBuilder(State):
                 env.update(os.environ)
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
-            elif part.filesystem is FileSystemType.ext4:   # pragma: nocover
-                _mkfs_ext4(self.part_img, part_dir, part.filesystem_label)
+            elif part.filesystem is FileSystemType.ext4:
+                mkfs_ext4(part_img, part_dir, part.filesystem_label)
+            else:
+                raise AssertionError('Invalid part filesystem type: {}'.format(
+                    part.filesystem))
         # The root partition needs to be ext4, which may or may not be
         # populated at creation time, depending on the version of e2fsprogs.
-        _mkfs_ext4(self.root_img, self.rootfs)
+        mkfs_ext4(self.root_img, self.rootfs)
         self._next.append(self.make_disk)
 
     def make_disk(self):
@@ -379,52 +352,54 @@ class ModelAssertionBuilder(State):
             image = MBRImage(self.disk_img, self.image_size)
         else:
             image = Image(self.disk_img, self.image_size)
-
+        # XXX LP: #1630627
         structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
         part_offsets = {}
         for i, part in enumerate(structures):
-            if part.name:                           # pragma: nocover
+            if part.name is not None:
                 part_offsets[part.name] = part.offset
-            if part.offset_write:                   # pragma: nocover
+            if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
             image.copy_blob(self.boot_images[i],
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
             if part.type == 'mbr':
-                continue                            # pragma: nocover
+                continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
-            partdef = '{}M:+{}M'.format(
-                part.offset // MiB(1), part.size // MiB(1))
-            part_args = {}
-            part_args['new'] = partdef
-            part_args['typecode'] = part.type
+            #
+            # XXX Size must not be zero, which will happen if part.size < 1MiB
+            partition_args = dict(
+                new='{}M:+{}M'.format(
+                    part.offset // MiB(1), part.size // MiB(1)),
+                typecode=part.type,
+                )
             # XXX: special-casing.
-            if (volume.schema == VolumeSchema.mbr and
-               part.filesystem_label == 'system-boot'):
-                part_args['activate'] = True
-            if part.name is not None:               # pragma: nobranch
-                part_args['change_name'] = part.name
-            image.partition(part_id, **part_args)
+            if (volume.schema is VolumeSchema.mbr and
+                    part.filesystem_label == 'system-boot'):
+                partition_args['activate'] = True
+            if part.name is not None:
+                partition_args['change_name'] = part.name
+            image.partition(part_id, **partition_args)
             part_id += 1
             next_offset = (part.offset + part.size) // MiB(1)
-        # Create main snappy writable partition
-        image.partition(part_id,
-                        new='{}M:+{}K'.format(next_offset,
-                                              self.rootfs_size // 1024),
-                        typecode=('83',
-                                  '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
-        if volume.schema == VolumeSchema.gpt:
+        # Create main snappy writable partition as the last partition.
+        image.partition(
+            part_id,
+            new='{}M:+{}K'.format(next_offset, self.rootfs_size // 1024),
+            typecode=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
+        if volume.schema is VolumeSchema.gpt:
             image.partition(part_id, change_name='writable')
-        image.copy_blob(self.root_img,
-                        bs='1M', seek=next_offset,
-                        count=ceil(self.rootfs_size / MiB(1)),
-                        conv='notrunc')
-        for value, dest in offset_writes:           # pragma: nobranch
-            # decipher non-numeric offset_write values
-            if isinstance(dest, tuple):             # pragma: nocover
+        image.copy_blob(
+            self.root_img,
+            bs='1M', seek=next_offset,
+            count=ceil(self.rootfs_size / MiB(1)),
+            conv='notrunc')
+        for value, dest in offset_writes:
+            # Decipher non-numeric offset_write values.
+            if isinstance(dest, tuple):
                 dest = part_offsets[dest[0]] + dest[1]
             # XXX: Hard-coding of 512-byte sectors.
             image.write_value_at_offset(value // 512, dest)

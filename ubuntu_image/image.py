@@ -4,9 +4,7 @@ import os
 
 from enum import Enum
 from struct import pack
-from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import run
-from ubuntu_image.parser import parse
 
 
 __all__ = [
@@ -18,6 +16,9 @@ __all__ = [
 class Diagnostics(Enum):
     mbr = '--print-mbr'
     gpt = '--print'
+
+
+COMMASPACE = ', '
 
 
 class Image:
@@ -114,7 +115,7 @@ class Image:
         # - log stderr
         return status.stdout
 
-    def write_value_at_offset(self, value, offset):   # pragma: nocover
+    def write_value_at_offset(self, value, offset):
         """Write the given value to the specified absolute offset.
 
         The value is interpreted as a 32-bit integer, and is written out
@@ -126,17 +127,25 @@ class Image:
             should be written.
         :type size: int
         """
+        # We do not want to allow writing past the end of the file to silently
+        # extend it, but because we open the file in + mode, a seek past the
+        # end of the file plus the write *will* silently extend it.  LBYL, but
+        # don't forget we start at zero!  And don't forget that we're writing
+        # 4 bytes so we can't seek to a position >= size + 4.
+        if os.path.getsize(self.path) - 4 < offset:
+            raise ValueError('write offset beyond end of file')
         binary_value = pack('<I', value)
-        with open(self.path, 'rb+') as file:
-            if file.seek(offset) != offset:
-                raise ValueError('write offset beyond end of file')
-            file.write(binary_value)
+        with open(self.path, 'rb+') as fp:
+            fp.seek(offset)
+            fp.write(binary_value)
 
 
 class MBRImage(Image):
     def __init__(self, path, size):
-        """sfdisk needs different options for new disks vs. existing partition
-        tables, so cope with that here.
+        """Create an MBR image.
+
+        sfdisk needs different options for new disks vs. existing
+        partition tables, so cope with that here.
         """
         super().__init__(path, size)
         self.initialized = False
@@ -153,45 +162,30 @@ class MBRImage(Image):
         args = ['sfdisk', self.path]
         if self.initialized:
             args.append('--append')
-
         self.initialized = True
-
-        input = []
+        command_input = []
         for key, value in sfdisk_args.items():
             if key == 'new':
                 offset, size = value.split(':')
-                input.append('start={}, size={}'.format(offset, size))
+                command_input.extend([
+                    'start={}'.format(offset),
+                    'size={}'.format(size),
+                    ])
             elif key == 'activate':
-                input.append('bootable')
+                command_input.append('bootable')
             elif key == 'typecode':
                 if isinstance(value, tuple):
                     value = value[0]
-                input.append('type={}'.format(value))
+                command_input.append('type={}'.format(value))
             else:
                 raise ValueError('{} option not supported for MBR partitions'
                                  .format(key))
-
-        input = 'part{}: {}'.format(partnum, ','.join(input))
+        input_arg = 'part{}: {}'.format(
+            partnum, COMMASPACE.join(command_input))
         # Run the command.  We'll capture stderr for logging purposes.
         #
         # TBD:
         # - check status of the returned CompletedProcess
         # - handle errors
         # - log stdout/stderr
-        run(args, input=input)
-
-
-def extract(snap_path):                             # pragma: nocover
-    """Extract the gadget.yml file from a path to a .snap.
-
-    :param snap_path: File system path to a .snap.
-    :type snap_path: str
-    :return: The dictionary represented by the meta/gadget.yaml file contained
-        in the snap.
-    :rtype: dict
-    """
-    with TemporaryDirectory() as destination:
-        gadget_dir = os.path.join(destination, 'gadget')
-        run(['/usr/bin/unsquashfs', '-d', gadget_dir, snap_path])
-        gadget_yaml = os.path.join(gadget_dir, 'meta', 'gadget.yaml')
-        return parse(gadget_yaml)
+        run(args, input=input_arg)

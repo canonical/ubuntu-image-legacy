@@ -4,6 +4,7 @@ export PYBUILD_NAME=ubuntu-image
 #export PYBUILD_VERBOSE=1
 #export DH_VERBOSE=1
 
+export UBUNTU_IMAGE_TESTS_NO_NETWORK=1
 export pkgversion=$(shell dpkg-parsechangelog --show-field version)
 
 
@@ -25,6 +26,12 @@ override_dh_installman:
 		--no-discard-stderr --no-info \
 		debian/ubuntu-image/usr/bin/ubuntu-image
 	dh_installman
+
+# Run the bare minimum of tests during build.  The majority of the tests will
+# run during the autopkgtests.
+override_dh_auto_test:
+	dh_auto_test -- --system=custom \
+		--test-args='{interpreter} -m nose2 -vv'
 
 override_dh_auto_clean:
 	rm -f debian/ubuntu-image.1
