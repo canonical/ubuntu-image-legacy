@@ -1,4 +1,4 @@
-ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.7ubuntu1) yakkety; urgency=medium
 
   [ Steve Langasek ]
   * Don't build 4GB images, instead build images just as large as needed
@@ -19,7 +19,7 @@ ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
   * Use only the autopkgtest infrastructure for pull request testing.
     Don't use Travis-CI anymore.  (LP: #1625729)
 
- -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Sep 2016 04:06:30 +0000
+ -- Barry Warsaw <barry@ubuntu.com>  Thu, 06 Oct 2016 18:46:06 -0400
 
 ubuntu-image (0.6ubuntu3) yakkety; urgency=medium
 
