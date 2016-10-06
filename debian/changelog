@@ -15,7 +15,9 @@ ubuntu-image (0.7ubuntu1) UNRELEASED; urgency=medium
   [ Barry Warsaw ]
   * Repair snapcraft.yaml for Python plugin changes.
   * Reorganize and flesh out command line options.
-  * 100% test coverage (LP: #1617445)
+  * 100% test coverage. (LP: #1617445)
+  * Use only the autopkgtest infrastructure for pull request testing.
+    Don't use Travis-CI anymore.  (LP: #1625729)
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Sep 2016 04:06:30 +0000
 

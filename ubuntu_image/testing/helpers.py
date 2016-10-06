@@ -7,9 +7,6 @@ from pkg_resources import resource_filename
 from ubuntu_image.builder import ModelAssertionBuilder
 
 
-IN_TRAVIS = 'IN_TRAVIS' in os.environ
-
-
 class XXXModelAssertionBuilder(ModelAssertionBuilder):
     gadget_yaml = 'gadget.yaml'
 

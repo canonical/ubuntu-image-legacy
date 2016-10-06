@@ -12,7 +12,7 @@ from ubuntu_image.__main__ import main
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
-    IN_TRAVIS, XXXModelAssertionBuilder)
+    XXXModelAssertionBuilder)
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
 
@@ -124,7 +124,6 @@ class TestMainWithModel(TestCase):
 
     @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
             'Cannot run this test without network access')
-    @skipIf(IN_TRAVIS, 'cannot mount in a docker container')
     def test_save_resume(self):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
