@@ -15,7 +15,6 @@ parts:
     source: https://github.com/CanonicalLtd/ubuntu-image.git
     source-type: git
     python-packages:
-      - python-debian
       - attrs
       - voluptuous
       - PyYAML
@@ -26,6 +25,7 @@ parts:
     stage-packages:
       - mtools
       - e2fsprogs
+      - python3-debian
   snapd:
     plugin: go
     source: https://github.com/snapcore/snapd
