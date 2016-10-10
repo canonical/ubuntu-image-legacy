@@ -12,7 +12,7 @@ Design
 ======
 
 The design of ubuntu-image is based on earlier lessons from
-``linaro-media-create``, linaro *hardware packs* and
+``linaro-media-create``, Linaro *hardware packs* and
 ``ubuntu-device-flash``. The tool has the following goals and assumptions in
 place:
 
@@ -46,7 +46,7 @@ device-tree-origin
     (*optional*) Where to find the device tree.  Defaults to ``gadget``.
 
 device-tree
-    (*optional*) The file nameof the device tree.  If specified
+    (*optional*) The file name of the device tree.  If specified
     ``dtbs/<filename>`` must exist in kernel or gadget snap, depending on
     ``device-tree-origin``.
 
