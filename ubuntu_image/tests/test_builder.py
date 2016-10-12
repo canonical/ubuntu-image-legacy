@@ -168,15 +168,13 @@ class TestModelAssertionBuilder(TestCase):
             state._next.append(state.populate_rootfs_contents)
             next(state)
             # Everything except /boot and /home got copied.
-            for subdir in ('var/lib/foo', 'etc', 'stuff'):
+            for subdir in ('var/lib/foo', 'etc', 'stuff', 'home'):
                 path = os.path.join(state.rootfs, 'system-data', subdir)
                 with open(os.path.join(path, 'sentinel.dat'), 'rb') as fp:
                     self.assertEqual(fp.read(), b'x' * 25)
             # But these directories did not get copied.
             boot = os.path.join(state.rootfs, 'boot')
             self.assertFalse(os.path.exists(boot))
-            home = os.path.join(state.rootfs, 'home')
-            self.assertFalse(os.path.exists(home))
 
     def test_bootloader_options_uboot(self):
         # This test provides coverage for populate_bootfs_contents() when the
