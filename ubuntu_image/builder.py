@@ -361,6 +361,7 @@ class ModelAssertionBuilder(State):
         structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
         part_offsets = {}
+        next_offset = 1
         for i, part in enumerate(structures):
             if part.name is not None:
                 part_offsets[part.name] = part.offset
