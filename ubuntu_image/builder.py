@@ -117,7 +117,12 @@ class ModelAssertionBuilder(State):
     def populate_rootfs_contents(self):
         src = os.path.join(self.unpackdir, 'image')
         dst = os.path.join(self.rootfs, 'system-data')
-        shutil.move(os.path.join(src, 'var'), os.path.join(dst, 'var'))
+        for subdir in os.listdir(src):
+            # LP: #1632134 - copy everything under the image directory except
+            # /boot which goos to the boot partition.
+            if subdir != 'boot':
+                shutil.move(os.path.join(src, subdir),
+                            os.path.join(dst, subdir))
         seed_dir = os.path.join(dst, 'var', 'lib', 'cloud', 'seed')
         cloud_dir = os.path.join(seed_dir, 'nocloud-net')
         os.makedirs(cloud_dir, exist_ok=True)

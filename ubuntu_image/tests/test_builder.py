@@ -139,6 +139,43 @@ class TestModelAssertionBuilder(TestCase):
             with open(user_data, 'r', encoding='utf-8') as fp:
                 self.assertEqual(fp.read(), 'cloud init user data')
 
+    def test_populate_rootfs_contents_with_etc_and_stuff(self):
+        # LP: #1632134
+        with ExitStack() as resources:
+            args = SimpleNamespace(
+                channel='edge',
+                workdir=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                cloud_init=None,
+                extra_snaps=None,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'image')
+            for subdir in ('var/lib/foo', 'etc', 'stuff', 'boot', 'home'):
+                path = os.path.join(image_dir, subdir)
+                os.makedirs(path)
+                # Throw a sentinel data file in the subdirectory.
+                with open(os.path.join(path, 'sentinel.dat'), 'wb') as fp:
+                    fp.write(b'x' * 25)
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            system_data = os.path.join(state.rootfs, 'system-data')
+            os.makedirs(system_data)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Everything except /boot and /home got copied.
+            for subdir in ('var/lib/foo', 'etc', 'stuff', 'home'):
+                path = os.path.join(state.rootfs, 'system-data', subdir)
+                with open(os.path.join(path, 'sentinel.dat'), 'rb') as fp:
+                    self.assertEqual(fp.read(), b'x' * 25)
+            # But these directories did not get copied.
+            boot = os.path.join(state.rootfs, 'boot')
+            self.assertFalse(os.path.exists(boot))
+
     def test_bootloader_options_uboot(self):
         # This test provides coverage for populate_bootfs_contents() when the
         # uboot bootloader is used.  The live gadget snap (only tested when we
