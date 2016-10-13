@@ -93,7 +93,7 @@ class TestHelpers(TestCase):
             run('/bin/false')
         # stdout gets piped to stderr.
         self.assertEqual(stderr.getvalue(),
-                         'COMMAND FAILED: /bin/falsefake stdoutfake stderr')
+                         'COMMAND FAILED: /bin/false\nfake stdoutfake stderr')
 
     def test_run_fails_no_output(self):
         stderr = StringIO()
@@ -105,7 +105,7 @@ class TestHelpers(TestCase):
                       return_value=FakeProcNoOutput()))
             run('/bin/false')
         # stdout gets piped to stderr.
-        self.assertEqual(stderr.getvalue(), 'COMMAND FAILED: /bin/false')
+        self.assertEqual(stderr.getvalue(), 'COMMAND FAILED: /bin/false\n')
 
     def test_as_bool(self):
         for value in {'no', 'False', '0', 'DISABLE', 'DiSaBlEd'}:
