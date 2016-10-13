@@ -9,8 +9,8 @@ import argparse
 from contextlib import suppress
 from pickle import dump, load
 from pkg_resources import resource_string as resource_bytes
-from ubuntu_image.helpers import as_size
 from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.helpers import as_size
 from ubuntu_image.i18n import _
 
 
