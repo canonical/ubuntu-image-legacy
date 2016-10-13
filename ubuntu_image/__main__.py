@@ -31,6 +31,8 @@ class SizeAction(argparse.Action):
             raise argparse.ArgumentError(
                 self, 'Invalid size: {}'.format(values))
         setattr(namespace, self.dest, size)
+        # For display purposes.
+        namespace.given_image_size = values
 
 
 def parseargs(argv=None):

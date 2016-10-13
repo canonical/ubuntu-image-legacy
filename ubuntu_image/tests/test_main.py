@@ -22,12 +22,15 @@ class TestParseArgs(TestCase):
     def test_image_size_option_bytes(self):
         args = parseargs(['--image-size', '45', 'model.assertion'])
         self.assertEqual(args.image_size, 45)
+        self.assertEqual(args.given_image_size, '45')
 
     def test_image_size_option_suffixes(self):
         args = parseargs(['--image-size', '45G', 'model.assertion'])
         self.assertEqual(args.image_size, GiB(45))
+        self.assertEqual(args.given_image_size, '45G')
         args = parseargs(['--image-size', '45M', 'model.assertion'])
         self.assertEqual(args.image_size, MiB(45))
+        self.assertEqual(args.given_image_size, '45M')
 
     def test_image_size_option_invalid(self):
         # These errors will output to stderr, but that just clouds the test
