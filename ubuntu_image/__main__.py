@@ -62,7 +62,7 @@ def parseargs(argv=None):
         case, you probably want to specify -w)."""))
     common_group.add_argument(
         '--image-size',
-        default=None, action=SizeAction,
+        default=None, action=SizeAction, metavar='SIZE',
         help=_("""The size of the generated disk image file (see
         -o/--output).  If this size is smaller than the minimum calculated
         size of the image a warning will be issued and --image-size will be
