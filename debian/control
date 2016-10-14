@@ -27,7 +27,7 @@ Testsuite: autopkgtest-pkg-python
 
 Package: ubuntu-image
 Architecture: all
-Depends: python3-ubuntu-image(= ${binary:Version}),
+Depends: python3-ubuntu-image (= ${binary:Version}),
          ${misc:Depends},
          ${python3:Depends},
 Description: toolkit for building Ubuntu images.
