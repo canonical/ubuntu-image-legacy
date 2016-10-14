@@ -10,6 +10,7 @@ from contextlib import suppress
 from pickle import dump, load
 from pkg_resources import resource_string as resource_bytes
 from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.helpers import as_size
 from ubuntu_image.i18n import _
 
 
@@ -20,6 +21,18 @@ except FileNotFoundError:                           # pragma: nocover
     # Probably, setup.py hasn't been run yet to generate the version.txt.
     __version__ = 'dev'
 PROGRAM = 'ubuntu-image'
+
+
+class SizeAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        try:
+            size = as_size(values)
+        except (KeyError, ValueError):
+            raise argparse.ArgumentError(
+                self, 'Invalid size: {}'.format(values))
+        setattr(namespace, self.dest, size)
+        # For display purposes.
+        namespace.given_image_size = values
 
 
 def parseargs(argv=None):
@@ -47,6 +60,14 @@ def parseargs(argv=None):
         help=_("""The generated disk image file.  If not given, the image will
         be put in a file called disk.img in the working directory (in which
         case, you probably want to specify -w)."""))
+    common_group.add_argument(
+        '--image-size',
+        default=None, action=SizeAction, metavar='SIZE',
+        help=_("""The size of the generated disk image file (see
+        -o/--output).  If this size is smaller than the minimum calculated
+        size of the image a warning will be issued and --image-size will be
+        ignored.  The value is the size in bytes, with allowable suffixes 'M'
+        for MiB and 'G' for GiB."""))
     # Snap-based image options.
     snap_group = parser.add_argument_group(
         _('Image contents options'),

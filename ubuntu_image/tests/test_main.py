@@ -8,13 +8,40 @@ from io import StringIO
 from pickle import load
 from pkg_resources import resource_filename
 from tempfile import TemporaryDirectory
-from ubuntu_image.__main__ import main
+from ubuntu_image.__main__ import main, parseargs
+from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
     XXXModelAssertionBuilder)
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
+
+
+class TestParseArgs(TestCase):
+    def test_image_size_option_bytes(self):
+        args = parseargs(['--image-size', '45', 'model.assertion'])
+        self.assertEqual(args.image_size, 45)
+        self.assertEqual(args.given_image_size, '45')
+
+    def test_image_size_option_suffixes(self):
+        args = parseargs(['--image-size', '45G', 'model.assertion'])
+        self.assertEqual(args.image_size, GiB(45))
+        self.assertEqual(args.given_image_size, '45G')
+        args = parseargs(['--image-size', '45M', 'model.assertion'])
+        self.assertEqual(args.image_size, MiB(45))
+        self.assertEqual(args.given_image_size, '45M')
+
+    def test_image_size_option_invalid(self):
+        # These errors will output to stderr, but that just clouds the test
+        # output, so suppress it.
+        with patch('argparse._sys.stderr'):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['--image-size', '45Q', 'model.assertion'])
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['--image-size', 'BIG', 'model.assertion'])
 
 
 class TestMain(TestCase):

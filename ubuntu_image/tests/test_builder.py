@@ -907,6 +907,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 output=None,
                 cloud_init=None,
+                image_size=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -929,10 +930,136 @@ class TestModelAssertionBuilder(TestCase):
                 volumes=dict(volume1=volume),
                 )
             state.rootfs_size = MiB(1)
-            # Mock the run() call to prove that we never call mkfs.vfat.
+            # Mock the run() call to prove that we never call dd.
             mock = resources.enter_context(patch('ubuntu_image.builder.run'))
             next(state)
             # There should be only one call to run() and that's for the dd.
             self.assertEqual(len(mock.call_args_list), 1)
             posargs, kwargs = mock.call_args_list[0]
             self.assertTrue(posargs[0].startswith('dd if='))
+
+    def test_image_size_calculated(self):
+        # We let prepare_filesystems() calculate the disk image size.  The
+        # rootfs is defined as 1MiB, and the only structure part is defined as
+        # 1MiB.  The calculation adds 34 512-byte sectors for backup GPT.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=None,
+                output=None,
+                cloud_init=None,
+                image_size=None,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='da',
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            state.rootfs_size = MiB(1)
+            # Mock the run() call to prove that we never call dd.
+            resources.enter_context(patch('ubuntu_image.builder.run'))
+            next(state)
+            self.assertEqual(state.image_size, 2114560)
+
+    def test_image_size_explicit(self):
+        # --image-size=5M overrides the implicit disk image size.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=None,
+                output=None,
+                cloud_init=None,
+                image_size=MiB(5),
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='da',
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            state.rootfs_size = MiB(1)
+            # Mock the run() call to prove that we never call dd.
+            resources.enter_context(patch('ubuntu_image.builder.run'))
+            next(state)
+            self.assertEqual(state.image_size, MiB(5))
+
+    def test_image_size_too_small(self):
+        # --image-size=1M but the calculated size is larger, so the command
+        # line option is ignored, with a warning.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=None,
+                output=None,
+                cloud_init=None,
+                image_size=MiB(1),
+                given_image_size='1M',
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='da',
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            state.rootfs_size = MiB(1)
+            # Mock the run() call to prove that we never call dd.
+            resources.enter_context(patch('ubuntu_image.builder.run'))
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder._logger.warning'))
+            next(state)
+            self.assertEqual(state.image_size, 2114560)
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'Ignoring --image-size=1M smaller '
+                'than minimum required size 2114560')

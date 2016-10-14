@@ -284,8 +284,17 @@ class ModelAssertionBuilder(State):
         #
         # XXX: Hard-codes last 34 512-byte sectors for backup GPT,
         # empirically derived from sgdisk behavior.
-        self.image_size = ceil((self.rootfs_size + next_avail) /
-                               1024 + 17) * 1024
+        calculated = ceil((self.rootfs_size + next_avail) / 1024 + 17) * 1024
+        if self.args.image_size is None:
+            self.image_size = calculated
+        else:
+            if self.args.image_size < calculated:
+                _logger.warning('Ignoring --image-size={} smaller '
+                                'than minimum required size {}'.format(
+                                    self.args.given_image_size, calculated))
+                self.image_size = calculated
+            else:
+                self.image_size = self.args.image_size
         self.root_img = os.path.join(self.images, 'root.img')
         # Create empty file with holes.
         with open(self.root_img,  'w'):
