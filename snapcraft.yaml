@@ -21,6 +21,7 @@ parts:
     snap:
       - bin/ubuntu-image
       - usr
+      - lib
       - sbin
     stage-packages:
       - mtools
