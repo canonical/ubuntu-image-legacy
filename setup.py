@@ -3,7 +3,7 @@
 import sys
 
 from debian.changelog import Changelog
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 def require_python(minimum):
@@ -51,7 +51,8 @@ setup(
     description='Construct snappy images out of a model assertion',
     author_email='snapcraft@lists.ubuntu.com',
     url='https://github.com/CanonicalLtd/ubuntu-image',
-    packages=['ubuntu_image'],
+    packages=find_packages(),
+    include_package_data=True,
     scripts=['ubuntu-image'],
     entry_points={
         'flake8.extension': ['B4 = ubuntu_image.testing.flake8:ImportOrder'],
