@@ -15,11 +15,21 @@ from ubuntu_image.i18n import _
 
 
 _logger = logging.getLogger('ubuntu-image')
-try:
-    __version__ = resource_bytes('ubuntu_image', 'version.txt').decode('utf-8')
-except FileNotFoundError:                           # pragma: nocover
-    # Probably, setup.py hasn't been run yet to generate the version.txt.
-    __version__ = 'dev'
+
+# Try to get the version number, which will be different if we're living in a
+# snap world or a deb.  Actually, I'd prefer to not even have the -NubuntuY
+# version string when we're running from source, but that's trickier, so don't
+# worry about it.
+__version__ = os.environ.get('SNAP_VERSION')
+if __version__ is None:
+    try:
+        __version__ = resource_bytes(
+            'ubuntu_image', 'version.txt').decode('utf-8')
+    except FileNotFoundError:                           # pragma: nocover
+        # Probably, setup.py hasn't been run yet to generate the version.txt.
+        __version__ = 'dev'
+
+
 PROGRAM = 'ubuntu-image'
 
 

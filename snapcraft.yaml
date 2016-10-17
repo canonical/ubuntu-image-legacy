@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.7+real1
+version: 0.8+real1
 confinement: devmode
 
 apps:
@@ -21,6 +21,7 @@ parts:
     snap:
       - bin/ubuntu-image
       - usr
+      - lib
       - sbin
     stage-packages:
       - mtools
