@@ -21,11 +21,11 @@ _logger = logging.getLogger('ubuntu-image')
 # version string when we're running from source, but that's trickier, so don't
 # worry about it.
 __version__ = os.environ.get('SNAP_VERSION')
-if __version__ is None:
+if __version__ is None:                                      # pragma: nocover
     try:
         __version__ = resource_bytes(
             'ubuntu_image', 'version.txt').decode('utf-8')
-    except FileNotFoundError:                           # pragma: nocover
+    except FileNotFoundError:
         # Probably, setup.py hasn't been run yet to generate the version.txt.
         __version__ = 'dev'
 
