@@ -1,4 +1,4 @@
-ubuntu-image (0.8+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.8+17.04ubuntu1) zesty; urgency=medium
 
   * Fix snap creation.  (LP: #1631961)
   * Copy everything under <unpackdir>/image into <rootfs>/system-data
