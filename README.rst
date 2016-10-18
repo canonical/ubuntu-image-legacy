@@ -10,9 +10,10 @@ images from a model assertion, but it will be generalized to build more
 Requirements
 ============
 
-Ubuntu 16.04 (Xenial Xerus) is the minimum platform requirement.  Python 3.5
-is the minimum Python version required.  All required third party packages are
-available in the Ubuntu archive.
+Ubuntu 16.04 (Xenial Xerus) is the minimum platform requirement, but Ubuntu
+16.10 (Yakkety Yak) or newer is recommended.  Python 3.5 is the minimum Python
+version required.  All required third party packages are available in the
+Ubuntu archive.
 
 If you want to run the test suite locally, you should install all the build
 dependencies named in the `debian/control` file.  The easiest way to do that
@@ -22,13 +23,6 @@ is to `apt install devscripts equivs` and then run::
 
 from the directory containing the `debian` subdirectory.  Alternatively of
 course, you can just install the packages named in the `Build-Depends` field.
-
-The test suite will prefer system installed libraries when available instead
-of PyPI downloaded libraries, however the following test dependencies will be
-downloaded from PyPI on demand, since they aren't yet available in the Ubuntu
-archive:
-
-* flake8-respect-noqa
 
 
 License
@@ -50,6 +44,10 @@ Project details
 * Git clone: https://github.com/CanonicalLtd/ubuntu-image.git
 * Documentation: TBD
 
+The ``gadget.yaml`` specification has moved to `the snapcore repository`_.
+
+.. _`the snapcore repository`: https://github.com/snapcore/snapd/wiki/Gadget-snap
+
 
 Developing
 ==========
@@ -67,3 +65,11 @@ You can run individual tests like this::
 where *<pattern>* is a Python regular expression matching a test name, e.g.::
 
     $ tox -e py35 -- -P test_smoke
+
+Pull requests run the same test suite that archive promotion (i.e. -proposed
+to release pocket) runs.  You can reproduce this locally by building the
+source package (with ``gbp buildpackage -S``) and running::
+
+    $ autopkgtest ubuntu-image_0.8+16.10ubuntu1.dsc -- schroot yakkety-amd64
+
+with changes to the version number and Ubuntu distroseries as appropriate.
