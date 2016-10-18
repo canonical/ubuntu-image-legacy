@@ -10,8 +10,8 @@ from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
-from ubuntu_image.parser import BootLoader, FileSystemType,\
-                                VolumeSchema, parse as parse_yaml
+from ubuntu_image.parser import (
+    BootLoader, FileSystemType, VolumeSchema, parse as parse_yaml)
 from ubuntu_image.state import State
 
 
