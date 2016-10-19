@@ -59,16 +59,25 @@ for model_file in os.listdir(DIR):
                 # Failed.
                 model_status[device] = (False, proc.stdout, proc.stderr)
 
+
 # Collate results.
 exit_status = 0
 for model_file, results in STATUS.items():
     model_status = 0
+    model_stdout = []
     for device in sorted(results):
         okay, stdout, stderr = results[device]
         if not okay:
-            print('XXXXX NOT OK', model_file, device, flush=True)
+            model_status = 1
+            model_stdout.append(stdout)
+            model_stdout.append(stderr)
+    if model_status == 0:
+        print('*****    OK', model_file, flush=True)
+    else:
+        print('***** NOT OK', model_file, flush=True)
+        for stdout in model_stdout:
             sys.stdout.write(stdout)
-            sys.stdout.write(stderr)
-            exit_status = 1
+        exit_status = 1
+
 
 sys.exit(exit_status)
