@@ -1,10 +1,12 @@
-ubuntu-image (0.8+17.04ubuntu1) zesty; urgency=medium
+ubuntu-image (0.9+17.04ubuntu1) zesty; urgency=medium
 
   * Fix snap creation.  (LP: #1631961)
   * Copy everything under <unpackdir>/image into <rootfs>/system-data
     except boot/.  (LP: #1632134)
   * Optional --image-size command line option can be used to force the
     resulting disk image to a larger than calculated size.  (LP: #1632085)
+  * Fix MBR partition size rounding error due to internal bug and implicit
+    sfdisk(8) behavior.  Give by Steve Langasek.  (LP: #1634557)
 
  -- Barry Warsaw <barry@ubuntu.com>  Mon, 10 Oct 2016 10:48:49 -0400
 
