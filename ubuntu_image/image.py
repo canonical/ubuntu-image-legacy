@@ -174,7 +174,7 @@ class MBRImage(Image):
                 # it down to where it was supposed to be in the first place.
                 if size.endswith('K'):
                     size = int(size.rstrip('K').lstrip('+'))
-                    size = '+{}M'.format(ceil(size/1024))
+                    size = '+{}M'.format(ceil(size / 1024))
                 command_input.extend([
                     'start={}'.format(offset),
                     'size={}'.format(size),
