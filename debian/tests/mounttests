@@ -1,0 +1,47 @@
+#!/usr/bin/python3
+
+import os
+
+from contextlib import ExitStack
+from subprocess import PIPE, run
+
+TMP = os.environ['AUTOPKGTEST_TMP']
+DIR = os.path.abspath(os.path.join('debian', 'tests', 'models'))
+
+
+for model_file in os.listdir(DIR):
+    base, suffix = os.path.splitext(model_file)
+    if suffix != '.assertion':
+        continue
+    # Build the image.
+    disk_img = os.path.join(TMP, '{}.img'.format(base))
+    model_assertion = os.path.join(DIR, model_file)
+    run(['ubuntu-image', '-c', 'edge', '-o', disk_img, model_assertion])
+    # Now try to mount every partition in the resulting disk image.
+    with ExitStack() as resources:
+        proc = run(['kpartx', '-avs', disk_img],
+                   universal_newlines=True,
+                   stdout=PIPE)
+        resources.callback(run, ['kpartx', '-dv', disk_img])
+        # Parse the kpartx output to figure out what the device names are.
+        # E.g. here is the current output of kpartx -avs as an example.  It's
+        # the third column we care about.
+        #
+        # add map loop5p1 (252:1): 0 2048 linear 7:5 2048
+        # add map loop5p2 (252:2): 0 2048 linear 7:5 4096
+        # add map loop5p3 (252:3): 0 2048 linear 7:5 6144
+        # add map loop5p4 (252:4): 0 2048 linear 7:5 8192
+        # add map loop5p5 (252:5): 0 2048 linear 7:5 10240
+        # add map loop5p6 (252:6): 0 4096 linear 7:5 12288
+        # add map loop5p7 (252:7): 0 2048 linear 7:5 16384
+        # add map loop5p8 (252:8): 0 262144 linear 7:5 18432
+        # add map loop5p9 (252:9): 0 1051446 linear 7:5 280576
+        for i, line in enumerate(proc.stdout.splitlines()):
+            parts = line.split()
+            assert parts[:2] == ['add', 'map']
+            src = '/dev/mapper/{}'.format(parts[2])
+            dst = os.path.join(TMP, '{}.mnt{}'.format(base, i))
+            os.mkdir(dst)
+            resources.callback(os.rmdir, dst)
+            run(['mount', src, dst])
+            resources.callback(run, ['umount', dst])

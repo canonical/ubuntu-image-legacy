@@ -16,6 +16,6 @@ Depends: @builddeps@, git
 Test-Command: tox -e coverage
 Depends: @builddeps@, git
 
-Tests: modeltests
+Tests: mounttests
 Restrictions: needs-root
 Depends: @, kpartx, ca-certificates
