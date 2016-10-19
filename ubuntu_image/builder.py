@@ -403,7 +403,7 @@ class ModelAssertionBuilder(State):
         # Create main snappy writable partition as the last partition.
         image.partition(
             part_id,
-            new='{}M:+{}K'.format(next_offset, self.rootfs_size // 1024),
+            new='{}M:+{}K'.format(next_offset, ceil(self.rootfs_size / 1024)),
             typecode=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
         if volume.schema is VolumeSchema.gpt:
             image.partition(part_id, change_name='writable')

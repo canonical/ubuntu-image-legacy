@@ -1063,3 +1063,75 @@ class TestModelAssertionBuilder(TestCase):
                 posargs[0],
                 'Ignoring --image-size=1M smaller '
                 'than minimum required size 2114560')
+
+    def test_round_up_size_for_mbr_root_partitions(self):
+        # LP: #1634557 - two rounding errors conspired to make mbr partitions
+        # undersized.  First, an internal calculation in the builder used
+        # floor division to produce a size in KiB less than the actual root
+        # partition size if it wasn't an even multiple of 1024 bytes.  Second,
+        # sfdisk implicitly rounds down partition sizes that aren't a multiple
+        # of 1MiB.  This wasn't immediately noticed because initramfs will
+        # automagically resize such partitions on first boot.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                workdir=workdir,
+                unpackdir=unpackdir,
+                output=None,
+                cloud_init=None,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = MiB(256)
+            os.makedirs(state.images)
+            # Craft a gadget schema.  This is based on the official pi3-kernel
+            # gadget.yaml file.
+            contents0 = SimpleNamespace(
+                source='boot-assets/',
+                target='/',
+                )
+            part0 = SimpleNamespace(
+                name=None,
+                filesystem_label='system-boot',
+                filesystem='vfat',
+                type='0C',
+                size=MiB(128),
+                offset=MiB(1),
+                offset_write=None,
+                contents=[contents0],
+                )
+            volume0 = SimpleNamespace(
+                schema=VolumeSchema.mbr,
+                bootloader=BootLoader.uboot,
+                structures=[part0],
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(pi3=volume0),
+                )
+            # Set up images for the targeted test.  The important thing here
+            # is that the root partition gets sizes to a non-multiple of 1KiB.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            state.root_img = os.path.join(state.images, 'root.img')
+            state.rootfs_size = 947980
+            with open(state.root_img, 'wb') as fp:
+                fp.write(b'\2' * 947980)
+            state.boot_images = [part0_img]
+            # Create the disk.
+            next(state)
+            # The root file system must be at least 947980 bytes.
+            proc = run('sfdisk --json {}'.format(state.disk_img))
+            layout = json.loads(proc.stdout)
+            partition1 = layout['partitiontable']['partitions'][1]
+            # sfdisk returns size in sectors.  947980 bytes rounded up to 512
+            # byte sectors.
+            self.assertGreaterEqual(partition1['size'], 1852)

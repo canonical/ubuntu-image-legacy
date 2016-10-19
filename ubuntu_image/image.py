@@ -3,6 +3,7 @@
 import os
 
 from enum import Enum
+from math import ceil
 from struct import pack
 from ubuntu_image.helpers import run
 
@@ -167,6 +168,13 @@ class MBRImage(Image):
         for key, value in sfdisk_args.items():
             if key == 'new':
                 offset, size = value.split(':')
+                # XXX: special behavior from sfdisk: it rounds our partition
+                # size down to the nearest MiB without asking.  So round up,
+                # and if it extends past the end of the disk sfdisk will round
+                # it down to where it was supposed to be in the first place.
+                if size.endswith('K'):
+                    size = int(size.rstrip('K').lstrip('+'))
+                    size = '+{}M'.format(ceil(size / 1024))
                 command_input.extend([
                     'start={}'.format(offset),
                     'size={}'.format(size),
