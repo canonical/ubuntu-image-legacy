@@ -1,0 +1,21 @@
+type: model
+authority-id: canonical
+series: 16
+brand-id: canonical
+model: pc-i386
+architecture: i386
+gadget: pc
+kernel: pc-kernel
+timestamp: 2016-08-31T00:00:00.0Z
+sign-key-sha3-384: 9tydnLa6MTJ-jaQTFUXEwHl1yRx7ZS4K5cyFDhYDcPzhS7uyEkDxdUjg9g08BtNn
+
+AcLBXAQAAQoABgUCV9A9OAAKCRDgT5vottzAEuY7D/0Wi+7O870miUWOH/2ETSejMLHKEYoNGhCw
+d/M6ZAYcuz0EDGVkftzxOpjL7YfyDKBr48sfSspi2CIQrpZWPTHGRmRwnCpv0BNeWTGox0MkONtz
+jd/ZUREVuFu/IuatGIvl3BON3ari696lLCKMgqjyvBoJxKnaHytKzVE4O+CPrGBu1mthyMpT/d4T
+25BhVzVYuYINfiI1n+dHSK/6S4WaLK/dhmKOzOLhs7CWl/T/S2Px1Hby7AqWfZUpI70+TFTkPZQB
+OgPDt+/d81YEjReyCsW1iiVXj80WVWUNj0V/cmGSYY87Re/5ZwzXQHHp+mp49YdFnNIMrAsLkOxc
+H/npNjb7XArmoomKz1HFyiI00sb7wjG5PrthdS9s7UCPo4COrB6P92S9Zle1l1NL+BGvcaTDJ2bc
+4llYi740vtHkHd+/tJ7hXf9NMLgDjekmIFRH4KIwpGUH5U+5hhhiJEk/em0G8eGMnTsM/PzXyKb8
+OxlBNpL+mvmWa2rUV8UEBSpiB/STfyfQQQbcVl0b3e8knaiPCjRyNbEwmR/JQ1uL+o3e/6B3/EC/
+KERyr2CrLhpjYA4xzvMvl+R3Py+5qs1g+bXQu94no8aCKoTSET9jjoHbefHlglbXtCWpsWIfsNSV
+o48Y39ChxwxK8ptk6bfbWhig3oWFcZC7dCEycN/Q+g==
