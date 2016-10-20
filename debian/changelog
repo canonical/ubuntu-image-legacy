@@ -10,6 +10,7 @@ ubuntu-image (0.9+16.10ubuntu1) yakkety; urgency=medium
     sfdisk(8) behavior.  Give by Steve Langasek.  (LP:1634557)
   * Added autopkgtests to ensure all official models can be built, and
     their mountable partitions can be mounted.  (LP:1635337)
+  * During image building, stash a copy of the gadget.yaml into the workdir.
   * d/control: gdisk is a run-time dependency; remove the duplicate snapd
     run-time dependency.
 
