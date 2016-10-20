@@ -110,6 +110,8 @@ class ModelAssertionBuilder(State):
     def load_gadget_yaml(self):
         yaml_file = os.path.join(
             self.unpackdir, 'gadget', 'meta', 'gadget.yaml')
+        # Preserve the gadget.yaml in the working dir.
+        shutil.copy(yaml_file, self.workdir)
         with open(yaml_file, 'r', encoding='utf-8') as fp:
             self.gadget = parse_yaml(fp)
         self._next.append(self.populate_rootfs_contents)

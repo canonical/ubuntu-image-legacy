@@ -1,0 +1,21 @@
+type: model
+authority-id: canonical
+series: 16
+brand-id: canonical
+model: dragonboard
+architecture: arm64
+gadget: dragonboard
+kernel: dragonboard-kernel
+timestamp: 2016-08-31T00:00:00.0Z
+sign-key-sha3-384: 9tydnLa6MTJ-jaQTFUXEwHl1yRx7ZS4K5cyFDhYDcPzhS7uyEkDxdUjg9g08BtNn
+
+AcLBXAQAAQoABgUCV87oIQAKCRDgT5vottzAEoekD/98KBrcVwQ5RVWnh+xA1anJZREQ7zCjiyHJ
+Ynvlkmb0hzeRYJh2Ly+g8OYGfuReWFIHfMmK5wyua6llZIKKfc73MSjr6bJsOqFSqqRYRHn3XMgT
+vY/stw7+f/C5mLyjM6pEs9aBl1ydbtw/6UALNtBWBS4VnkGv/3GPL8bCqtxNQAUz8jNlXKG7KWeB
+nSjL+jcL6jEdaw0u/egCL8UtfZCaT/uKZGMkiI/BIekbb/5w/csKNE0HseW8kjEGmyQUXnD/iJm7
+XcX3pPfREgb/qPp0ilBYKxapTatXRL0nBa9E0ycVzyAhV8xRRSEJ8j0HbNNWpD2zEyZ5BGhzotTO
+QEvdYITNjaeVr1mb1fNaoMRhpfMyloMOaC8UHTNgDXg2jcYXot0TcPVnvwh7nGdbYdI0CZSh6pD5
+Xe+hfIaJgnWwWBtPJqXOnlsu7PP3+JOAMOjkc4AfC32p4ctbrklcpY8Vwre/I+Hrbpb1Zp5HXZwI
+rRmjb+BfT35opZ4++GVGB0AfQvwRWHcKeYKl8jGr1RBRii3qsRQOMSAXfQ28DnYyOFRoocqas7NL
+sGdR6pL2KEcnjWJkXYIWbE/UUP3I9sga7eDuNyjaatYcAnETFsWQnkFp68RrbLo6E9QB4BlQ3klb
+JNMDRLUF52X751n5hvVGuftIHMngXlnSf7kv4V1sDw==
