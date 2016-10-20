@@ -9,6 +9,8 @@ ubuntu-image (0.9+17.04ubuntu1) zesty; urgency=medium
     sfdisk(8) behavior.  Give by Steve Langasek.  (LP: #1634557)
   * Added autopkgtests to ensure all official models can be built, and
     their mountable partitions can be mounted.  (LP: #1635337)
+  * d/control: gdisk is a run-time dependency; remove the duplicate snapd
+    run-time dependency.
 
  -- Barry Warsaw <barry@ubuntu.com>  Mon, 10 Oct 2016 10:48:49 -0400
 
