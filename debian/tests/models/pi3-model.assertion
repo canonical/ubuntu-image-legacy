@@ -1,0 +1,21 @@
+type: model
+authority-id: canonical
+series: 16
+brand-id: canonical
+model: pi3
+architecture: armhf
+gadget: pi3
+kernel: pi2-kernel
+timestamp: 2016-08-31T00:00:00.0Z
+sign-key-sha3-384: 9tydnLa6MTJ-jaQTFUXEwHl1yRx7ZS4K5cyFDhYDcPzhS7uyEkDxdUjg9g08BtNn
+
+AcLBXAQAAQoABgUCV9A9VwAKCRDgT5vottzAEgNvD/0Zb7RLx4LH420DUJw5isiYmlxUZpp3O5MF
+78ncsPgqn/xpNtL1blzMSxE11PDGGxIPvgm7YEnpfp90YqJ+lcn2x9clsivPS8jgtqik2vvX+QMw
+mFQ5uNqH1O30QAtF6Kpdkl5Dg8LwUKYEDt9DD/Ze1NBWGxp3vt/x6i6auE1Vhg83sWB6RE+ceo4/
+639pUkqTEgMftOBQHQoYGMHZINpOd0ZENeG6V5gQY8Iy58dPC2Bb+z8rufluSbYAEnJrPQ8N/1CM
++8oV+C3c0e0WqJ7UijtKQQBFoJqXXhazGWK/kf7Z9wdQYFsYaC6pBPMFtUKSlXvdpNBywjmesVJk
+dvVNbdjgr+Bbl/YXjmdohp9DlWSR8MjX85b5dP8cvgoCIo39qXOdDVM77HZGHBOwwMCwhmWhnvLD
+sdQJcphv28uFIxeaVeg8+O0cQMtwLOaMhxHsM7B+Y1Enk7p+KP1rwnYrSyr/TiOz1T6ZZwTsWilz
+bF1xVEcStnc580D1XJ+UCRRmIcQ3V7OJXiFdB/7jM76AymYIUAp3iru5OCNK6YvXm1OLKrU/AY8U
+4qkFNOhkEsiN6sMEqWfW5s9X8U3B9f71ywxki+4YZt0KbmV4qzpGCVITz/xmH+310C7ZBl3YDrl5
+Nu2bFPshbuDRsfjVaV5Z8grHQakN7GQR0o9za2QOug==
