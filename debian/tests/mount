@@ -5,6 +5,8 @@ import sys
 
 from contextlib import ExitStack
 from subprocess import PIPE, run
+from ubuntu_image.parser import FileSystemType, parse
+
 
 TMP = os.environ['AUTOPKGTEST_TMP']
 DIR = os.path.abspath(os.path.join('debian', 'tests', 'models'))
@@ -18,10 +20,34 @@ for model_file in os.listdir(DIR):
     if suffix != '.assertion':
         continue
     # Build the image.
-    disk_img = os.path.join(TMP, '{}.img'.format(base))
+    workdir = os.path.join(TMP, base)
     model_assertion = os.path.join(DIR, model_file)
-    run(['ubuntu-image', '-c', 'edge', '-o', disk_img, model_assertion])
-    # Now try to mount every partition in the resulting disk image.
+    run(['ubuntu-image', '-c', 'edge', '-w', workdir, model_assertion])
+    # Now try to mount every mountable partition in the resulting disk image.
+    # First, we have to figure out which are the gadget-specified mountable
+    # partitions.  These are any defined with `filesystem: ext4|vfat`.
+    gadget_yaml = os.path.join(workdir, 'gadget.yaml')
+    with open(gadget_yaml, 'r', encoding='utf-8') as fp:
+        gadget = parse(fp.read())
+    assert len(gadget.volumes) == 1
+    mountable = []
+    for part in list(gadget.volumes.values())[0].structures:
+        # Two complications - 1) if the structure type is 'mbr', this is a
+        # master boot record which doesn't show up as a partition in the
+        # kpartx output; 2) there is a magical last partition not defined in
+        # the gadget.yaml which is the writable partition and is always
+        # mountable.
+        if part.type == 'mbr':
+            continue
+        mountable.append(
+            # True if the partition is mountable, False otherwise.
+            part.filesystem in (FileSystemType.ext4, FileSystemType.vfat))
+    mountable.append(True)
+    disk_img = os.path.join(workdir, 'disk.img')
+    # Create device maps (synchronously!) for all the partitions in the disk
+    # image.  This should correspond exactly to the number of partitions
+    # defined in the 'mountable' list above, since we've ignored the mbr
+    # non-partition and added the 'secret' writable partition.
     with ExitStack() as resources:
         proc = run(['kpartx', '-avs', disk_img],
                    universal_newlines=True,
@@ -41,6 +67,8 @@ for model_file in os.listdir(DIR):
         # add map loop5p8 (252:8): 0 262144 linear 7:5 18432
         # add map loop5p9 (252:9): 0 1051446 linear 7:5 280576
         for i, line in enumerate(proc.stdout.splitlines()):
+            if not mountable[i]:
+                continue
             parts = line.split()
             assert parts[:2] == ['add', 'map']
             device = parts[2]
