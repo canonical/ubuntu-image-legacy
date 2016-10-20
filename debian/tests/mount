@@ -1,5 +1,17 @@
 #!/usr/bin/python3
 
+"""Mount test for official models.
+
+The official models are here:
+
+    http://people.canonical.com/~vorlon/official-models/
+
+For each of these, build an actual disk image.  For each image, go through the
+mountable partitions as defined in the gadget.yaml (e.g. not the mbr, but
+including the unspecified last writable partition), and make sure each
+partition can actually be mounted.
+"""
+
 import os
 import sys
 
