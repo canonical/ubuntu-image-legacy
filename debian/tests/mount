@@ -1,0 +1,124 @@
+#!/usr/bin/python3
+
+"""Mount test for official models.
+
+The official models are here:
+
+    http://people.canonical.com/~vorlon/official-models/
+
+For each of these, build an actual disk image.  For each image, go through the
+mountable partitions as defined in the gadget.yaml (e.g. not the mbr, but
+including the unspecified last writable partition), and make sure each
+partition can actually be mounted.
+"""
+
+import os
+import sys
+
+from contextlib import ExitStack
+from subprocess import PIPE, run
+from ubuntu_image.parser import FileSystemType, parse
+
+
+TMP = os.environ['AUTOPKGTEST_TMP']
+DIR = os.path.abspath(os.path.join('debian', 'tests', 'models'))
+STATUS = {}
+CHANNEL = 'beta'
+
+
+for model_file in os.listdir(DIR):
+    model_status = STATUS.setdefault(model_file, {})
+    print('==========>', model_file, flush=True)
+    base, suffix = os.path.splitext(model_file)
+    if suffix != '.assertion':
+        continue
+    # Build the image.
+    workdir = os.path.join(TMP, base)
+    model_assertion = os.path.join(DIR, model_file)
+    run(['ubuntu-image', '-c', CHANNEL, '-w', workdir, model_assertion])
+    # Now try to mount every mountable partition in the resulting disk image.
+    # First, we have to figure out which are the gadget-specified mountable
+    # partitions.  These are any defined with `filesystem: ext4|vfat`.
+    gadget_yaml = os.path.join(workdir, 'gadget.yaml')
+    with open(gadget_yaml, 'r', encoding='utf-8') as fp:
+        gadget = parse(fp.read())
+    assert len(gadget.volumes) == 1
+    mountable = []
+    for part in list(gadget.volumes.values())[0].structures:
+        # Two complications - 1) if the structure type is 'mbr', this is a
+        # master boot record which doesn't show up as a partition in the
+        # kpartx output; 2) there is a magical last partition not defined in
+        # the gadget.yaml which is the writable partition and is always
+        # mountable.
+        if part.type == 'mbr':
+            continue
+        mountable.append(
+            # True if the partition is mountable, False otherwise.
+            part.filesystem in (FileSystemType.ext4, FileSystemType.vfat))
+    mountable.append(True)
+    disk_img = os.path.join(workdir, 'disk.img')
+    # Create device maps (synchronously!) for all the partitions in the disk
+    # image.  This should correspond exactly to the number of partitions
+    # defined in the 'mountable' list above, since we've ignored the mbr
+    # non-partition and added the 'secret' writable partition.
+    with ExitStack() as resources:
+        proc = run(['kpartx', '-avs', disk_img],
+                   universal_newlines=True,
+                   stdout=PIPE)
+        resources.callback(run, ['kpartx', '-sdv', disk_img])
+        # Parse the kpartx output to figure out what the device names are.
+        # E.g. here is the current output of kpartx -avs as an example.  It's
+        # the third column we care about.
+        #
+        # add map loop5p1 (252:1): 0 2048 linear 7:5 2048
+        # add map loop5p2 (252:2): 0 2048 linear 7:5 4096
+        # add map loop5p3 (252:3): 0 2048 linear 7:5 6144
+        # add map loop5p4 (252:4): 0 2048 linear 7:5 8192
+        # add map loop5p5 (252:5): 0 2048 linear 7:5 10240
+        # add map loop5p6 (252:6): 0 4096 linear 7:5 12288
+        # add map loop5p7 (252:7): 0 2048 linear 7:5 16384
+        # add map loop5p8 (252:8): 0 262144 linear 7:5 18432
+        # add map loop5p9 (252:9): 0 1051446 linear 7:5 280576
+        for i, line in enumerate(proc.stdout.splitlines()):
+            if not mountable[i]:
+                continue
+            parts = line.split()
+            assert parts[:2] == ['add', 'map']
+            device = parts[2]
+            src = '/dev/mapper/{}'.format(device)
+            dst = os.path.join(TMP, '{}.mnt{}'.format(base, i))
+            os.mkdir(dst)
+            resources.callback(os.rmdir, dst)
+            proc = run(['mount', src, dst],
+                       universal_newlines=True,
+                       stdout=PIPE, stderr=PIPE)
+            if proc.returncode == 0:
+                # Passed.
+                resources.callback(run, ['umount', dst])
+                model_status[device] = (True, None, None)
+            else:
+                # Failed.
+                model_status[device] = (False, proc.stdout, proc.stderr)
+
+
+# Collate results.
+exit_status = 0
+for model_file, results in STATUS.items():
+    model_status = 0
+    model_stdout = []
+    for device in sorted(results):
+        okay, stdout, stderr = results[device]
+        if not okay:
+            model_status = 1
+            model_stdout.append(stdout)
+            model_stdout.append(stderr)
+    if model_status == 0:
+        print('*****    OK', model_file, flush=True)
+    else:
+        print('***** NOT OK', model_file, flush=True)
+        for stdout in model_stdout:
+            sys.stdout.write(stdout)
+        exit_status = 1
+
+
+sys.exit(exit_status)

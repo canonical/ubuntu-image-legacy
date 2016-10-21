@@ -110,6 +110,8 @@ class ModelAssertionBuilder(State):
     def load_gadget_yaml(self):
         yaml_file = os.path.join(
             self.unpackdir, 'gadget', 'meta', 'gadget.yaml')
+        # Preserve the gadget.yaml in the working dir.
+        shutil.copy(yaml_file, self.workdir)
         with open(yaml_file, 'r', encoding='utf-8') as fp:
             self.gadget = parse_yaml(fp)
         self._next.append(self.populate_rootfs_contents)
@@ -403,7 +405,7 @@ class ModelAssertionBuilder(State):
         # Create main snappy writable partition as the last partition.
         image.partition(
             part_id,
-            new='{}M:+{}K'.format(next_offset, self.rootfs_size // 1024),
+            new='{}M:+{}K'.format(next_offset, ceil(self.rootfs_size / 1024)),
             typecode=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
         if volume.schema is VolumeSchema.gpt:
             image.partition(part_id, change_name='writable')
