@@ -1,4 +1,4 @@
-ubuntu-image (0.9+16.10ubuntu1) yakkety; urgency=medium
+ubuntu-image (0.9+16.04ubuntu1) xenial; urgency=medium
 
   * SRU tracking bug: LP: #1634218
   * Fix snap creation.  (LP:1631961)
