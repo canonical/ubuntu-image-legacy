@@ -1,3 +1,11 @@
+ubuntu-image (0.10+17.04ubuntu1) UNRELEASED; urgency=medium
+
+  * Only write out nocloud-net metadata file (thus indicating a local seed
+    and preventing a search elsewhere for user data) when the --cloud-init
+    parameter is given.  (LP: #1633232)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Mon, 24 Oct 2016 14:40:59 -0400
+
 ubuntu-image (0.9+17.04ubuntu1) zesty; urgency=medium
 
   * Fix snap creation.  (LP: #1631961)
