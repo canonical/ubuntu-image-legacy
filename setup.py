@@ -2,7 +2,10 @@
 
 import sys
 
-from debian.changelog import Changelog
+try:
+    from debian.changelog import Changelog
+except ImportError:
+    Changelog = None
 from setuptools import find_packages, setup
 
 
@@ -37,12 +40,15 @@ def require_python(minimum):
 require_python(0x30500f0)
 
 
-with open('debian/changelog', encoding='utf-8') as infp:
-    __version__ = str(Changelog(infp).get_version())
-    # Write the version out to the package directory so `ubuntu-image
-    # --version` can display it.
-    with open('ubuntu_image/version.txt', 'w', encoding='utf-8') as outfp:
-        print(__version__, file=outfp)
+if Changelog is None:
+    __version__ = 'dev'
+else:
+    with open('debian/changelog', encoding='utf-8') as infp:
+        __version__ = str(Changelog(infp).get_version())
+        # Write the version out to the package directory so `ubuntu-image
+        # --version` can display it.
+        with open('ubuntu_image/version.txt', 'w', encoding='utf-8') as outfp:
+            print(__version__, file=outfp)
 
 
 setup(
