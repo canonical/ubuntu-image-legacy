@@ -105,12 +105,47 @@ class TestModelAssertionBuilder(TestCase):
             len(files_unmatched), 0,
             'Unmatched files: {}'.format(COMMASPACE.join(files_unmatched)))
 
+    def test_populate_rootfs_contents_without_cloud_init(self):
+        with ExitStack() as resources:
+            cloud_init = resources.enter_context(
+                NamedTemporaryFile('w', encoding='utf-8'))
+            print('cloud init user data', end='', flush=True, file=cloud_init)
+            args = SimpleNamespace(
+                channel='edge',
+                workdir=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                cloud_init=None,
+                extra_snaps=None,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'image')
+            os.makedirs(os.path.join(image_dir, 'snap'))
+            os.makedirs(os.path.join(image_dir, 'var'))
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            system_data = os.path.join(state.rootfs, 'system-data')
+            os.makedirs(system_data)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # The user data should not have been written and there should be
+            # no metadata either.
+            seed_path = os.path.join(
+                state.rootfs,
+                'system-data', 'var', 'lib', 'cloud', 'seed', 'nocloud-net')
+            self.assertFalse(os.path.exists(
+                os.path.join(seed_path, 'user-data')))
+            self.assertFalse(os.path.exists(
+                os.path.join(seed_path, 'meta-data')))
+
     def test_populate_rootfs_contents_with_cloud_init(self):
         with ExitStack() as resources:
             cloud_init = resources.enter_context(
                 NamedTemporaryFile('w', encoding='utf-8'))
-            print('cloud init user data', end='', file=cloud_init)
-            cloud_init.flush()
+            print('cloud init user data', end='', flush=True, file=cloud_init)
             args = SimpleNamespace(
                 channel='edge',
                 workdir=None,
@@ -132,12 +167,16 @@ class TestModelAssertionBuilder(TestCase):
             state._next.pop()
             state._next.append(state.populate_rootfs_contents)
             next(state)
-            # Did the user data get copied?
-            user_data = os.path.join(
-                state.rootfs, 'system-data', 'var', 'lib', 'cloud', 'seed',
-                'nocloud-net', 'user-data')
+            # Both the user data and the seed metadata should exist.
+            seed_path = os.path.join(
+                state.rootfs,
+                'system-data', 'var', 'lib', 'cloud', 'seed', 'nocloud-net')
+            user_data = os.path.join(seed_path, 'user-data')
+            meta_data = os.path.join(seed_path, 'meta-data')
             with open(user_data, 'r', encoding='utf-8') as fp:
                 self.assertEqual(fp.read(), 'cloud init user data')
+            with open(meta_data, 'r', encoding='utf-8') as fp:
+                self.assertEqual(fp.read(), 'instance-id: nocloud-static\n')
 
     def test_populate_rootfs_contents_with_etc_and_stuff(self):
         # LP: #1632134
