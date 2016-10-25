@@ -1,3 +1,12 @@
+ubuntu-image (0.10+16.10ubuntu1) yakkety; urgency=medium
+
+  * SRU tracking bug LP: #1636560
+  * Only write out nocloud-net metadata file (thus indicating a local seed
+    and preventing a search elsewhere for user data) when the --cloud-init
+    parameter is given.  (LP:1633232)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Tue, 25 Oct 2016 09:51:24 -0400
+
 ubuntu-image (0.9+16.10ubuntu1) yakkety; urgency=medium
 
   * SRU tracking bug: LP: #1634218
