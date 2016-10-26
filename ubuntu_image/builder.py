@@ -125,13 +125,15 @@ class ModelAssertionBuilder(State):
             if subdir != 'boot':
                 shutil.move(os.path.join(src, subdir),
                             os.path.join(dst, subdir))
-        seed_dir = os.path.join(dst, 'var', 'lib', 'cloud', 'seed')
-        cloud_dir = os.path.join(seed_dir, 'nocloud-net')
-        os.makedirs(cloud_dir, exist_ok=True)
-        metadata_file = os.path.join(cloud_dir, 'meta-data')
-        with open(metadata_file, 'w', encoding='utf-8') as fp:
-            print('instance-id: nocloud-static', file=fp)
         if self.cloud_init is not None:
+            # LP: #1633232 - Only write out meta-data when the --cloud-init
+            # parameter is given.
+            seed_dir = os.path.join(dst, 'var', 'lib', 'cloud', 'seed')
+            cloud_dir = os.path.join(seed_dir, 'nocloud-net')
+            os.makedirs(cloud_dir, exist_ok=True)
+            metadata_file = os.path.join(cloud_dir, 'meta-data')
+            with open(metadata_file, 'w', encoding='utf-8') as fp:
+                print('instance-id: nocloud-static', file=fp)
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
         # This is just a mount point.
