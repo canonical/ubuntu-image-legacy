@@ -1,3 +1,9 @@
+ubuntu-image (0.11+17.04ubuntu1) UNRELEASED; urgency=medium
+
+  * The package can still be built if python3-debian is not available.
+
+ -- Barry Warsaw <barry@ubuntu.com>  Wed, 26 Oct 2016 17:40:34 -0400
+
 ubuntu-image (0.10+17.04ubuntu1) zesty; urgency=medium
 
   * Only write out nocloud-net metadata file (thus indicating a local seed
