@@ -1,6 +1,12 @@
+ubuntu-image (0.10+16.04ubuntu2) xenial; urgency=medium
+
+  * 100% test coverage for Xenial. (LP:1637181)
+  * SRU tracking bug LP: #1636560
+
+ -- Barry Warsaw <barry@ubuntu.com>  Thu, 27 Oct 2016 18:59:21 -0400
+
 ubuntu-image (0.10+16.04ubuntu1) xenial; urgency=medium
 
-  * SRU tracking bug LP: #1636560
   * Only write out nocloud-net metadata file (thus indicating a local seed
     and preventing a search elsewhere for user data) when the --cloud-init
     parameter is given.  (LP:1633232)

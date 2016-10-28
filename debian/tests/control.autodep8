@@ -9,12 +9,15 @@ Depends: @, man-db
 
 Test-Command: tox -e py35
 Depends: @builddeps@, git
+Restrictions: needs-root
 
 Test-Command: tox -e qa
 Depends: @builddeps@, git
+Restrictions: needs-root
 
 Test-Command: tox -e coverage
 Depends: @builddeps@, git
+Restrictions: needs-root
 
 Tests: mount
 Restrictions: needs-root, allow-stderr
