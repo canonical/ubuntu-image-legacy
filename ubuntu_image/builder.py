@@ -6,7 +6,6 @@ import shutil
 import logging
 
 from math import ceil
-from operator import attrgetter
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
