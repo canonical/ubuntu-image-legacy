@@ -370,12 +370,10 @@ class ModelAssertionBuilder(State):
             image = MBRImage(self.disk_img, self.image_size)
         else:
             image = Image(self.disk_img, self.image_size)
-        # XXX LP: #1630627
-        structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
         part_offsets = {}
         next_offset = 1
-        for i, part in enumerate(structures):
+        for i, part in enumerate(volume.structures):
             if part.name is not None:
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:

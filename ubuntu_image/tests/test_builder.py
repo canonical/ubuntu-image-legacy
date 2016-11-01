@@ -748,7 +748,8 @@ class TestModelAssertionBuilder(TestCase):
                 offset_write=None,
                 )
             volume = SimpleNamespace(
-                structures=[part0, part1, part2],
+                # Ordered by offset, as would happen by the parser.
+                structures=[part2, part0, part1],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
