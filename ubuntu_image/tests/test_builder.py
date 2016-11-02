@@ -15,7 +15,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import MiB, run
 from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
-from ubuntu_image.testing.helpers import XXXModelAssertionBuilder
+from ubuntu_image.testing.helpers import LogCapture, XXXModelAssertionBuilder
 from unittest import TestCase, skipIf
 from unittest.mock import patch
 
@@ -27,27 +27,6 @@ COMMASPACE = ', '
 # For convenience.
 def utf8open(path):
     return open(path, 'r', encoding='utf-8')
-
-
-class LogCapture:
-    def __init__(self):
-        self.logs = []
-        self._resources = ExitStack()
-
-    def capture(self, *args, **kws):
-        level, fmt, fmt_args = args
-        assert len(kws) == 0, kws
-        self.logs.append((level, fmt % fmt_args))
-
-    def __enter__(self):
-        log = logging.getLogger('ubuntu-image')
-        self._resources.enter_context(patch.object(log, '_log', self.capture))
-        return self
-
-    def __exit__(self, *exception):
-        self._resources.close()
-        # Don't suppress any exceptions.
-        return False
 
 
 class TestModelAssertionBuilder(TestCase):
@@ -1213,7 +1192,7 @@ class TestModelAssertionBuilder(TestCase):
                 channel='edge',
                 cloud_init=None,
                 debug=False,
-                extra_snaps=None,
+                extra_snaps=[],
                 model_assertion=self.model_assertion,
                 output=None,
                 unpackdir=unpackdir,

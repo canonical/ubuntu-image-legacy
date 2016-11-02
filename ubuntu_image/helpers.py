@@ -120,8 +120,10 @@ def run(command, *, check=True, **args):
         **args)
     if check and proc.returncode != 0:
         _logger.error('COMMAND FAILED: %s', command)
-        _logger.error(proc.stdout)
-        _logger.error(proc.stderr)
+        if proc.stdout is not None:
+            _logger.error(proc.stdout)
+        if proc.stderr is not None:
+            _logger.error(proc.stderr)
         proc.check_returncode()
     return proc
 

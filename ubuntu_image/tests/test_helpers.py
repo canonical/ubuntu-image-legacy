@@ -1,6 +1,7 @@
 """Test the helpers."""
 
 import os
+import logging
 
 from contextlib import ExitStack
 from io import StringIO
@@ -11,6 +12,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
     GiB, MiB, as_bool, as_size, mkfs_ext4, run, snap, sparse_copy, transform)
+from ubuntu_image.testing.helpers import LogCapture
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -108,29 +110,28 @@ class TestHelpers(TestCase):
         self.assertRaises(RuntimeError, oops)
 
     def test_run(self):
-        stderr = StringIO()
         with ExitStack() as resources:
-            resources.enter_context(
-                patch('ubuntu_image.helpers.sys.__stderr__', stderr))
+            log = resources.enter_context(LogCapture())
             resources.enter_context(
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
             run('/bin/false')
-        # stdout gets piped to stderr.
-        self.assertEqual(stderr.getvalue(),
-                         'COMMAND FAILED: /bin/false\nfake stdoutfake stderr')
+            self.assertEqual(log.logs, [
+                (logging.ERROR, 'COMMAND FAILED: /bin/false'),
+                (logging.ERROR, 'fake stdout'),
+                (logging.ERROR, 'fake stderr'),
+                ])
 
     def test_run_fails_no_output(self):
-        stderr = StringIO()
         with ExitStack() as resources:
-            resources.enter_context(
-                patch('ubuntu_image.helpers.sys.__stderr__', stderr))
+            log = resources.enter_context(LogCapture())
             resources.enter_context(
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProcNoOutput()))
             run('/bin/false')
-        # stdout gets piped to stderr.
-        self.assertEqual(stderr.getvalue(), 'COMMAND FAILED: /bin/false\n')
+            self.assertEqual(log.logs, [
+                (logging.ERROR, 'COMMAND FAILED: /bin/false'),
+                ])
 
     def test_as_bool(self):
         for value in {'no', 'False', '0', 'DISABLE', 'DiSaBlEd'}:
@@ -168,11 +169,9 @@ class TestHelpers(TestCase):
             self.assertTrue(os.path.islink(copied_link))
 
     def test_snap(self):
-        stderr = StringIO()
         model = resource_filename('ubuntu_image.tests.data', 'model.assertion')
         with ExitStack() as resources:
-            resources.enter_context(
-                patch('ubuntu_image.helpers.sys.__stderr__', stderr))
+            resources.enter_context(LogCapture())
             mock = resources.enter_context(
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
@@ -183,11 +182,9 @@ class TestHelpers(TestCase):
         self.assertEqual(args[0], ['snap', 'prepare-image', model, tmpdir])
 
     def test_snap_with_channel(self):
-        stderr = StringIO()
         model = resource_filename('ubuntu_image.tests.data', 'model.assertion')
         with ExitStack() as resources:
-            resources.enter_context(
-                patch('ubuntu_image.helpers.sys.__stderr__', stderr))
+            resources.enter_context(LogCapture())
             mock = resources.enter_context(
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
@@ -200,11 +197,9 @@ class TestHelpers(TestCase):
             ['snap', 'prepare-image', '--channel=edge', model, tmpdir])
 
     def test_snap_with_extra_snaps(self):
-        stderr = StringIO()
         model = resource_filename('ubuntu_image.tests.data', 'model.assertion')
         with ExitStack() as resources:
-            resources.enter_context(
-                patch('ubuntu_image.helpers.sys.__stderr__', stderr))
+            resources.enter_context(LogCapture())
             mock = resources.enter_context(
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
