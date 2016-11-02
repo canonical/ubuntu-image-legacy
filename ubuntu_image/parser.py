@@ -6,7 +6,7 @@ import attr
 from enum import Enum
 from io import StringIO
 from operator import methodcaller
-from ubuntu_image.helpers import MiB, as_size, transform
+from ubuntu_image.helpers import GiB, MiB, as_size, transform
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from yaml import load
@@ -64,6 +64,11 @@ class Enumify:
             ]
 
 
+def Size32bit(v):
+    """Coerce size to being a 32 bit integer."""
+    return as_size(v, max=GiB(4))
+
+
 def Id(v):
     """Coerce to either a hex UUID, a 2-digit hex value."""
     if isinstance(v, int):
@@ -108,7 +113,7 @@ def RelativeOffset(v):
     label, plus, offset = v.partition('+')
     if len(label) == 0 or plus != '+' or len(offset) == 0:
         raise ValueError(v)
-    return label, as_size(offset)
+    return label, Size32bit(offset)
 
 
 GadgetYAML = Schema({
@@ -124,7 +129,8 @@ GadgetYAML = Schema({
             Required('structure'): [Schema({
                 Optional('name'): str,
                 Optional('offset'): Coerce(as_size),
-                Optional('offset-write'): Any(Coerce(as_size), RelativeOffset),
+                Optional('offset-write'): Any(
+                    Coerce(Size32bit), RelativeOffset),
                 Required('size'): Coerce(as_size),
                 Required('type'): Any('mbr', Coerce(HybridId)),
                 Optional('id'): Coerce(UUID),
@@ -141,7 +147,7 @@ GadgetYAML = Schema({
                         Required('image'): str,
                         Optional('offset'): Coerce(as_size),
                         Optional('offset-write'): Any(
-                            Coerce(as_size), RelativeOffset),
+                            Coerce(Size32bit), RelativeOffset),
                         Optional('size'): Coerce(as_size),
                         })
                     ],
