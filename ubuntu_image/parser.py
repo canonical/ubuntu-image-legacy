@@ -112,6 +112,11 @@ def RelativeOffset(v):
 
 
 GadgetYAML = Schema({
+    Optional('defaults'): {
+        Match('^[a-zA-Z0-9]+$'): {
+            Match('^[-a-zA-Z0-9]+$'): object
+        }
+    },
     Optional('device-tree-origin', default='gadget'): str,
     Optional('device-tree'): str,
     Required('volumes'): {

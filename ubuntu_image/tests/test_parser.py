@@ -971,3 +971,28 @@ volumes:
             {key: gadget_spec.volumes[key].bootloader
              for key in gadget_spec.volumes}
             )
+
+    def test_defaults_proper(self):
+        gadget_spec = parse("""\
+defaults:
+  mfq0tsAY1HXMbx24wo0QIoFCGeLvERmX:
+    some-key: some-value
+    other-key: 42
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 100
+  second-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+  third-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 300
+""")
