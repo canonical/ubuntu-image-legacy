@@ -76,16 +76,28 @@ class TestHelpers(TestCase):
     def test_bytes(self):
         self.assertEqual(as_size('801'), 801)
 
-    def test_size_min(self):
+    def test_size_min_okay(self):
         self.assertEqual(as_size(5, min=4), 5)
+
+    def test_size_value_less_than_min(self):
         self.assertRaises(ValueError, as_size, 3, min=4)
 
-    def test_size_max(self):
+    def test_size_min_inclusive_okay(self):
+        self.assertEqual(as_size(3, min=3), 3)
+
+    def test_size_max_okay(self):
         self.assertEqual(as_size(5, max=8), 5)
+
+    def test_size_value_greater_than_max(self):
         self.assertRaises(ValueError, as_size, 10, max=8)
+
+    def test_size_max_exclusive(self):
+        self.assertRaises(ValueError, as_size, 10, max=10)
 
     def test_size_min_max(self):
         self.assertEqual(as_size(5, min=4, max=8), 5)
+
+    def test_size_min_max_outside_range(self):
         self.assertRaises(ValueError, as_size, 3, min=4, max=8)
         self.assertRaises(ValueError, as_size, 10, min=4, max=8)
 

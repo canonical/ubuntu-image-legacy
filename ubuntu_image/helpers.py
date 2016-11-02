@@ -74,9 +74,12 @@ def as_size(size, min=0, max=None):
             'G': GiB,
             'M': MiB,
             }[mo.group(2)](int(size_in_bytes))
-    if ((isinstance(min, int) and not value >= min) or
-            (isinstance(max, int) and not value < max)):
-        raise ValueError
+    if max is None:
+        if value < min:
+            raise ValueError('Value outside range: {} < {}'.format(value, min))
+    elif not (min <= value < max):
+        raise ValueError('Value outside range: {} <= {} < {}'.format(
+            min, value, max))
     return value
 
 

@@ -399,6 +399,34 @@ volumes:
           offset-write: 8G
 """)
 
+    def test_volume_offset_write_is_4G(self):
+        # 4GiB is just outside 32 bits.
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: 4G
+""")
+
+    def test_volume_offset_write_is_just_under_4G(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: 4294967295
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        self.assertEqual(partition0.offset_write, GiB(4) - 1)
+
     def test_volume_size(self):
         gadget_spec = parse("""\
 volumes:
@@ -804,6 +832,39 @@ volumes:
           - image: foo.img
             offset-write: 8G
 """)
+
+    def test_content_spec_b_offset_write_is_4G(self):
+        # 4GiB is just outside 32 bits.
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 4G
+""")
+
+    def test_content_spec_b_offset_write_is_just_under_4G(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 4294967295
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        content0 = partition0.content[0]
+        self.assertEqual(content0.offset_write, GiB(4) - 1)
 
     def test_content_spec_b_size(self):
         gadget_spec = parse("""\
