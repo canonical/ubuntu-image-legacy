@@ -76,6 +76,19 @@ class TestHelpers(TestCase):
     def test_bytes(self):
         self.assertEqual(as_size('801'), 801)
 
+    def test_size_min(self):
+        self.assertEqual(as_size(5, min=4), 5)
+        self.assertRaises(ValueError, as_size, 3, min=4)
+
+    def test_size_max(self):
+        self.assertEqual(as_size(5, max=8), 5)
+        self.assertRaises(ValueError, as_size, 10, max=8)
+
+    def test_size_min_max(self):
+        self.assertEqual(as_size(5, min=4, max=8), 5)
+        self.assertRaises(ValueError, as_size, 3, min=4, max=8)
+        self.assertRaises(ValueError, as_size, 10, min=4, max=8)
+
     def test_transform(self):
         @transform(ZeroDivisionError, RuntimeError)
         def oops():

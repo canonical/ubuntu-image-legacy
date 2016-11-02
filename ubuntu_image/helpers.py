@@ -58,21 +58,26 @@ def straight_up_bytes(count):
     return count
 
 
-def as_size(size):
+def as_size(size, min=0, max=None):
     # Check for int-ness and just return what you get if so.  YAML parsers
     # will turn values like '108' into ints automatically, but voluptuous will
     # always try to coerce the value to an as_size.
     if isinstance(size, int):
-        return size
-    mo = re.match('(\d+)([a-zA-Z]*)', size)
-    if mo is None:
-        raise ValueError(size)
-    size_in_bytes = mo.group(1)
-    return {
-        '': straight_up_bytes,
-        'G': GiB,
-        'M': MiB,
-        }[mo.group(2)](int(size_in_bytes))
+        value = size
+    else:
+        mo = re.match('(\d+)([a-zA-Z]*)', size)
+        if mo is None:
+            raise ValueError(size)
+        size_in_bytes = mo.group(1)
+        value = {
+            '': straight_up_bytes,
+            'G': GiB,
+            'M': MiB,
+            }[mo.group(2)](int(size_in_bytes))
+    if ((isinstance(min, int) and not value >= min) or
+            (isinstance(max, int) and not value < max)):
+        raise ValueError
+    return value
 
 
 def transform(caught_excs, new_exc):

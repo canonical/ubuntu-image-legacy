@@ -6,8 +6,7 @@ import attr
 from enum import Enum
 from io import StringIO
 from operator import methodcaller
-from struct import error, pack
-from ubuntu_image.helpers import MiB, as_size, transform
+from ubuntu_image.helpers import GiB, MiB, as_size, transform
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from yaml import load
@@ -67,12 +66,7 @@ class Enumify:
 
 def Size32bit(v):
     """Coerce size to being a 32 bit integer."""
-    b = as_size(v)
-    try:
-        pack('I', b)
-    except error:
-        raise ValueError(v)
-    return b
+    return as_size(v, max=GiB(4))
 
 
 def Id(v):
