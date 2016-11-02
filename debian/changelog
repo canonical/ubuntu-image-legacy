@@ -1,8 +1,13 @@
 ubuntu-image (0.11+17.04ubuntu1) UNRELEASED; urgency=medium
 
+  * Sort the structures in a volume by their offset, even if the offset is
+    defined implicitly (i.e. not present in the gadget.yaml).  Also, check
+    for any structure conflicts and raise a ValueError in that case.
+    (LP: #1631423)
+  * offset-write arguments will only accept 32 bit integers.  (LP: #1617443)
   * The package can still be built if python3-debian is not available.
 
- -- Barry Warsaw <barry@ubuntu.com>  Wed, 26 Oct 2016 17:40:34 -0400
+ -- Barry Warsaw <barry@ubuntu.com>  Tue, 01 Nov 2016 16:52:54 -0400
 
 ubuntu-image (0.10+17.04ubuntu1) zesty; urgency=medium
 

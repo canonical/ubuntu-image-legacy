@@ -5,8 +5,8 @@ import attr
 
 from enum import Enum
 from io import StringIO
-from operator import methodcaller
-from ubuntu_image.helpers import MiB, as_size, transform
+from operator import attrgetter, methodcaller
+from ubuntu_image.helpers import GiB, MiB, as_size, transform
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from yaml import load
@@ -64,6 +64,11 @@ class Enumify:
             ]
 
 
+def Size32bit(v):
+    """Coerce size to being a 32 bit integer."""
+    return as_size(v, max=GiB(4))
+
+
 def Id(v):
     """Coerce to either a hex UUID, a 2-digit hex value."""
     if isinstance(v, int):
@@ -108,7 +113,7 @@ def RelativeOffset(v):
     label, plus, offset = v.partition('+')
     if len(label) == 0 or plus != '+' or len(offset) == 0:
         raise ValueError(v)
-    return label, as_size(offset)
+    return label, Size32bit(offset)
 
 
 GadgetYAML = Schema({
@@ -124,7 +129,8 @@ GadgetYAML = Schema({
             Required('structure'): [Schema({
                 Optional('name'): str,
                 Optional('offset'): Coerce(as_size),
-                Optional('offset-write'): Any(Coerce(as_size), RelativeOffset),
+                Optional('offset-write'): Any(
+                    Coerce(Size32bit), RelativeOffset),
                 Required('size'): Coerce(as_size),
                 Required('type'): Any('mbr', Coerce(HybridId)),
                 Optional('id'): Coerce(UUID),
@@ -141,7 +147,7 @@ GadgetYAML = Schema({
                         Required('image'): str,
                         Optional('offset'): Coerce(as_size),
                         Optional('offset-write'): Any(
-                            Coerce(as_size), RelativeOffset),
+                            Coerce(Size32bit), RelativeOffset),
                         Optional('size'): Coerce(as_size),
                         })
                     ],
@@ -265,12 +271,14 @@ def parse(stream_or_string):
                     structure_type != 'mbr' and
                     schema is not VolumeSchema.mbr):
                 raise ValueError('MBR structure type with non-MBR')
-            # XXX: Ensure the special case of the 'mbr' type doesn't extend
-            # beyond the confines of the mbr.
-            if not offset and structure_type != 'mbr' and last_offset < MiB(1):
-                offset = MiB(1)
-            if not offset:
-                offset = last_offset
+            # Check for implicit vs. explicit partition offset.
+            if offset is None:
+                # XXX: Ensure the special case of the 'mbr' type doesn't
+                # extend beyond the confines of the mbr.
+                if structure_type != 'mbr' and last_offset < MiB(1):
+                    offset = MiB(1)
+                else:
+                    offset = last_offset
             last_offset = offset + size
             # Extract the rest of the structure data.
             structure_id = structure.get('id')
@@ -291,8 +299,20 @@ def parse(stream_or_string):
                 name, offset, offset_write, size,
                 structure_type, structure_id, filesystem, filesystem_label,
                 content_specs))
+        # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(
-            schema, bootloader, image_id, structures)
+            schema, bootloader, image_id,
+            sorted(structures, key=attrgetter('offset')))
+        # Sanity check the partition offsets to ensure that there is no
+        # overlap conflict where a part's offset begins before the previous
+        # part's end.
+        last_end = -1
+        for part in volume_specs[image_name].structures:
+            if part.offset < last_end:
+                raise ValueError('Structure conflict! {}: {} <  {}'.format(
+                    part.type if part.name is None else part.name,
+                    part.offset, last_end))
+            last_end = part.offset + part.size
     if not bootloader_seen:
         raise ValueError('No bootloader volume named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs)
