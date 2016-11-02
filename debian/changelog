@@ -4,6 +4,7 @@ ubuntu-image (0.11+17.04ubuntu1) UNRELEASED; urgency=medium
     defined implicitly (i.e. not present in the gadget.yaml).  Also, check
     for any structure conflicts and raise a ValueError in that case.
     (LP: #1631423)
+  * offset-write arguments will only accept 32 bit integers.  (LP: #1617443)
 
  -- Barry Warsaw <barry@ubuntu.com>  Tue, 01 Nov 2016 16:52:54 -0400
 
