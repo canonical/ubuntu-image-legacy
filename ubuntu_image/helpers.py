@@ -2,7 +2,7 @@
 
 import os
 import re
-import sys
+import logging
 
 from contextlib import ExitStack, contextmanager
 from subprocess import PIPE, run as subprocess_run
@@ -24,6 +24,7 @@ __all__ = [
 
 
 SPACE = ' '
+_logger = logging.getLogger('ubuntu-image')
 
 
 def GiB(count):
@@ -118,13 +119,9 @@ def run(command, *, check=True, **args):
         universal_newlines=True,
         **args)
     if check and proc.returncode != 0:
-        sys.__stderr__.write('COMMAND FAILED: {}\n'.format(command))
-        # Use the real stdout and stderr; the obvious attributes might be
-        # mocked out.
-        if proc.stdout is not None:
-            sys.__stderr__.write(proc.stdout)
-        if proc.stderr is not None:
-            sys.__stderr__.write(proc.stderr)
+        _logger.error('COMMAND FAILED: %s', command)
+        _logger.error(proc.stdout)
+        _logger.error(proc.stderr)
         proc.check_returncode()
     return proc
 
