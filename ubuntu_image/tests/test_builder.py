@@ -3,11 +3,14 @@
 import os
 import re
 import json
+import logging
 
 from contextlib import ExitStack
+from io import StringIO
 from itertools import product
 from pkg_resources import resource_filename
 from struct import unpack
+from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import MiB, run
@@ -24,6 +27,27 @@ COMMASPACE = ', '
 # For convenience.
 def utf8open(path):
     return open(path, 'r', encoding='utf-8')
+
+
+class LogCapture:
+    def __init__(self):
+        self.logs = []
+        self._resources = ExitStack()
+
+    def capture(self, *args, **kws):
+        level, fmt, fmt_args = args
+        assert len(kws) == 0, kws
+        self.logs.append((level, fmt % fmt_args))
+
+    def __enter__(self):
+        log = logging.getLogger('ubuntu-image')
+        self._resources.enter_context(patch.object(log, '_log', self.capture))
+        return self
+
+    def __exit__(self, *exception):
+        self._resources.close()
+        # Don't suppress any exceptions.
+        return False
 
 
 class TestModelAssertionBuilder(TestCase):
@@ -1175,3 +1199,56 @@ class TestModelAssertionBuilder(TestCase):
             # sfdisk returns size in sectors.  947980 bytes rounded up to 512
             # byte sectors.
             self.assertGreaterEqual(partition1['size'], 1852)
+
+    def test_snap_command_fails(self):
+        # LP: #1621445 - If the snap(1) command fails, don't print the full
+        # traceback unless --debug is given.
+        stdout = StringIO()
+        stderr = StringIO()
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=False,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_image)
+            # Fake just enough of a failing subprocess call.
+            def check_returncode(*args, **kws):     # noqa: E301
+                raise CalledProcessError(1, 'failing command')
+            resources.enter_context(patch(
+                'ubuntu_image.helpers.subprocess_run',
+                return_value=SimpleNamespace(
+                    returncode=1,
+                    stdout='command stdout',
+                    stderr='command stderr',
+                    check_returncode=check_returncode,
+                    )))
+            # Mock all the stdout/stderr channels.
+            resources.enter_context(patch('sys.stdout', stdout))
+            resources.enter_context(patch('sys.__stdout__', stdout))
+            resources.enter_context(patch('sys.stderr', stderr))
+            resources.enter_context(patch('sys.__stderr__', stderr))
+            log_capture = resources.enter_context(LogCapture())
+            next(state)
+            self.assertEqual(state.exitcode, 1)
+            # Stuff was logged.  The first log message contains variable bits
+            self.assertEqual(log_capture.logs, [
+                (logging.ERROR, 'COMMAND_FAILED: snap prepare-image '
+                                '--channel=edge {}'.format(unpackdir)),
+                (logging.ERROR, 'command stdout'),
+                (logging.ERROR, 'command stderr'),
+                ])
+            # No stdout/stderr was written.
+            self.assertEqual(stdout.getvalue(), '')
+            self.assertEqual(stderr.getvalue(), '')

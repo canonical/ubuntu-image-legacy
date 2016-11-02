@@ -6,6 +6,7 @@ import shutil
 import logging
 
 from math import ceil
+from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
@@ -53,6 +54,7 @@ class ModelAssertionBuilder(State):
         self.args = args
         self.unpackdir = None
         self.cloud_init = args.cloud_init
+        self.exitcode = 0
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -102,9 +104,16 @@ class ModelAssertionBuilder(State):
         self._next.append(self.prepare_image)
 
     def prepare_image(self):
-        snap(self.args.model_assertion, self.unpackdir,
-             self.args.channel, self.args.extra_snaps)
-        self._next.append(self.load_gadget_yaml)
+        try:
+            snap(self.args.model_assertion, self.unpackdir,
+                 self.args.channel, self.args.extra_snaps)
+        except CalledProcessError:
+            if self.args.debug:
+                _logger.exception()
+            self.exitcode = 1
+            # Stop the state machine right here by not appending a next step.
+        else:
+            self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):
         yaml_file = os.path.join(
