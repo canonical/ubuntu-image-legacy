@@ -387,6 +387,18 @@ volumes:
           offset-write: some_label%2112
 """)
 
+    def test_volume_offset_write_larger_than_32bit(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: 8G
+""")
+
     def test_volume_size(self):
         gadget_spec = parse("""\
 volumes:
@@ -778,6 +790,20 @@ volumes:
         self.assertIsNone(content0.offset)
         self.assertEqual(content0.offset_write, ('label', 2112))
         self.assertIsNone(content0.size)
+
+    def test_content_spec_b_offset_write_larger_than_32bit(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 8G
+""")
 
     def test_content_spec_b_size(self):
         gadget_spec = parse("""\
