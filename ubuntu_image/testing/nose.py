@@ -49,7 +49,7 @@ def mock_run(command, *, check=True, **args):
 class MockerBase:
     def __init__(self, tmpdir):
         self._tmpdir = tmpdir
-        self._patcher = patch('ubuntu_image.builder.snap', self.snap_mock)
+        self.patcher = patch('ubuntu_image.builder.snap', self.snap_mock)
 
     def snap_mock(self, model_assertion, root_dir,
                   channel=None, extra_snaps=None):
@@ -66,10 +66,11 @@ class MockerBase:
         return checksum.hexdigest()
 
     def __enter__(self):
-        self._patcher.start()
+        self.patcher.start()
+        return self
 
     def __exit__(self, *args):
-        self._patcher.stop()
+        self.patcher.stop()
         return False
 
 
@@ -103,6 +104,7 @@ class AlwaysMock(MockerBase):
 
 class NosePlugin(Plugin):
     configSection = 'ubuntu-image'
+    snap_mocker = None
 
     def __init__(self):
         super().__init__()
@@ -182,7 +184,11 @@ class NosePlugin(Plugin):
             mock_class = None
         if mock_class is not None:
             tmpdir = self.resources.enter_context(TemporaryDirectory())
-            self.resources.enter_context(mock_class(tmpdir))
+            # Record the actual snap mocker on the class so that other tests
+            # can temporarily disable it.  Some tests need to run the actual
+            # snap() helper function.
+            self.__class__.snap_mocker = self.resources.enter_context(
+                mock_class(tmpdir))
 
     def stopTestRun(self, event):
         self.resources.close()
