@@ -2,7 +2,7 @@
 
 import os
 import re
-import sys
+import logging
 
 from contextlib import ExitStack, contextmanager
 from subprocess import PIPE, run as subprocess_run
@@ -24,6 +24,7 @@ __all__ = [
 
 
 SPACE = ' '
+_logger = logging.getLogger('ubuntu-image')
 
 
 def GiB(count):
@@ -58,21 +59,29 @@ def straight_up_bytes(count):
     return count
 
 
-def as_size(size):
+def as_size(size, min=0, max=None):
     # Check for int-ness and just return what you get if so.  YAML parsers
     # will turn values like '108' into ints automatically, but voluptuous will
     # always try to coerce the value to an as_size.
     if isinstance(size, int):
-        return size
-    mo = re.match('(\d+)([a-zA-Z]*)', size)
-    if mo is None:
-        raise ValueError(size)
-    size_in_bytes = mo.group(1)
-    return {
-        '': straight_up_bytes,
-        'G': GiB,
-        'M': MiB,
-        }[mo.group(2)](int(size_in_bytes))
+        value = size
+    else:
+        mo = re.match('(\d+)([a-zA-Z]*)', size)
+        if mo is None:
+            raise ValueError(size)
+        size_in_bytes = mo.group(1)
+        value = {
+            '': straight_up_bytes,
+            'G': GiB,
+            'M': MiB,
+            }[mo.group(2)](int(size_in_bytes))
+    if max is None:
+        if value < min:
+            raise ValueError('Value outside range: {} < {}'.format(value, min))
+    elif not (min <= value < max):
+        raise ValueError('Value outside range: {} <= {} < {}'.format(
+            min, value, max))
+    return value
 
 
 def transform(caught_excs, new_exc):
@@ -110,28 +119,30 @@ def run(command, *, check=True, **args):
         universal_newlines=True,
         **args)
     if check and proc.returncode != 0:
-        sys.__stderr__.write('COMMAND FAILED: {}\n'.format(command))
-        # Use the real stdout and stderr; the obvious attributes might be
-        # mocked out.
+        _logger.error('COMMAND FAILED: %s', command)
         if proc.stdout is not None:
-            sys.__stderr__.write(proc.stdout)
+            _logger.error(proc.stdout)
         if proc.stderr is not None:
-            sys.__stderr__.write(proc.stderr)
+            _logger.error(proc.stderr)
         proc.check_returncode()
     return proc
 
 
 def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
     snap_cmd = os.environ.get('UBUNTU_IMAGE_SNAP_CMD', 'snap')
-    raw_cmd = '{} prepare-image {} {} {} {}'
-    cmd = raw_cmd.format(
-        snap_cmd,
-        ('' if channel is None else '--channel={}'.format(channel)),
-        ('' if extra_snaps is None
-         else SPACE.join('--extra-snaps={}'.format(extra)
-                         for extra in extra_snaps)),
-        model_assertion,
-        root_dir)
+    # Create a list of the command arguments to run.  We do it this way rather
+    # than just .format() into a template string in order to have a more
+    # predictable --and thus more testable-- command string.  Otherwise, we
+    # might get spurious extra spaces in the command that is harder to predict.
+    arg_list = [snap_cmd, 'prepare-image']
+    if channel is not None:
+        arg_list.append('--channel={}'.format(channel))
+    # Fails if extra_snaps is None or the empty list.
+    if extra_snaps:
+        arg_list.append(SPACE.join('--extra-snaps={}'.format(extra)
+                        for extra in extra_snaps))
+    arg_list.extend([model_assertion, root_dir])
+    cmd = SPACE.join(arg_list)
     run(cmd, stdout=None, stderr=None, env=os.environ)
 
 

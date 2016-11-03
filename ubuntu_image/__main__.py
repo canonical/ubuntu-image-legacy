@@ -172,6 +172,10 @@ def main(argv=None):
     except:
         _logger.exception('Crash in state machine')
         return 1
+    # It's possible that the state machine didn't crash, but it still didn't
+    # complete successfully.  For example, if `snap prepare-image` failed.
+    if state_machine.exitcode != 0:
+        return state_machine.exitcode
     # Everything's done, now handle saving state if necessary.
     if pickle_file is not None:
         with open(pickle_file, 'wb') as fp:
