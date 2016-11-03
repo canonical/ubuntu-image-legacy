@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from ubuntu_image.helpers import MiB, run
 from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
 from ubuntu_image.testing.helpers import LogCapture, XXXModelAssertionBuilder
+from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import patch
 
@@ -1182,9 +1183,13 @@ class TestModelAssertionBuilder(TestCase):
     def test_snap_command_fails(self):
         # LP: #1621445 - If the snap(1) command fails, don't print the full
         # traceback unless --debug is given.
-        stdout = StringIO()
-        stderr = StringIO()
         with ExitStack() as resources:
+            # This tests needs to run the actual snap() helper function, not
+            # the testsuite-wide mock.  This is appropriate since we're
+            # mocking it ourselves here.
+            if NosePlugin.snap_mocker is not None:
+                NosePlugin.snap_mocker.patcher.stop()
+                resources.callback(NosePlugin.snap_mocker.patcher.start)
             workdir = resources.enter_context(TemporaryDirectory())
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
@@ -1195,11 +1200,11 @@ class TestModelAssertionBuilder(TestCase):
                 extra_snaps=[],
                 model_assertion=self.model_assertion,
                 output=None,
-                unpackdir=unpackdir,
                 workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = unpackdir
             state._next.pop()
             state._next.append(state.prepare_image)
             # Fake just enough of a failing subprocess call.
@@ -1213,21 +1218,66 @@ class TestModelAssertionBuilder(TestCase):
                     stderr='command stderr',
                     check_returncode=check_returncode,
                     )))
-            # Mock all the stdout/stderr channels.
-            resources.enter_context(patch('sys.stdout', stdout))
-            resources.enter_context(patch('sys.__stdout__', stdout))
-            resources.enter_context(patch('sys.stderr', stderr))
-            resources.enter_context(patch('sys.__stderr__', stderr))
             log_capture = resources.enter_context(LogCapture())
             next(state)
             self.assertEqual(state.exitcode, 1)
-            # Stuff was logged.  The first log message contains variable bits
+            # Note that there is no traceback in the output.
             self.assertEqual(log_capture.logs, [
-                (logging.ERROR, 'COMMAND_FAILED: snap prepare-image '
-                                '--channel=edge {}'.format(unpackdir)),
+                (logging.ERROR, 'COMMAND FAILED: snap prepare-image '
+                                '--channel=edge {} {}'.format(
+                                    self.model_assertion, unpackdir)),
                 (logging.ERROR, 'command stdout'),
                 (logging.ERROR, 'command stderr'),
                 ])
-            # No stdout/stderr was written.
-            self.assertEqual(stdout.getvalue(), '')
-            self.assertEqual(stderr.getvalue(), '')
+
+    def test_snap_command_fails_debug(self):
+        # LP: #1621445 - If the snap(1) command fails, don't print the full
+        # traceback unless --debug is given.
+        with ExitStack() as resources:
+            # This tests needs to run the actual snap() helper function, not
+            # the testsuite-wide mock.  This is appropriate since we're
+            # mocking it ourselves here.
+            if NosePlugin.snap_mocker is not None:
+                NosePlugin.snap_mocker.patcher.stop()
+                resources.callback(NosePlugin.snap_mocker.patcher.start)
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=True,
+                extra_snaps=[],
+                model_assertion=self.model_assertion,
+                output=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = unpackdir
+            state._next.pop()
+            state._next.append(state.prepare_image)
+            # Fake just enough of a failing subprocess call.
+            def check_returncode(*args, **kws):     # noqa: E301
+                raise CalledProcessError(1, 'failing command')
+            resources.enter_context(patch(
+                'ubuntu_image.helpers.subprocess_run',
+                return_value=SimpleNamespace(
+                    returncode=1,
+                    stdout='command stdout',
+                    stderr='command stderr',
+                    check_returncode=check_returncode,
+                    )))
+            log_capture = resources.enter_context(LogCapture())
+            next(state)
+            self.assertEqual(state.exitcode, 1)
+            # Note that there is no traceback in the output.
+            self.assertEqual(log_capture.logs, [
+                (logging.ERROR, 'COMMAND FAILED: snap prepare-image '
+                                '--channel=edge {} {}'.format(
+                                    self.model_assertion, unpackdir)),
+                (logging.ERROR, 'command stdout'),
+                (logging.ERROR, 'command stderr'),
+                (logging.ERROR, 'Full debug traceback follows'),
+                ('IMAGINE THE TRACEBACK HERE'),
+                ])

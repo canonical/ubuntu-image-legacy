@@ -71,8 +71,12 @@ class LogCapture:
 
     def capture(self, *args, **kws):
         level, fmt, fmt_args = args
-        assert len(kws) == 0, kws
         self.logs.append((level, fmt % fmt_args))
+        # Was .exception() called?
+        exc_info = kws.pop('exc_info', None)
+        assert len(kws) == 0, kws
+        if exc_info:
+            self.logs.append('IMAGINE THE TRACEBACK HERE')
 
     def __enter__(self):
         log = logging.getLogger('ubuntu-image')

@@ -130,15 +130,19 @@ def run(command, *, check=True, **args):
 
 def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
     snap_cmd = os.environ.get('UBUNTU_IMAGE_SNAP_CMD', 'snap')
-    raw_cmd = '{} prepare-image {} {} {} {}'
-    cmd = raw_cmd.format(
-        snap_cmd,
-        ('' if channel is None else '--channel={}'.format(channel)),
-        ('' if extra_snaps is None
-         else SPACE.join('--extra-snaps={}'.format(extra)
-                         for extra in extra_snaps)),
-        model_assertion,
-        root_dir)
+    # Create a list of the command arguments to run.  We do it this way rather
+    # than just .format() into a template string in order to have a more
+    # predictable --and thus more testable-- command string.  Otherwise, we
+    # might get spurious extra spaces in the command that is harder to predict.
+    arg_list = [snap_cmd, 'prepare-image']
+    if channel is not None:
+        arg_list.append('--channel={}'.format(channel))
+    # Fails if extra_snaps is None or the empty list.
+    if extra_snaps:
+        arg_list.append(SPACE.join('--extra-snaps={}'.format(extra)
+                        for extra in extra_snaps))
+    arg_list.extend([model_assertion, root_dir])
+    cmd = SPACE.join(arg_list)
     run(cmd, stdout=None, stderr=None, env=os.environ)
 
 

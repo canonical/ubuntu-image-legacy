@@ -109,7 +109,7 @@ class ModelAssertionBuilder(State):
                  self.args.channel, self.args.extra_snaps)
         except CalledProcessError:
             if self.args.debug:
-                _logger.exception()
+                _logger.exception('Full debug traceback follows')
             self.exitcode = 1
             # Stop the state machine right here by not appending a next step.
         else:
