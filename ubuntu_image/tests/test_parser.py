@@ -1060,9 +1060,9 @@ volumes:
             )
 
     def test_defaults_proper(self):
-        parse("""\
+        gadget_spec = parse("""\
 defaults:
-  mfq0tsAY1HXMbx24wo0QIoFCGeLvERmX:
+  mfq0tsAY:
     some-key: some-value
     other-key: 42
 volumes:
@@ -1083,6 +1083,14 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deafbead
           size: 300
 """)
+        self.assertEqual(len(gadget_spec.defaults), 1)
+        self.assertEqual(len(gadget_spec.defaults['mfq0tsAY']), 2)
+        self.assertEqual(
+          gadget_spec.defaults['mfq0tsAY']['some-key'],
+          'some-value')
+        self.assertEqual(
+          gadget_spec.defaults['mfq0tsAY']['other-key'],
+          42)
 
 
 class TestPartOrder(TestCase):

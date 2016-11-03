@@ -217,6 +217,7 @@ class GadgetSpec:
     device_tree_origin = attr.ib()
     device_tree = attr.ib()
     volumes = attr.ib()
+    defaults = attr.ib()
 
 
 @transform((KeyError, Invalid, ParserError), ValueError)
@@ -244,6 +245,7 @@ def parse(stream_or_string):
     validated = GadgetYAML(yaml)
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
+    defaults = validated.get('defaults')
     volume_specs = {}
     bootloader_seen = False
     # This item is a dictionary so it can't possibly have duplicate keys.
@@ -320,4 +322,4 @@ def parse(stream_or_string):
             last_end = part.offset + part.size
     if not bootloader_seen:
         raise ValueError('No bootloader volume named')
-    return GadgetSpec(device_tree_origin, device_tree, volume_specs)
+    return GadgetSpec(device_tree_origin, device_tree, volume_specs, defaults)
