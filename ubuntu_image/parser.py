@@ -2,16 +2,24 @@
 
 import re
 import attr
+import logging
 
 from enum import Enum
 from io import StringIO
 from operator import attrgetter, methodcaller
-from ubuntu_image.helpers import GiB, MiB, as_size, transform
+from ubuntu_image.helpers import GiB, MiB, as_size
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from yaml import load
 from yaml.loader import SafeLoader
-from yaml.parser import ParserError
+from yaml.parser import ParserError, ScannerError
+
+
+_logger = logging.getLogger('ubuntu-image')
+
+
+class GadgetSpecificationError(Exception):
+    """An exception occurred during the parsing of the gadget.yaml file."""
 
 
 # By default PyYAML allows duplicate mapping keys, even though the YAML spec
@@ -35,16 +43,28 @@ StrictLoader.add_constructor(
     'tag:yaml.org,2002:map', StrictLoader.construct_mapping)
 
 
+# Decorator for naming the path -as best we can statically- within the
+# gadget.yaml file where this enum is found.  Used in error reporting.
+def yaml_path(path):
+    def inner(cls):
+        cls.yaml_path = path
+        return cls
+    return inner
+
+
+@yaml_path('volumes:<volume name>:bootloader')
 class BootLoader(Enum):
     uboot = 'u-boot'
     grub = 'grub'
 
 
+@yaml_path('volumes:<volume name>:schema')
 class VolumeSchema(Enum):
     mbr = 'mbr'
     gpt = 'gpt'
 
 
+@yaml_path('volumes:<volume name>:structure:filesystem')
 class FileSystemType(Enum):
     none = 'none'
     ext4 = 'ext4'
@@ -57,11 +77,15 @@ class Enumify:
         self.preprocessor = preprocessor
 
     def __call__(self, v):
-        # Voluptuous will catch any exceptions.
-        return self.enum_class[
-            v if self.preprocessor is None
-            else self.preprocessor(v)
-            ]
+        # Turn KeyErrors into spec errors.
+        try:
+            return self.enum_class[
+                v if self.preprocessor is None
+                else self.preprocessor(v)
+                ]
+        except KeyError as error:
+            raise GadgetSpecificationError('Bad key for {}: {}'.format(
+                self.enum_class.yaml_path, v))
 
 
 def Size32bit(v):
@@ -214,7 +238,6 @@ class GadgetSpec:
     volumes = attr.ib()
 
 
-@transform((KeyError, Invalid, ParserError), ValueError)
 def parse(stream_or_string):
     """Parse the YAML read from the stream or string.
 
@@ -235,8 +258,16 @@ def parse(stream_or_string):
     stream = (StringIO(stream_or_string)
               if isinstance(stream_or_string, str)
               else stream_or_string)
-    yaml = load(stream, Loader=StrictLoader)
-    validated = GadgetYAML(yaml)
+    try:
+        yaml = load(stream, Loader=StrictLoader)
+    except (ParserError, ScannerError) as error:
+        _logger.error('gadget.yaml file is not valid YAML')
+        raise GadgetSpecificationError from error
+    try:
+        validated = GadgetYAML(yaml)
+    except GadgetSpecificationError as error:
+        _logger.error('invalid gadget.yaml: %s', error)
+        raise
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
     volume_specs = {}

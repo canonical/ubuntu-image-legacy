@@ -1,8 +1,12 @@
 """Tests of the gadget.yaml parser."""
 
+import logging
+
+from contextlib import ExitStack
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, VolumeSchema, parse)
+    BootLoader, FileSystemType, GadgetSpecificationError, VolumeSchema, parse)
+from ubuntu_image.testing.helpers import LogCapture
 from unittest import TestCase
 from uuid import UUID
 
@@ -66,8 +70,24 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.schema, VolumeSchema.mbr)
 
+    def test_not_yaml(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""foo: bar: baz""")
+        message = 'gadget.yaml file is not valid YAML'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
     def test_bad_schema(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
 volumes:
   first-image:
     schema: bad
@@ -76,6 +96,11 @@ volumes:
         - type: ef
           size: 400M
 """)
+        message = 'Bad key for volumes:<volume name>:schema: bad'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, 'invalid gadget.yaml: {}'.format(message)),
+            ])
 
     def test_missing_schema(self):
         gadget_spec = parse("""\
