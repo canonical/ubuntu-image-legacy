@@ -1060,7 +1060,7 @@ volumes:
             )
 
     def test_defaults_proper(self):
-        gadget_spec = parse("""\
+        parse("""\
 defaults:
   mfq0tsAY1HXMbx24wo0QIoFCGeLvERmX:
     some-key: some-value
