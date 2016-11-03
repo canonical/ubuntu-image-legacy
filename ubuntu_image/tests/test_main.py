@@ -21,6 +21,11 @@ from unittest import TestCase, skipIf
 from unittest.mock import call, patch
 
 
+# For forcing a test failure.
+def check_returncode(*args, **kws):
+    raise CalledProcessError(1, 'failing command')
+
+
 class TestParseArgs(TestCase):
     def test_image_size_option_bytes(self):
         args = parseargs(['--image-size', '45', 'model.assertion'])
@@ -116,9 +121,6 @@ class TestMain(TestCase):
         if NosePlugin.snap_mocker is not None:
             NosePlugin.snap_mocker.patcher.stop()
             self._resources.callback(NosePlugin.snap_mocker.patcher.start)
-        # Fake just enough of a failing subprocess call.
-        def check_returncode(*args, **kws):     # noqa: E301
-            raise CalledProcessError(1, 'failing command')
         self._resources.enter_context(patch(
             'ubuntu_image.helpers.subprocess_run',
             return_value=SimpleNamespace(
