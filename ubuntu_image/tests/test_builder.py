@@ -6,7 +6,6 @@ import json
 import logging
 
 from contextlib import ExitStack
-from io import StringIO
 from itertools import product
 from pkg_resources import resource_filename
 from struct import unpack

@@ -4,7 +4,6 @@ import os
 import logging
 
 from contextlib import ExitStack
-from io import StringIO
 from pkg_resources import resource_filename
 from shutil import copytree
 from subprocess import run as subprocess_run
