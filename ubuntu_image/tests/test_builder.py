@@ -29,6 +29,11 @@ def utf8open(path):
     return open(path, 'r', encoding='utf-8')
 
 
+# For forcing a test failure.
+def check_returncode(*args, **kws):
+    raise CalledProcessError(1, 'failing command')
+
+
 class TestModelAssertionBuilder(TestCase):
     # XXX These tests relies on external resources, namely that the gadget and
     # kernel snaps in this model assertion can actually be downloaded from the
@@ -1206,9 +1211,6 @@ class TestModelAssertionBuilder(TestCase):
             state.unpackdir = unpackdir
             state._next.pop()
             state._next.append(state.prepare_image)
-            # Fake just enough of a failing subprocess call.
-            def check_returncode(*args, **kws):     # noqa: E301
-                raise CalledProcessError(1, 'failing command')
             resources.enter_context(patch(
                 'ubuntu_image.helpers.subprocess_run',
                 return_value=SimpleNamespace(
@@ -1256,9 +1258,6 @@ class TestModelAssertionBuilder(TestCase):
             state.unpackdir = unpackdir
             state._next.pop()
             state._next.append(state.prepare_image)
-            # Fake just enough of a failing subprocess call.
-            def check_returncode(*args, **kws):     # noqa: E301
-                raise CalledProcessError(1, 'failing command')
             resources.enter_context(patch(
                 'ubuntu_image.helpers.subprocess_run',
                 return_value=SimpleNamespace(
