@@ -34,7 +34,7 @@ class StrictLoader(SafeLoader):
         mapping = {}
         for key, value in pairs:
             if key in mapping:
-                raise ValueError('Duplicate key: {}'.format(key))
+                raise GadgetSpecificationError('Duplicate key: {}'.format(key))
             mapping[key] = value
         return mapping
 
@@ -260,6 +260,9 @@ def parse(stream_or_string):
               else stream_or_string)
     try:
         yaml = load(stream, Loader=StrictLoader)
+    except GadgetSpecificationError as error:
+        _logger.error(str(error))
+        raise
     except (ParserError, ScannerError) as error:
         _logger.error('gadget.yaml file is not valid YAML')
         raise GadgetSpecificationError from error

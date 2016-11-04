@@ -322,7 +322,11 @@ volumes:
         self.assertEqual(partition0.filesystem_label, 'my volume')
 
     def test_duplicate_volume_name(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
 volumes:
   first:
     bootloader: u-boot
@@ -341,6 +345,10 @@ volumes:
           type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
+        self.assertEqual(str(cm.exception), 'Duplicate key: first')
+        self.assertEqual(log.logs, [
+            (logging.ERROR, 'Duplicate key: first'),
+            ])
 
     def test_volume_offset(self):
         gadget_spec = parse("""\
