@@ -344,9 +344,11 @@ def parse(stream_or_string):
             # Extract the rest of the structure data.
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
-            if (structure_type == 'mbr' and
-                    filesystem is not FileSystemType.none):
-                _fail('mbr type must not specify a file system')
+            if structure_type == 'mbr':
+                if structure_id is not None:
+                    _fail('mbr type must not specify partition id')
+                elif filesystem is not FileSystemType.none:
+                    _fail('mbr type must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
