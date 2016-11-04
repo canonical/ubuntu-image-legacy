@@ -6,12 +6,12 @@ import shutil
 import logging
 
 from math import ceil
-from operator import attrgetter
+from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
-from ubuntu_image.parser import BootLoader, FileSystemType,\
-                                VolumeSchema, parse as parse_yaml
+from ubuntu_image.parser import (
+    BootLoader, FileSystemType, VolumeSchema, parse as parse_yaml)
 from ubuntu_image.state import State
 
 
@@ -54,6 +54,7 @@ class ModelAssertionBuilder(State):
         self.args = args
         self.unpackdir = None
         self.cloud_init = args.cloud_init
+        self.exitcode = 0
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -103,9 +104,16 @@ class ModelAssertionBuilder(State):
         self._next.append(self.prepare_image)
 
     def prepare_image(self):
-        snap(self.args.model_assertion, self.unpackdir,
-             self.args.channel, self.args.extra_snaps)
-        self._next.append(self.load_gadget_yaml)
+        try:
+            snap(self.args.model_assertion, self.unpackdir,
+                 self.args.channel, self.args.extra_snaps)
+        except CalledProcessError:
+            if self.args.debug:
+                _logger.exception('Full debug traceback follows')
+            self.exitcode = 1
+            # Stop the state machine right here by not appending a next step.
+        else:
+            self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):
         yaml_file = os.path.join(
@@ -370,12 +378,10 @@ class ModelAssertionBuilder(State):
             image = MBRImage(self.disk_img, self.image_size)
         else:
             image = Image(self.disk_img, self.image_size)
-        # XXX LP: #1630627
-        structures = sorted(volume.structures, key=attrgetter('offset'))
         offset_writes = []
         part_offsets = {}
         next_offset = 1
-        for i, part in enumerate(structures):
+        for i, part in enumerate(volume.structures):
             if part.name is not None:
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:

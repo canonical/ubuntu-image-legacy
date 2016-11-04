@@ -20,11 +20,7 @@ override_dh_install:
 	   debian/ubuntu-image/usr/bin/
 
 override_dh_installman:
-	PYTHONPATH=$(CURDIR) help2man -n ubuntu-image -s 1 \
-		-o debian/ubuntu-image.1 \
-		--version-string=$(pkgversion) \
-		--no-discard-stderr --no-info \
-		debian/ubuntu-image/usr/bin/ubuntu-image
+	rst2man ubuntu-image.rst > debian/ubuntu-image.1
 	dh_installman
 
 # Run the bare minimum of tests during build.  The majority of the tests will

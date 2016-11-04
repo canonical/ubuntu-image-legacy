@@ -7,15 +7,23 @@ from contextlib import ExitStack
 from io import StringIO
 from pickle import load
 from pkg_resources import resource_filename
+from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from ubuntu_image.__main__ import main, parseargs
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
-    XXXModelAssertionBuilder)
+    LogCapture, XXXModelAssertionBuilder)
+from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
+
+
+# For forcing a test failure.
+def check_returncode(*args, **kws):
+    raise CalledProcessError(1, 'failing command')
 
 
 class TestParseArgs(TestCase):
@@ -103,6 +111,36 @@ class TestMain(TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(
                 mock.call_args_list[-1], call('Crash in state machine'))
+
+    def test_state_machine_snap_command_fails(self):
+        # The `snap prepare-image` command fails and main exits with non-zero.
+        #
+        # This tests needs to run the actual snap() helper function, not
+        # the testsuite-wide mock.  This is appropriate since we're
+        # mocking it ourselves here.
+        if NosePlugin.snap_mocker is not None:
+            NosePlugin.snap_mocker.patcher.stop()
+            self._resources.callback(NosePlugin.snap_mocker.patcher.start)
+        self._resources.enter_context(patch(
+            'ubuntu_image.helpers.subprocess_run',
+            return_value=SimpleNamespace(
+                returncode=1,
+                stdout='command stdout',
+                stderr='command stderr',
+                check_returncode=check_returncode,
+                )))
+        self._resources.enter_context(LogCapture())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            XXXModelAssertionBuilder))
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(workdir, 'my-disk.img')
+        code = main(('--until', 'prepare_filesystems',
+                     '--channel', 'edge',
+                     '--workdir', workdir,
+                     '--output', imgfile,
+                     'model.assertion'))
+        self.assertEqual(code, 1)
 
 
 class TestMainWithModel(TestCase):
