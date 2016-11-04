@@ -987,6 +987,39 @@ volumes:
              for key in gadget_spec.volumes}
             )
 
+    def test_defaults_proper(self):
+        gadget_spec = parse("""\
+defaults:
+  mfq0tsAY:
+    some-key: some-value
+    other-key: 42
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 100
+  second-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+  third-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 300
+""")
+        self.assertEqual(len(gadget_spec.defaults), 1)
+        self.assertEqual(len(gadget_spec.defaults['mfq0tsAY']), 2)
+        self.assertEqual(
+            gadget_spec.defaults['mfq0tsAY']['some-key'],
+            'some-value')
+        self.assertEqual(
+            gadget_spec.defaults['mfq0tsAY']['other-key'],
+            42)
+
 
 class TestParserErrors(TestCase):
     # Test corner cases, as well as YAML, schema, and specification violations.
