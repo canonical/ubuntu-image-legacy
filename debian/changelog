@@ -1,15 +1,16 @@
 ubuntu-image (0.11+16.10ubuntu1) yakkety; urgency=medium
 
+  * SRU tracking bug LP: #1639381
   * Sort the structures in a volume by their offset, even if the offset is
     defined implicitly (i.e. not present in the gadget.yaml).  Also, check
     for any structure conflicts and raise a ValueError in that case.
-    (LP: #1631423)
-  * offset-write arguments will only accept 32 bit integers.  (LP: #1617443)
-  * Add a better manpage.  (LP: #1638386)
+    (LP:1631423)
+  * offset-write arguments will only accept 32 bit integers.  (LP:1617443)
+  * Add a better manpage.  (LP:1638386)
   * Tracebacks in the `snap prepare-image` command are suppressed unless
-    --debug is given.  However, the failure is still logged.  (LP: #1621445)
-  * Handle -but ignore- the gadget.yaml `defaults` section.  (LP: #1632449)
-  * Structure ids are disallowed on mbr volumes.  (LP: #1632724)
+    --debug is given.  However, the failure is still logged.  (LP:1621445)
+  * Handle -but ignore- the gadget.yaml `defaults` section.  (LP:1632449)
+  * Structure ids are disallowed on mbr volumes.  (LP:1632724)
   * The package can still be built if python3-debian is not available.
 
  -- Barry Warsaw <barry@ubuntu.com>  Fri, 04 Nov 2016 18:54:16 -0400
