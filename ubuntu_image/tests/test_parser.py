@@ -387,6 +387,46 @@ volumes:
           offset-write: some_label%2112
 """)
 
+    def test_volume_offset_write_larger_than_32bit(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: 8G
+""")
+
+    def test_volume_offset_write_is_4G(self):
+        # 4GiB is just outside 32 bits.
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: 4G
+""")
+
+    def test_volume_offset_write_is_just_under_4G(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: 4294967295
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        self.assertEqual(partition0.offset_write, GiB(4) - 1)
+
     def test_volume_size(self):
         gadget_spec = parse("""\
 volumes:
@@ -437,6 +477,17 @@ volumes:
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.type, 'mbr')
         self.assertEqual(partition0.filesystem, FileSystemType.none)
+
+    def test_mbr_structure_conflicting_id(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 400M
+          id: 00000000-0000-0000-0000-0000deadbeef
+""")
 
     def test_mbr_structure_conflicting_filesystem(self):
         self.assertRaises(ValueError, parse, """\
@@ -779,6 +830,53 @@ volumes:
         self.assertEqual(content0.offset_write, ('label', 2112))
         self.assertIsNone(content0.size)
 
+    def test_content_spec_b_offset_write_larger_than_32bit(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 8G
+""")
+
+    def test_content_spec_b_offset_write_is_4G(self):
+        # 4GiB is just outside 32 bits.
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 4G
+""")
+
+    def test_content_spec_b_offset_write_is_just_under_4G(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 4294967295
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        content0 = partition0.content[0]
+        self.assertEqual(content0.offset_write, GiB(4) - 1)
+
     def test_content_spec_b_size(self):
         gadget_spec = parse("""\
 volumes:
@@ -971,3 +1069,174 @@ volumes:
             {key: gadget_spec.volumes[key].bootloader
              for key in gadget_spec.volumes}
             )
+
+    def test_defaults_proper(self):
+        gadget_spec = parse("""\
+defaults:
+  mfq0tsAY:
+    some-key: some-value
+    other-key: 42
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 100
+  second-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+  third-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 300
+""")
+        self.assertEqual(len(gadget_spec.defaults), 1)
+        self.assertEqual(len(gadget_spec.defaults['mfq0tsAY']), 2)
+        self.assertEqual(
+            gadget_spec.defaults['mfq0tsAY']['some-key'],
+            'some-value')
+        self.assertEqual(
+            gadget_spec.defaults['mfq0tsAY']['other-key'],
+            42)
+
+
+class TestPartOrder(TestCase):
+    # LP: #1631423
+    maxDiff = None
+
+    def test_implicit_offset_ordering(self):
+        # None of the structures have an offset.  They get ordered in yaml
+        # appearance order with offsets calculated to be the end of the
+        # previous structure.
+        gadget_spec = parse("""\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 100M
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+""")
+        parts = gadget_spec.volumes['first'].structures
+        self.assertEqual(
+            [(part.type, part.offset) for part in parts], [
+                (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(1)),
+                (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(401)),
+                (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(901)),
+                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1001)),
+                ])
+
+    def test_explicit_offset_ordering(self):
+        # All of the structures have an offset, so they get ordered that way.
+        gadget_spec = parse("""\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+          offset: 800M
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+          offset: 200M
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 100M
+          offset: 1200M
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+          offset: 1M
+""")
+        parts = gadget_spec.volumes['first'].structures
+        self.assertEqual(
+            [(part.type, part.offset) for part in parts], [
+                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
+                (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(200)),
+                (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
+                (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(1200)),
+                ])
+
+    def test_mixed_offset_ordering(self):
+        # Most of the structures have an offset, but one doesn't.  The
+        # bb00deadbeef part is implicitly offset at 700MiB.
+        gadget_spec = parse("""\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+          offset: 800M
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+          offset: 200M
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 100M
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+          offset: 1M
+""")
+        parts = gadget_spec.volumes['first'].structures
+        self.assertEqual(
+            [(part.type, part.offset) for part in parts], [
+                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
+                (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(200)),
+                (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(700)),
+                (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
+                ])
+
+    def test_mixed_offset_conflict(self):
+        # Most of the structures have an offset, but one doesn't.  The
+        # bb00deadbeef part is implicitly offset at 700MiB which because it is
+        # 200MiB in size, conflicts with the offset @ 800M of dd00deadbeef.
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+          offset: 800M
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+          offset: 200M
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 200M
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+          offset: 1M
+""")
+
+    def test_explicit_offset_conflict(self):
+        # All of the structures have an offset, but they conflict.
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+          offset: 800M
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+          offset: 350M
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 100M
+          offset: 1200M
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+          offset: 1M
+""")

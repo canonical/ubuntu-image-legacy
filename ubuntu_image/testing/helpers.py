@@ -2,12 +2,16 @@
 
 import os
 import shutil
+import logging
 
+from contextlib import ExitStack
 from pkg_resources import resource_filename
 from ubuntu_image.builder import ModelAssertionBuilder
+from unittest.mock import patch
 
 
 class XXXModelAssertionBuilder(ModelAssertionBuilder):
+    exitcode = 0
     gadget_yaml = 'gadget.yaml'
 
     # We need this class because the current gadget snap we get from the store
@@ -58,3 +62,28 @@ class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):
         # have something to positively test.
         with open(os.path.join(self.workdir, 'success'), 'w'):
             pass
+
+
+class LogCapture:
+    def __init__(self):
+        self.logs = []
+        self._resources = ExitStack()
+
+    def capture(self, *args, **kws):
+        level, fmt, fmt_args = args
+        self.logs.append((level, fmt % fmt_args))
+        # Was .exception() called?
+        exc_info = kws.pop('exc_info', None)
+        assert len(kws) == 0, kws
+        if exc_info:
+            self.logs.append('IMAGINE THE TRACEBACK HERE')
+
+    def __enter__(self):
+        log = logging.getLogger('ubuntu-image')
+        self._resources.enter_context(patch.object(log, '_log', self.capture))
+        return self
+
+    def __exit__(self, *exception):
+        self._resources.close()
+        # Don't suppress any exceptions.
+        return False
