@@ -284,7 +284,7 @@ def parse(stream_or_string):
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
             if structure_type == 'mbr':
-                if structure_id:
+                if structure_id is not None:
                     raise ValueError('mbr type must not specify partition id')
                 elif filesystem is not FileSystemType.none:
                     raise ValueError('mbr type must not specify a file system')
