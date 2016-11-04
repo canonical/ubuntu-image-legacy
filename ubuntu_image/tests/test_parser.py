@@ -636,51 +636,6 @@ volumes:
         self.assertIsNone(content0.offset_write)
         self.assertEqual(content0.size, MiB(1))
 
-    def test_wrong_content_1(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          filesystem: none
-          content:
-          - source: subdir/
-            target: /
-""")
-
-    def test_wrong_content_2(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          filesystem: ext4
-          content:
-          - image: foo.img
-""")
-
-    def test_content_conflict(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          filesystem: ext4
-          content:
-          - source: subdir/
-            target: /
-          - image: foo.img
-""")
-
     def test_content_a_multiple(self):
         gadget_spec = parse("""\
 volumes:
@@ -734,26 +689,6 @@ volumes:
         self.assertEqual(content1.offset, 2112)
         self.assertIsNone(content1.offset_write)
         self.assertIsNone(content1.size)
-
-    def test_multiple_volumes_no_bootloader(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    structure:
-        - type: ef
-          size: 400M
-  second-image:
-    schema: gpt
-    structure:
-        - type: a0
-          size: 400M
-  third-image:
-    schema: gpt
-    structure:
-        - type: b1
-          size: 400M
-""")
 
     def test_multiple_volumes_with_bootloader(self):
         gadget_spec = parse("""\
@@ -968,7 +903,36 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'No bootloader volume named'
+        message = 'No bootloader structure named'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_missing_bootloader_multiple_volumes(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+  second-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+  third-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        message = 'No bootloader structure named'
         self.assertEqual(str(cm.exception), message)
         self.assertEqual(log.logs, [
             (logging.ERROR, message),
@@ -1407,12 +1371,18 @@ volumes:
           - image: foo.img
             offset-write: 8G
 """)
+        # XXX https://github.com/alecthomas/voluptuous/issues/239
         message = ('Invalid gadget.yaml @ '
-                   'volumes:first-image:structure:0:content:0:offset-write')
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+                   'volumes:first-image:structure:0:content:0')
+        front, colon, end = str(cm.exception).rpartition(':')
+        self.assertEqual(front, message)
+        self.assertIn(end, ['offset-write', 'image'])
+        self.assertEqual(len(log.logs), 1)
+        level, error_message = log.logs[0]
+        self.assertEqual(level, logging.ERROR)
+        front, colon, end = error_message.rpartition(':')
+        self.assertEqual(front, message)
+        self.assertIn(end, ['offset-write', 'image'])
 
     def test_content_spec_b_offset_write_is_4G(self):
         # 4GiB is just outside 32 bits.
@@ -1432,9 +1402,120 @@ volumes:
           - image: foo.img
             offset-write: 4G
 """)
+        # XXX https://github.com/alecthomas/voluptuous/issues/239
         message = ('Invalid gadget.yaml @ '
-                   'volumes:first-image:structure:0:content:0:offset-write')
+                   'volumes:first-image:structure:0:content:0')
+        front, colon, end = str(cm.exception).rpartition(':')
+        self.assertEqual(front, message)
+        self.assertIn(end, ['offset-write', 'image'])
+        self.assertEqual(len(log.logs), 1)
+        level, error_message = log.logs[0]
+        self.assertEqual(level, logging.ERROR)
+        front, colon, end = error_message.rpartition(':')
+        self.assertEqual(front, message)
+        self.assertIn(end, ['offset-write', 'image'])
+
+    def test_wrong_content_1(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: none
+          content:
+          - source: subdir/
+            target: /
+""")
+        message = 'filesystem: none missing image file name'
         self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_wrong_content_2(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: ext4
+          content:
+          - image: foo.img
+""")
+        message = 'filesystem: vfat|ext4 missing source/target'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_content_conflict_1(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: ext4
+          content:
+          - source: subdir/
+            target: /
+          - image: foo.img
+""")
+        # https://github.com/alecthomas/voluptuous/issues/239
+        #
+        # XXX Because of the above bug, we can't actually guarantee what error
+        # message we'll see.  All we know is that we *will* get an exception,
+        # and that the error message will match what's in the logs.
+        message = str(cm.exception)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_content_conflict_2(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: ext4
+          content:
+          - image: foo.img
+          - source: subdir/
+            target: /
+""")
+        # https://github.com/alecthomas/voluptuous/issues/239
+        #
+        # XXX Because of the above bug, we can't actually guarantee what error
+        # message we'll see.  All we know is that we *will* get an exception,
+        # and that the error message will match what's in the logs.
+        message = str(cm.exception)
         self.assertEqual(log.logs, [
             (logging.ERROR, message),
             ])

@@ -97,6 +97,8 @@ def Size32bit(v):
 
 def Id(v):
     """Coerce to either a hex UUID, a 2-digit hex value."""
+    # Yes, we actually do want this function to raise ValueErrors instead of
+    # GadgetSpecificationErrors.
     if isinstance(v, int):
         # Okay, here's the problem.  If the id value is something like '80' in
         # the yaml file, the yaml parser will turn that into the decimal
@@ -118,6 +120,8 @@ def Id(v):
 
 def HybridId(v):
     """Like above, but allows for hybrid Ids."""
+    # Yes, we actually do want this function to raise ValueErrors instead of
+    # GadgetSpecificationErrors.
     if isinstance(v, str):
         code, comma, guid = v.partition(',')
         if comma == ',':
@@ -136,6 +140,8 @@ def RelativeOffset(v):
     It may be specified relative to another structure item with the
     syntax ``label+1234``.
     """
+    # Yes, we actually do want this function to raise ValueErrors instead of
+    # GadgetSpecificationErrors.
     label, plus, offset = v.partition('+')
     if len(label) == 0 or plus != '+' or len(offset) == 0:
         raise ValueError(v)
@@ -263,7 +269,7 @@ def parse(stream_or_string):
     :type stream_or_string: str or file-like object
     :return: A specification of the gadget.
     :rtype: GadgetSpec
-    :raises ValueError: If the schema is violated.
+    :raises GadgetSpecificationError: If the schema is violated.
     """
     # Do the basic schema validation steps.  There some interdependencies that
     # require post-validation.  E.g. you cannot define the fs-type if the role
@@ -342,14 +348,31 @@ def parse(stream_or_string):
                     filesystem is not FileSystemType.none):
                 _fail('mbr type must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
+            # The content will be one of two formats, and no mixing is
+            # allowed.  I.e. even though multiple content sections are allowed
+            # in a single structure, they must all be of type A or type B.  If
+            # the filesystem type is vfat or ext4, then type A *must* be used;
+            # likewise if filesystem is none or missing, type B must be used.
             content = structure.get('content')
             content_specs = []
-            content_spec_class = (
-                ContentSpecB if filesystem is FileSystemType.none
-                else ContentSpecA)
             if content is not None:
-                for item in content:
-                    content_specs.append(content_spec_class.from_yaml(item))
+                if filesystem is FileSystemType.none:
+                    for item in content:
+                        try:
+                            spec = ContentSpecB.from_yaml(item)
+                        except KeyError:
+                            _fail('filesystem: none missing image file name')
+                        else:
+                            content_specs.append(spec)
+                else:
+                    for item in content:
+                        try:
+                            spec = ContentSpecA.from_yaml(item)
+                        except KeyError:
+                            _fail(
+                                'filesystem: vfat|ext4 missing source/target')
+                        else:
+                            content_specs.append(spec)
             structures.append(StructureSpec(
                 name, offset, offset_write, size,
                 structure_type, structure_id, filesystem, filesystem_label,
@@ -369,5 +392,5 @@ def parse(stream_or_string):
                     part.offset, last_end))
             last_end = part.offset + part.size
     if not bootloader_seen:
-        _fail('No bootloader volume named')
+        _fail('No bootloader structure named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs, defaults)
