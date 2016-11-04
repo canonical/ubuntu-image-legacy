@@ -15,6 +15,7 @@ from yaml.loader import SafeLoader
 from yaml.parser import ParserError, ScannerError
 
 
+COLON = ':'
 _logger = logging.getLogger('ubuntu-image')
 
 
@@ -238,6 +239,11 @@ class GadgetSpec:
     volumes = attr.ib()
 
 
+def _fail(message, error=None):
+    _logger.error(message)
+    raise GadgetSpecificationError(message) from error
+
+
 def parse(stream_or_string):
     """Parse the YAML read from the stream or string.
 
@@ -264,13 +270,18 @@ def parse(stream_or_string):
         _logger.error(str(error))
         raise
     except (ParserError, ScannerError) as error:
-        _logger.error('gadget.yaml file is not valid YAML')
-        raise GadgetSpecificationError from error
+        _fail('gadget.yaml file is not valid YAML', error)
     try:
         validated = GadgetYAML(yaml)
     except GadgetSpecificationError as error:
         _logger.error('invalid gadget.yaml: %s', error)
         raise
+    except Invalid as error:
+        # It doesn't look like voluptuous gives us the bogus value, but it
+        # does give us the path to it.  The str(error) contains some
+        # additional information of dubious value, so just use the path.
+        _fail('Invalid gadget.yaml at {}'.format(
+            COLON.join(str(component) for component in error.path)))
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
     volume_specs = {}
@@ -300,11 +311,11 @@ def parse(stream_or_string):
             # MBR.  Note too that 2-item tuples are also already ensured.
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
-                raise ValueError('GUID structure type with non-GPT')
+                _fail('GUID structure type with non-GPT schema')
             elif (isinstance(structure_type, str) and
                     structure_type != 'mbr' and
                     schema is not VolumeSchema.mbr):
-                raise ValueError('MBR structure type with non-MBR')
+                _fail('MBR structure type with non-MBR schema')
             # Check for implicit vs. explicit partition offset.
             if offset is None:
                 # XXX: Ensure the special case of the 'mbr' type doesn't

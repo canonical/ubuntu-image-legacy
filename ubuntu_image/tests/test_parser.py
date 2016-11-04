@@ -70,38 +70,6 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.schema, VolumeSchema.mbr)
 
-    def test_not_yaml(self):
-        with ExitStack() as resources:
-            cm = resources.enter_context(
-                self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
-            parse("""foo: bar: baz""")
-        message = 'gadget.yaml file is not valid YAML'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
-
-    def test_bad_schema(self):
-        with ExitStack() as resources:
-            cm = resources.enter_context(
-                self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
-            parse("""\
-volumes:
-  first-image:
-    schema: bad
-    bootloader: u-boot
-    structure:
-        - type: ef
-          size: 400M
-""")
-        message = 'Bad key for volumes:<volume name>:schema: bad'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, 'invalid gadget.yaml: {}'.format(message)),
-            ])
-
     def test_missing_schema(self):
         gadget_spec = parse("""\
 volumes:
@@ -113,49 +81,6 @@ volumes:
 """)
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.schema, VolumeSchema.gpt)
-
-    def test_implicit_gpt_with_two_digit_type(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: ef
-          size: 400M
-""")
-
-    def test_explicit_gpt_with_two_digit_type(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: ef
-          size: 400M
-""")
-
-    def test_mbr_with_guid_type(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: mbr
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-
-    def test_mbr_with_bogus_type(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: mbr
-    bootloader: u-boot
-    structure:
-        - type: 801
-          size: 400M
-""")
 
     def test_mbr_with_hybrid_type(self):
         gadget_spec = parse("""\
@@ -1091,6 +1016,121 @@ volumes:
             {key: gadget_spec.volumes[key].bootloader
              for key in gadget_spec.volumes}
             )
+
+
+class TestParserErrors(TestCase):
+    # Test corner cases, as well as YAML, schema, and specification violations.
+
+    def test_not_yaml(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""foo: bar: baz""")
+        message = 'gadget.yaml file is not valid YAML'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_bad_schema(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: bad
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+""")
+        message = 'Bad key for volumes:<volume name>:schema: bad'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, 'invalid gadget.yaml: {}'.format(message)),
+            ])
+
+    def test_implicit_gpt_with_two_digit_type(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+""")
+        message = 'MBR structure type with non-MBR schema'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_explicit_gpt_with_two_digit_type(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+""")
+        message = 'MBR structure type with non-MBR schema'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_mbr_with_guid_type(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        message = 'GUID structure type with non-GPT schema'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_mbr_with_bogus_type(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: 801
+          size: 400M
+""")
+        message = 'Invalid gadget.yaml at volumes:first-image:structure:0:type'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
 
 
 class TestPartOrder(TestCase):
