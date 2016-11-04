@@ -65,7 +65,7 @@ class VolumeSchema(Enum):
     gpt = 'gpt'
 
 
-@yaml_path('volumes:<volume name>:structure:filesystem')
+@yaml_path('volumes:<volume name>:structure:<N>:filesystem')
 class FileSystemType(Enum):
     none = 'none'
     ext4 = 'ext4'

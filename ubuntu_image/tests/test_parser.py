@@ -421,17 +421,6 @@ volumes:
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.filesystem, FileSystemType.none)
 
-    def test_volume_filesystem_bad(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          filesystem: zfs
-""")
-
     def test_content_spec_a(self):
         gadget_spec = parse("""\
 volumes:
@@ -584,35 +573,6 @@ volumes:
         self.assertIsNone(content0.offset)
         self.assertEqual(content0.offset_write, ('label', 2112))
         self.assertIsNone(content0.size)
-
-    def test_content_spec_b_offset_write_larger_than_32bit(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          content:
-          - image: foo.img
-            offset-write: 8G
-""")
-
-    def test_content_spec_b_offset_write_is_4G(self):
-        # 4GiB is just outside 32 bits.
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          content:
-          - image: foo.img
-            offset-write: 4G
-""")
 
     def test_content_spec_b_offset_write_is_just_under_4G(self):
         gadget_spec = parse("""\
@@ -1404,6 +1364,76 @@ volumes:
           size: 400M
 """)
         message = 'gadget.yaml file is not valid YAML'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_volume_filesystem_bad(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: zfs
+""")
+        message = ("Invalid gadget.yaml value 'zfs' @ "
+                   'volumes:<volume name>:structure:<N>:filesystem')
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_content_spec_b_offset_write_larger_than_32bit(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 8G
+""")
+        message = ('Invalid gadget.yaml @ '
+                   'volumes:first-image:structure:0:content:0:offset-write')
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_content_spec_b_offset_write_is_4G(self):
+        # 4GiB is just outside 32 bits.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 4G
+""")
+        message = ('Invalid gadget.yaml @ '
+                   'volumes:first-image:structure:0:content:0:offset-write')
         self.assertEqual(str(cm.exception), message)
         self.assertEqual(log.logs, [
             (logging.ERROR, message),
