@@ -478,6 +478,17 @@ volumes:
         self.assertEqual(partition0.type, 'mbr')
         self.assertEqual(partition0.filesystem, FileSystemType.none)
 
+    def test_mbr_structure_conflicting_id(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 400M
+          id: 00000000-0000-0000-0000-0000deadbeef
+""")
+
     def test_mbr_structure_conflicting_filesystem(self):
         self.assertRaises(ValueError, parse, """\
 volumes:
