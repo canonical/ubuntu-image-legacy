@@ -1,4 +1,4 @@
-ubuntu-image (0.11+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.11+17.04ubuntu1) zesty; urgency=medium
 
   * Sort the structures in a volume by their offset, even if the offset is
     defined implicitly (i.e. not present in the gadget.yaml).  Also, check
@@ -9,9 +9,10 @@ ubuntu-image (0.11+17.04ubuntu1) UNRELEASED; urgency=medium
   * Tracebacks in the `snap prepare-image` command are suppressed unless
     --debug is given.  However, the failure is still logged.  (LP: #1621445)
   * Handle -but ignore- the gadget.yaml `defaults` section.  (LP: #1632449)
+  * Structure ids are disallowed on mbr volumes.  (LP: #1632724)
   * The package can still be built if python3-debian is not available.
 
- -- Barry Warsaw <barry@ubuntu.com>  Tue, 01 Nov 2016 16:52:54 -0400
+ -- Barry Warsaw <barry@ubuntu.com>  Fri, 04 Nov 2016 18:54:16 -0400
 
 ubuntu-image (0.10+17.04ubuntu1) zesty; urgency=medium
 
