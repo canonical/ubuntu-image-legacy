@@ -1086,11 +1086,11 @@ volumes:
         self.assertEqual(len(gadget_spec.defaults), 1)
         self.assertEqual(len(gadget_spec.defaults['mfq0tsAY']), 2)
         self.assertEqual(
-          gadget_spec.defaults['mfq0tsAY']['some-key'],
-          'some-value')
+            gadget_spec.defaults['mfq0tsAY']['some-key'],
+            'some-value')
         self.assertEqual(
-          gadget_spec.defaults['mfq0tsAY']['other-key'],
-          42)
+            gadget_spec.defaults['mfq0tsAY']['other-key'],
+            42)
 
 
 class TestPartOrder(TestCase):
