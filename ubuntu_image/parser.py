@@ -340,7 +340,7 @@ def parse(stream_or_string):
             filesystem = structure['filesystem']
             if (structure_type == 'mbr' and
                     filesystem is not FileSystemType.none):
-                raise ValueError('mbr type must not specify a file system')
+                _fail('mbr type must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
             content = structure.get('content')
             content_specs = []
@@ -364,7 +364,7 @@ def parse(stream_or_string):
         last_end = -1
         for part in volume_specs[image_name].structures:
             if part.offset < last_end:
-                raise ValueError('Structure conflict! {}: {} <  {}'.format(
+                _fail('Structure conflict! {}: {} <  {}'.format(
                     part.type if part.name is None else part.name,
                     part.offset, last_end))
             last_end = part.offset + part.size
