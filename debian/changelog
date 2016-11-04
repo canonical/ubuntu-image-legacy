@@ -8,6 +8,7 @@ ubuntu-image (0.11+17.04ubuntu1) UNRELEASED; urgency=medium
   * Add a better manpage.  (LP: #1638386)
   * Tracebacks in the `snap prepare-image` command are suppressed unless
     --debug is given.  However, the failure is still logged.  (LP: #1621445)
+  * Handle -but ignore- the gadget.yaml `defaults` section.  (LP: #1632449)
   * The package can still be built if python3-debian is not available.
 
  -- Barry Warsaw <barry@ubuntu.com>  Tue, 01 Nov 2016 16:52:54 -0400
