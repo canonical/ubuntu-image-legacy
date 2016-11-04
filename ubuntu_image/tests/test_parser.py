@@ -143,36 +143,6 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.bootloader, BootLoader.grub)
 
-    def test_bad_bootloader(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boat
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-
-    def test_missing_bootloader(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-
-    def test_no_nuthin(self):
-        self.assertRaises(ValueError, parse, '')
-
-    def test_no_volumes(self):
-        self.assertRaises(ValueError, parse, """\
-device-tree-origin: kernel
-device-tree: dtree
-""")
-
     def test_guid_volume_id(self):
         gadget_spec = parse("""\
 volumes:
@@ -1047,10 +1017,11 @@ volumes:
         - type: ef
           size: 400M
 """)
-        message = 'Bad key for volumes:<volume name>:schema: bad'
+        message = ("Invalid gadget.yaml value 'bad' @ "
+                   'volumes:<volume name>:schema')
         self.assertEqual(str(cm.exception), message)
         self.assertEqual(log.logs, [
-            (logging.ERROR, 'invalid gadget.yaml: {}'.format(message)),
+            (logging.ERROR, message),
             ])
 
     def test_implicit_gpt_with_two_digit_type(self):
@@ -1126,7 +1097,74 @@ volumes:
         - type: 801
           size: 400M
 """)
-        message = 'Invalid gadget.yaml at volumes:first-image:structure:0:type'
+        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_bad_bootloader(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boat
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        message = ("Invalid gadget.yaml value 'u-boat' @ "
+                   'volumes:<volume name>:bootloader')
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_missing_bootloader(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        message = 'No bootloader volume named'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_no_nuthin(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse('')
+        message = 'Empty gadget.yaml'
+        self.assertEqual(str(cm.exception), message)
+        self.assertEqual(log.logs, [
+            (logging.ERROR, message),
+            ])
+
+    def test_no_volumes(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            log = resources.enter_context(LogCapture())
+            parse("""\
+device-tree-origin: kernel
+device-tree: dtree
+""")
+        message = 'Invalid gadget.yaml @ volumes'
         self.assertEqual(str(cm.exception), message)
         self.assertEqual(log.logs, [
             (logging.ERROR, message),

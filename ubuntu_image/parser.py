@@ -85,8 +85,9 @@ class Enumify:
                 else self.preprocessor(v)
                 ]
         except KeyError as error:
-            raise GadgetSpecificationError('Bad key for {}: {}'.format(
-                self.enum_class.yaml_path, v))
+            raise GadgetSpecificationError(
+                "Invalid gadget.yaml value '{}' @ {}".format(
+                    v, self.enum_class.yaml_path))
 
 
 def Size32bit(v):
@@ -274,14 +275,16 @@ def parse(stream_or_string):
     try:
         validated = GadgetYAML(yaml)
     except GadgetSpecificationError as error:
-        _logger.error('invalid gadget.yaml: %s', error)
+        _logger.error(str(error))
         raise
     except Invalid as error:
+        if len(error.path) == 0:
+            _fail('Empty gadget.yaml')
+        path = COLON.join(str(component) for component in error.path)
         # It doesn't look like voluptuous gives us the bogus value, but it
         # does give us the path to it.  The str(error) contains some
         # additional information of dubious value, so just use the path.
-        _fail('Invalid gadget.yaml at {}'.format(
-            COLON.join(str(component) for component in error.path)))
+        _fail('Invalid gadget.yaml @ {}'.format(path))
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
     volume_specs = {}
@@ -359,5 +362,5 @@ def parse(stream_or_string):
                     part.offset, last_end))
             last_end = part.offset + part.size
     if not bootloader_seen:
-        raise ValueError('No bootloader volume named')
+        _fail('No bootloader volume named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs)
