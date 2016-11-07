@@ -51,6 +51,12 @@ class FileSystemType(Enum):
     vfat = 'vfat'
 
 
+class StructureRole(Enum):
+    mbr = 'mbr'
+    system_boot = 'system-boot'
+    system_data = 'system-data'
+
+
 class Enumify:
     def __init__(self, enum_class, msg=None, preprocessor=None):
         self.enum_class = enum_class
@@ -138,6 +144,7 @@ GadgetYAML = Schema({
                     Coerce(Size32bit), RelativeOffset),
                 Required('size'): Coerce(as_size),
                 Required('type'): Any('mbr', Coerce(HybridId)),
+                Optional('role'): Enumify(StructureRole),
                 Optional('id'): Coerce(UUID),
                 Optional('filesystem', default=FileSystemType.none):
                     Enumify(FileSystemType),
@@ -199,6 +206,7 @@ class StructureSpec:
     size = attr.ib()
     type = attr.ib()
     id = attr.ib()
+    role = attr.ib()
     filesystem = attr.ib()
     filesystem_label = attr.ib()
     content = attr.ib()
@@ -288,6 +296,10 @@ def parse(stream_or_string):
                     offset = last_offset
             last_offset = offset + size
             # Extract the rest of the structure data.
+            structure_role = structure.get('role')
+            if structure_role == 'mbr' and size > 446:
+                raise ValueError('mbr role structures cannot be larger than '
+                                 '446 bytes.')
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
             if structure_type == 'mbr':
@@ -306,7 +318,8 @@ def parse(stream_or_string):
                     content_specs.append(content_spec_class.from_yaml(item))
             structures.append(StructureSpec(
                 name, offset, offset_write, size,
-                structure_type, structure_id, filesystem, filesystem_label,
+                structure_type, structure_id, structure_role,
+                filesystem, filesystem_label,
                 content_specs))
         # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(
