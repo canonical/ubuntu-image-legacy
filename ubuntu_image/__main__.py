@@ -171,10 +171,10 @@ def main(argv=None):
         else:
             list(state_machine)
     except GadgetSpecificationError as error:
-        _logger.error(str(error))
         if args.debug:
             _logger.exception('gadget.yaml parse error')
         else:
+            _logger.error('gadget.yaml parse error: {}'.format(error))
             _logger.error('Use --debug for more information')
     except:
         _logger.exception('Crash in state machine')
