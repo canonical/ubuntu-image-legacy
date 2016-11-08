@@ -258,20 +258,11 @@ class TestMainWithBadGadget(TestCase):
         super().setUp()
         self._resources = ExitStack()
         self.addCleanup(self._resources.close)
-        # Capture builtin print() output.
-        self._stdout = StringIO()
-        self._stderr = StringIO()
-        self._resources.enter_context(
-            patch('argparse._sys.stdout', self._stdout))
-        # Capture stderr since this is where argparse will spew to.
-        self._resources.enter_context(
-            patch('argparse._sys.stderr', self._stderr))
-        # Set up a few other useful things for these tests.
-        self._log = self._resources.enter_context(LogCapture())
         self.model_assertion = resource_filename(
             'ubuntu_image.tests.data', 'model.assertion')
 
-    def test_bad_gadget(self):
+    def test_bad_gadget_log(self):
+        log = self._resources.enter_context(LogCapture())
         workdir = self._resources.enter_context(TemporaryDirectory())
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
@@ -279,16 +270,13 @@ class TestMainWithBadGadget(TestCase):
         main(('--channel', 'edge',
               '--workdir', workdir,
               self.model_assertion))
-        self.assertEqual(self._stderr.getvalue(), """\
-GUID structure type with non-GPT schema
-Use --debug for more information
-""")
-        self.assertEqual(self._log.logs, [
+        self.assertEqual(log.logs, [
             (logging.ERROR, 'GUID structure type with non-GPT schema'),
             (logging.ERROR, 'Use --debug for more information')
             ])
 
-    def test_bad_gadget_debug(self):
+    def test_bad_gadget_debug_log(self):
+        log = self._resources.enter_context(LogCapture())
         workdir = self._resources.enter_context(TemporaryDirectory())
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
@@ -297,15 +285,11 @@ Use --debug for more information
               '--debug',
               '--workdir', workdir,
               self.model_assertion))
-        self.assertEqual(self._stderr.getvalue(), """\
-GUID structure type with non-GPT schema
-Use --debug for more information
-""")
-        self.assertEqual(self._log.logs, [
+        self.assertEqual(log.logs, [
             (logging.ERROR, 'uncaught exception in state machine step: '
                             '[2] load_gadget_yaml'),
             'IMAGINE THE TRACEBACK HERE',
             (logging.ERROR, 'GUID structure type with non-GPT schema'),
             (logging.ERROR, 'gadget.yaml parse error'),
             'IMAGINE THE TRACEBACK HERE',
-            ]
+            ])
