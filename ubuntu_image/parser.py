@@ -143,7 +143,7 @@ GadgetYAML = Schema({
                 Optional('offset-write'): Any(
                     Coerce(Size32bit), RelativeOffset),
                 Required('size'): Coerce(as_size),
-                Required('type'): Any('mbr', Coerce(HybridId)),
+                Required('type'): Coerce(HybridId),
                 Optional('role'): Enumify(
                     StructureRole,
                     preprocessor=methodcaller('replace', '-', '_')),
@@ -274,18 +274,19 @@ def parse(stream_or_string):
             offset_write = structure.get('offset-write')
             size = structure['size']
             structure_type = structure['type']
-            # Validate structure types.  These can be either GUIDs, two hex
-            # digits, hybrids, or the special 'mbr' type.  The basic syntactic
-            # validation happens above in the Voluptuous schema, but here we
-            # need to ensure cross-attribute constraints.  Specifically,
-            # hybrids and 'mbr' are allowed for either schema, but GUID-only
-            # is only allowed for GPT, while 2-digit-only is only allowed for
-            # MBR.  Note too that 2-item tuples are also already ensured.
+            structure_role = structure.get('role')
+            # Validate structure types and roles. These can be either GUIDs,
+            # two hex digits or hybrids.  The basic syntactic validation
+            # happens above in the Voluptuous schema, but here we need to
+            # ensure cross-attribute constraints.  Specifically, hybrids are
+            # allowed for either schema, but GUID-only is only allowed for GPT,
+            # while 2-digit-only is only allowed for MBR roles.
+            # Note too that 2-item tuples are also already ensured.
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
                 raise ValueError('GUID structure type with non-GPT')
             elif (isinstance(structure_type, str) and
-                    structure_type != 'mbr' and
+                    structure_role is not StructureRole.mbr and
                     schema is not VolumeSchema.mbr):
                 raise ValueError('MBR structure type with non-MBR')
             # Check for implicit vs. explicit partition offset.
@@ -298,17 +299,18 @@ def parse(stream_or_string):
                     offset = last_offset
             last_offset = offset + size
             # Extract the rest of the structure data.
-            structure_role = structure.get('role')
-            if structure_role is StructureRole.mbr and size > 446:
-                raise ValueError('mbr role structures cannot be larger than '
-                                 '446 bytes.')
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
-            if structure_type == 'mbr':
+            if structure_role is StructureRole.mbr:
+                if size > 446:
+                    raise ValueError('mbr role structures cannot be larger '
+                                     'than 446 bytes.')
+                if schema is not VolumeSchema.mbr:
+                    raise ValueError('mbr role with non-MBR volume schema')
                 if structure_id is not None:
-                    raise ValueError('mbr type must not specify partition id')
-                elif filesystem is not FileSystemType.none:
-                    raise ValueError('mbr type must not specify a file system')
+                    raise ValueError('mbr role must not specify partition id')
+                if filesystem is not FileSystemType.none:
+                    raise ValueError('mbr role must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
             content = structure.get('content')
             content_specs = []

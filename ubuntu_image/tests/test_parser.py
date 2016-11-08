@@ -464,42 +464,6 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
 """)
 
-    def test_mbr_structure(self):
-        gadget_spec = parse("""\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: mbr
-          size: 400M
-""")
-        volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structures[0]
-        self.assertEqual(partition0.type, 'mbr')
-        self.assertEqual(partition0.filesystem, FileSystemType.none)
-
-    def test_mbr_structure_conflicting_id(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: mbr
-          size: 400M
-          id: 00000000-0000-0000-0000-0000deadbeef
-""")
-
-    def test_mbr_structure_conflicting_filesystem(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: mbr
-          size: 400M
-          filesystem: ext4
-""")
-
     def test_bad_hybrid_volume_type_1(self):
         self.assertRaises(ValueError, parse, """\
 volumes:
@@ -681,9 +645,10 @@ volumes:
         gadget_spec = parse("""\
 volumes:
   first-image:
+    schema: mbr
     bootloader: u-boot
     structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
+        - type: ef
           size: 100
           role: mbr
   second-image:
@@ -729,9 +694,35 @@ volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
+        - type: ef
           size: 1M
           role: mbr
+""")
+
+    def test_volume_structure_mbr_conflicting_id(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          role: mbr
+          size: 100
+          id: 00000000-0000-0000-0000-0000deadbeef
+""")
+
+    def test_volume_structure_mbr_conflicting_filesystem(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          role: mbr
+          size: 100
+          filesystem: ext4
 """)
 
     def test_content_spec_a(self):
