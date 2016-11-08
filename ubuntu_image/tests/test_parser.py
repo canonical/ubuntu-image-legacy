@@ -2,7 +2,7 @@
 
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, VolumeSchema, parse)
+    BootLoader, FileSystemType, StructureRole, VolumeSchema, parse)
 from unittest import TestCase
 from uuid import UUID
 
@@ -675,6 +675,63 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
           filesystem: zfs
+""")
+
+    def test_volume_structure_role(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          role: system-boot
+  third-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 300
+          role: system-data
+  fourth-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 400
+""")
+        self.assertEqual(len(gadget_spec.volumes), 4)
+        self.assertEqual({
+            'first-image': StructureRole.mbr,
+            'second-image': StructureRole.systemboot,
+            'third-image': StructureRole.systemdata,
+            'fourth-image': None,
+            },
+            {key: gadget_spec.volumes[key].structures[0].role
+             for key in gadget_spec.volumes}
+            )
+
+    def test_volume_structure_invalid_role(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 100
+          role: foobar
+""")
+
+    def test_volume_structure_mbr_role_too_big(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 1M
+          role: mbr
 """)
 
     def test_content_spec_a(self):

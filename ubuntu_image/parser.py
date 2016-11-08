@@ -53,8 +53,8 @@ class FileSystemType(Enum):
 
 class StructureRole(Enum):
     mbr = 'mbr'
-    system_boot = 'system-boot'
-    system_data = 'system-data'
+    systemboot = 'system-boot'
+    systemdata = 'system-data'
 
 
 class Enumify:
@@ -144,7 +144,9 @@ GadgetYAML = Schema({
                     Coerce(Size32bit), RelativeOffset),
                 Required('size'): Coerce(as_size),
                 Required('type'): Any('mbr', Coerce(HybridId)),
-                Optional('role'): Enumify(StructureRole),
+                Optional('role'): Enumify(
+                    StructureRole,
+                    preprocessor=methodcaller('replace', '-', '')),
                 Optional('id'): Coerce(UUID),
                 Optional('filesystem', default=FileSystemType.none):
                     Enumify(FileSystemType),
@@ -297,7 +299,7 @@ def parse(stream_or_string):
             last_offset = offset + size
             # Extract the rest of the structure data.
             structure_role = structure.get('role')
-            if structure_role == 'mbr' and size > 446:
+            if structure_role is StructureRole.mbr and size > 446:
                 raise ValueError('mbr role structures cannot be larger than '
                                  '446 bytes.')
             structure_id = structure.get('id')
