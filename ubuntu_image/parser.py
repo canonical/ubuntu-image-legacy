@@ -87,7 +87,7 @@ class Enumify:
         except KeyError as error:
             raise GadgetSpecificationError(
                 "Invalid gadget.yaml value '{}' @ {}".format(
-                    v, self.enum_class.yaml_path))
+                    v, self.enum_class.yaml_path)) from error
 
 
 def Size32bit(v):
