@@ -271,7 +271,8 @@ class TestMainWithBadGadget(TestCase):
               '--workdir', workdir,
               self.model_assertion))
         self.assertEqual(log.logs, [
-            (logging.ERROR, 'GUID structure type with non-GPT schema'),
+            (logging.ERROR, 'gadget.yaml parse error: '
+                            'GUID structure type with non-GPT schema'),
             (logging.ERROR, 'Use --debug for more information')
             ])
 
@@ -289,7 +290,6 @@ class TestMainWithBadGadget(TestCase):
             (logging.ERROR, 'uncaught exception in state machine step: '
                             '[2] load_gadget_yaml'),
             'IMAGINE THE TRACEBACK HERE',
-            (logging.ERROR, 'GUID structure type with non-GPT schema'),
             (logging.ERROR, 'gadget.yaml parse error'),
             'IMAGINE THE TRACEBACK HERE',
             ])
