@@ -252,11 +252,6 @@ class GadgetSpec:
     defaults = attr.ib()
 
 
-def _fail(message, error=None):
-    _logger.error(message)
-    raise GadgetSpecificationError(message) from error
-
-
 def parse(stream_or_string):
     """Parse the YAML read from the stream or string.
 
@@ -278,27 +273,20 @@ def parse(stream_or_string):
               if isinstance(stream_or_string, str)
               else stream_or_string)
     try:
-        raise GadgetSpecificationError('datsa bad yaml!')
         yaml = load(stream, Loader=StrictLoader)
-    except GadgetSpecificationError as error:
-        _logger.error(str(error))
-        raise
     except (ParserError, ScannerError) as error:
-        _fail('gadget.yaml file is not valid YAML', error)
+        raise GadgetSpecificationError(
+            'gadget.yaml file is not valid YAML') from error
     try:
-        raise GadgetSpecificationError('datsa nota gadget!')
         validated = GadgetYAML(yaml)
-    except GadgetSpecificationError as error:
-        _logger.error(str(error))
-        raise
     except Invalid as error:
         if len(error.path) == 0:
-            _fail('Empty gadget.yaml')
+            raise GadgetSpecificationError('Empty gadget.yaml')
         path = COLON.join(str(component) for component in error.path)
         # It doesn't look like voluptuous gives us the bogus value, but it
         # does give us the path to it.  The str(error) contains some
         # additional information of dubious value, so just use the path.
-        _fail('Invalid gadget.yaml @ {}'.format(path))
+        raise GadgetSpecificationError('Invalid gadget.yaml @ {}'.format(path))
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
     defaults = validated.get('defaults')
@@ -329,11 +317,13 @@ def parse(stream_or_string):
             # MBR.  Note too that 2-item tuples are also already ensured.
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
-                _fail('MBR structure type with non-MBR schema')
+                raise GadgetSpecificationError(
+                    'MBR structure type with non-MBR schema')
             elif (isinstance(structure_type, str) and
                     structure_type != 'mbr' and
                     schema is not VolumeSchema.mbr):
-                _fail('GUID structure type with non-GPT schema')
+                raise GadgetSpecificationError(
+                    'GUID structure type with non-GPT schema')
             # Check for implicit vs. explicit partition offset.
             if offset is None:
                 # XXX: Ensure the special case of the 'mbr' type doesn't
@@ -348,9 +338,11 @@ def parse(stream_or_string):
             filesystem = structure['filesystem']
             if structure_type == 'mbr':
                 if structure_id is not None:
-                    _fail('mbr type must not specify partition id')
+                    raise GadgetSpecificationError(
+                        'mbr type must not specify partition id')
                 elif filesystem is not FileSystemType.none:
-                    _fail('mbr type must not specify a file system')
+                    raise GadgetSpecificationError(
+                        'mbr type must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
@@ -365,7 +357,8 @@ def parse(stream_or_string):
                         try:
                             spec = ContentSpecB.from_yaml(item)
                         except KeyError:
-                            _fail('filesystem: none missing image file name')
+                            raise GadgetSpecificationError(
+                                'filesystem: none missing image file name')
                         else:
                             content_specs.append(spec)
                 else:
@@ -373,7 +366,7 @@ def parse(stream_or_string):
                         try:
                             spec = ContentSpecA.from_yaml(item)
                         except KeyError:
-                            _fail(
+                            raise GadgetSpecificationError(
                                 'filesystem: vfat|ext4 missing source/target')
                         else:
                             content_specs.append(spec)
@@ -391,10 +384,11 @@ def parse(stream_or_string):
         last_end = -1
         for part in volume_specs[image_name].structures:
             if part.offset < last_end:
-                _fail('Structure conflict! {}: {} <  {}'.format(
-                    part.type if part.name is None else part.name,
-                    part.offset, last_end))
+                raise GadgetSpecificationError(
+                    'Structure conflict! {}: {} <  {}'.format(
+                        part.type if part.name is None else part.name,
+                        part.offset, last_end))
             last_end = part.offset + part.size
     if not bootloader_seen:
-        _fail('No bootloader structure named')
+        raise GadgetSpecificationError('No bootloader structure named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs, defaults)

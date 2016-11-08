@@ -6,7 +6,6 @@ from contextlib import ExitStack
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, GadgetSpecificationError, VolumeSchema, parse)
-from ubuntu_image.testing.helpers import LogCapture
 from unittest import TestCase
 from uuid import UUID
 
@@ -189,7 +188,6 @@ volumes:
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first:
@@ -210,9 +208,6 @@ volumes:
           size: 400M
 """)
         self.assertEqual(str(cm.exception), 'Duplicate key: first')
-        self.assertEqual(log.logs, [
-            (logging.ERROR, 'Duplicate key: first'),
-            ])
 
     def test_volume_offset(self):
         gadget_spec = parse("""\
@@ -333,7 +328,6 @@ volumes:
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -343,17 +337,13 @@ volumes:
           size: 400M
           id: 00000000-0000-0000-0000-0000deadbeef
 """)
-        message = 'mbr type must not specify partition id'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'mbr type must not specify partition id')
 
     def test_mbr_structure_conflicting_filesystem(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -363,17 +353,13 @@ volumes:
           size: 400M
           filesystem: ext4
 """)
-        message = 'mbr type must not specify a file system'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'mbr type must not specify a file system')
 
     def test_bad_hybrid_volume_type_1(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -382,17 +368,14 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef,80
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_2(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -402,17 +385,14 @@ volumes:
 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_3(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -421,17 +401,14 @@ volumes:
         - type: 80,ab
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_4(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -440,17 +417,14 @@ volumes:
         - type: 80,
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_5(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -459,11 +433,8 @@ volumes:
         - type: ,00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'gadget.yaml file is not valid YAML'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'gadget.yaml file is not valid YAML')
 
     def test_volume_id(self):
         gadget_spec = parse("""\
@@ -897,19 +868,14 @@ class TestParserErrors(TestCase):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""foo: bar: baz""")
-        message = 'gadget.yaml file is not valid YAML'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'gadget.yaml file is not valid YAML')
 
     def test_bad_schema(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -919,18 +885,14 @@ volumes:
         - type: ef
           size: 400M
 """)
-        message = ("Invalid gadget.yaml value 'bad' @ "
-                   'volumes:<volume name>:schema')
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            "Invalid gadget.yaml value 'bad' @ volumes:<volume name>:schema")
 
     def test_implicit_gpt_with_two_digit_type(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -939,17 +901,13 @@ volumes:
         - type: ef
           size: 400M
 """)
-        message = 'MBR structure type with non-MBR schema'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'GUID structure type with non-GPT schema')
 
     def test_explicit_gpt_with_two_digit_type(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -959,17 +917,13 @@ volumes:
         - type: ef
           size: 400M
 """)
-        message = 'MBR structure type with non-MBR schema'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'GUID structure type with non-GPT schema')
 
     def test_mbr_with_guid_type(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -979,17 +933,13 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'GUID structure type with non-GPT schema'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'MBR structure type with non-MBR schema')
 
     def test_mbr_with_bogus_type(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -999,17 +949,14 @@ volumes:
         - type: 801
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_bootloader(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1019,18 +966,15 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = ("Invalid gadget.yaml value 'u-boat' @ "
-                   'volumes:<volume name>:bootloader')
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            ("Invalid gadget.yaml value 'u-boat' @ "
+             'volumes:<volume name>:bootloader'))
 
     def test_missing_bootloader(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1039,17 +983,12 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'No bootloader structure named'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception), 'No bootloader structure named')
 
     def test_missing_bootloader_multiple_volumes(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1068,38 +1007,24 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'No bootloader structure named'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception), 'No bootloader structure named')
 
     def test_no_nuthin(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse('')
-        message = 'Empty gadget.yaml'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception), 'Empty gadget.yaml')
 
     def test_no_volumes(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 device-tree-origin: kernel
 device-tree: dtree
 """)
-        message = 'Invalid gadget.yaml @ volumes'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception), 'Invalid gadget.yaml @ volumes')
 
     def test_mixed_offset_conflict(self):
         # Most of the structures have an offset, but one doesn't.  The
@@ -1108,7 +1033,6 @@ device-tree: dtree
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first:
@@ -1127,19 +1051,16 @@ volumes:
           size: 100M
           offset: 1M
 """)
-        message = ('Structure conflict! 00000000-0000-0000-0000-dd00deadbeef: '
-                   '838860800 <  943718400')
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            ('Structure conflict! 00000000-0000-0000-0000-dd00deadbeef: '
+             '838860800 <  943718400'))
 
     def test_explicit_offset_conflict(self):
         # All of the structures have an offset, but they conflict.
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first:
@@ -1163,17 +1084,13 @@ volumes:
           offset: 1M
           name: aa
 """)
-        message = 'Structure conflict! dd: 838860800 <  891289600'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'Structure conflict! dd: 838860800 <  891289600')
 
     def test_bad_volume_id(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1184,17 +1101,13 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:id'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'Invalid gadget.yaml @ volumes:first-image:id')
 
     def test_bad_integer_volume_id(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1205,17 +1118,13 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:id'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'Invalid gadget.yaml @ volumes:first-image:id')
 
     def test_disallow_hybrid_volume_id(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1225,17 +1134,14 @@ volumes:
           size: 400M
           id: 80,00000000-0000-0000-0000-0000deadbeef
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:id'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:id')
 
     def test_volume_id_not_guid(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1246,33 +1152,27 @@ volumes:
           size: 400M
           id: ef
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:id'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:id')
 
     def test_no_structure(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
     bootloader: u-boot
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure')
 
     def test_volume_offset_write_relative_syntax_error(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1283,18 +1183,15 @@ volumes:
           size: 400M
           offset-write: some_label%2112
 """)
-        message = ('Invalid gadget.yaml @ '
-                   'volumes:first-image:structure:0:offset-write')
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:offset-write'))
 
     def test_volume_offset_write_larger_than_32bit(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1305,19 +1202,16 @@ volumes:
           size: 400M
           offset-write: 8G
 """)
-        message = ('Invalid gadget.yaml @ '
-                   'volumes:first-image:structure:0:offset-write')
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:offset-write'))
 
     def test_volume_offset_write_is_4G(self):
         # 4GiB is just outside 32 bits.
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1328,18 +1222,15 @@ volumes:
           size: 400M
           offset-write: 4G
 """)
-        message = ('Invalid gadget.yaml @ '
-                   'volumes:first-image:structure:0:offset-write')
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:offset-write'))
 
     def test_no_size(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1347,17 +1238,14 @@ volumes:
     structure:
         - type: 00000000-0000-0000-0000-0000deadbeef
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:size'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:size')
 
     def test_mbr_structure_conflicting_filesystem(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1367,17 +1255,13 @@ volumes:
           size: 400M
           filesystem: ext4
 """)
-        message = 'mbr type must not specify a file system'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'mbr type must not specify a file system')
 
     def test_bad_hybrid_volume_type_1(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1386,17 +1270,14 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef,80
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_2(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1406,17 +1287,14 @@ volumes:
 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_3(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1425,17 +1303,14 @@ volumes:
         - type: 80,ab
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_4(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1444,17 +1319,14 @@ volumes:
         - type: 80,
           size: 400M
 """)
-        message = 'Invalid gadget.yaml @ volumes:first-image:structure:0:type'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_5(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1463,17 +1335,13 @@ volumes:
         - type: ,00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
-        message = 'gadget.yaml file is not valid YAML'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'gadget.yaml file is not valid YAML')
 
     def test_volume_filesystem_bad(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1483,18 +1351,15 @@ volumes:
           size: 400M
           filesystem: zfs
 """)
-        message = ("Invalid gadget.yaml value 'zfs' @ "
-                   'volumes:<volume name>:structure:<N>:filesystem')
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(
+            str(cm.exception),
+            ("Invalid gadget.yaml value 'zfs' @ "
+             'volumes:<volume name>:structure:<N>:filesystem'))
 
     def test_content_spec_b_offset_write_larger_than_32bit(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1508,16 +1373,10 @@ volumes:
             offset-write: 8G
 """)
         # XXX https://github.com/alecthomas/voluptuous/issues/239
-        message = ('Invalid gadget.yaml @ '
-                   'volumes:first-image:structure:0:content:0')
         front, colon, end = str(cm.exception).rpartition(':')
-        self.assertEqual(front, message)
-        self.assertIn(end, ['offset-write', 'image'])
-        self.assertEqual(len(log.logs), 1)
-        level, error_message = log.logs[0]
-        self.assertEqual(level, logging.ERROR)
-        front, colon, end = error_message.rpartition(':')
-        self.assertEqual(front, message)
+        self.assertEqual(
+            front,
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:content:0')
         self.assertIn(end, ['offset-write', 'image'])
 
     def test_content_spec_b_offset_write_is_4G(self):
@@ -1525,7 +1384,6 @@ volumes:
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1539,23 +1397,16 @@ volumes:
             offset-write: 4G
 """)
         # XXX https://github.com/alecthomas/voluptuous/issues/239
-        message = ('Invalid gadget.yaml @ '
-                   'volumes:first-image:structure:0:content:0')
         front, colon, end = str(cm.exception).rpartition(':')
-        self.assertEqual(front, message)
-        self.assertIn(end, ['offset-write', 'image'])
-        self.assertEqual(len(log.logs), 1)
-        level, error_message = log.logs[0]
-        self.assertEqual(level, logging.ERROR)
-        front, colon, end = error_message.rpartition(':')
-        self.assertEqual(front, message)
+        self.assertEqual(
+            front,
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:content:0')
         self.assertIn(end, ['offset-write', 'image'])
 
     def test_wrong_content_1(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1569,17 +1420,13 @@ volumes:
           - source: subdir/
             target: /
 """)
-        message = 'filesystem: none missing image file name'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'filesystem: none missing image file name')
 
     def test_wrong_content_2(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1592,17 +1439,13 @@ volumes:
           content:
           - image: foo.img
 """)
-        message = 'filesystem: vfat|ext4 missing source/target'
-        self.assertEqual(str(cm.exception), message)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        self.assertEqual(str(cm.exception),
+                         'filesystem: vfat|ext4 missing source/target')
 
     def test_content_conflict_1(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1619,19 +1462,18 @@ volumes:
 """)
         # https://github.com/alecthomas/voluptuous/issues/239
         #
-        # XXX Because of the above bug, we can't actually guarantee what error
-        # message we'll see.  All we know is that we *will* get an exception,
-        # and that the error message will match what's in the logs.
-        message = str(cm.exception)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        # XXX Because of the above bug, we get a sort of confusing error
+        # message.  The voluptuous constraint engine will throw an exception
+        # with a less than helpful message, but it's the best we can do.
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:content:1:image'))
 
     def test_content_conflict_2(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
-            log = resources.enter_context(LogCapture())
             parse("""\
 volumes:
   first-image:
@@ -1648,13 +1490,13 @@ volumes:
 """)
         # https://github.com/alecthomas/voluptuous/issues/239
         #
-        # XXX Because of the above bug, we can't actually guarantee what error
-        # message we'll see.  All we know is that we *will* get an exception,
-        # and that the error message will match what's in the logs.
-        message = str(cm.exception)
-        self.assertEqual(log.logs, [
-            (logging.ERROR, message),
-            ])
+        # XXX Because of the above bug, we get a sort of confusing error
+        # message.  The voluptuous constraint engine will throw an exception
+        # with a less than helpful message, but it's the best we can do.
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:content:0:image'))
 
 
 class TestPartOrder(TestCase):

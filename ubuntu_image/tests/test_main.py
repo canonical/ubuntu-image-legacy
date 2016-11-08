@@ -279,10 +279,14 @@ class TestMainWithBadGadget(TestCase):
         main(('--channel', 'edge',
               '--workdir', workdir,
               self.model_assertion))
-        import sys
-        print('----\n', self._stdout.getvalue(), file=sys.__stdout__)
-        print('----\n', self._stderr.getvalue(), file=sys.__stdout__)
-        print('----\n', self._log.logs, file=sys.__stdout__)
+        self.assertEqual(self._stderr.getvalue(), """\
+GUID structure type with non-GPT schema
+Use --debug for more information
+""")
+        self.assertEqual(self._log.logs, [
+            (logging.ERROR, 'GUID structure type with non-GPT schema'),
+            (logging.ERROR, 'Use --debug for more information')
+            ])
 
     def test_bad_gadget_debug(self):
         workdir = self._resources.enter_context(TemporaryDirectory())
@@ -293,7 +297,15 @@ class TestMainWithBadGadget(TestCase):
               '--debug',
               '--workdir', workdir,
               self.model_assertion))
-        import sys
-        print('----\n', self._stdout.getvalue(), file=sys.__stdout__)
-        print('----\n', self._stderr.getvalue(), file=sys.__stdout__)
-        print('----\n', self._log.logs, file=sys.__stdout__)
+        self.assertEqual(self._stderr.getvalue(), """\
+GUID structure type with non-GPT schema
+Use --debug for more information
+""")
+        self.assertEqual(self._log.logs, [
+            (logging.ERROR, 'uncaught exception in state machine step: '
+                            '[2] load_gadget_yaml'),
+            'IMAGINE THE TRACEBACK HERE',
+            (logging.ERROR, 'GUID structure type with non-GPT schema'),
+            (logging.ERROR, 'gadget.yaml parse error'),
+            'IMAGINE THE TRACEBACK HERE',
+            ]
