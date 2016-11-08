@@ -90,7 +90,8 @@ class TestModelAssertionBuilder(TestCase):
         seed_patterns = [
             '^pc-kernel_[0-9]+.snap$',
             '^pc_[0-9]+.snap$',
-            '^core_[0-9]+.snap$',
+            # This snap's name is undergoing transition.
+            '^(ubuntu-)?core_[0-9]+.snap$',
             ]
         # Make sure every file matches a pattern and every pattern matches a
         # file.
@@ -107,12 +108,11 @@ class TestModelAssertionBuilder(TestCase):
         patterns_unmatched = set(seed_patterns) - patterns_matched
         files_unmatched = snaps - files_matched
         self.assertEqual(
-            len(patterns_unmatched), 0,
-            'Unmatched patterns: {}'.format(COMMASPACE.join(
-                patterns_unmatched)))
-        self.assertEqual(
-            len(files_unmatched), 0,
-            'Unmatched files: {}'.format(COMMASPACE.join(files_unmatched)))
+            (len(patterns_unmatched), len(files_unmatched)),
+            (0, 0),
+            'Unmatched patterns: {}\nUnmatched files: {}'.format(
+                COMMASPACE.join(patterns_unmatched),
+                COMMASPACE.join(files_unmatched)))
 
     def test_populate_rootfs_contents_without_cloud_init(self):
         with ExitStack() as resources:

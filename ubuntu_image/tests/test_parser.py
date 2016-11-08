@@ -1,7 +1,5 @@
 """Tests of the gadget.yaml parser."""
 
-import logging
-
 from contextlib import ExitStack
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
