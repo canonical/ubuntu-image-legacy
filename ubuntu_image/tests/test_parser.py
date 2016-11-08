@@ -704,8 +704,8 @@ volumes:
         self.assertEqual(len(gadget_spec.volumes), 4)
         self.assertEqual({
             'first-image': StructureRole.mbr,
-            'second-image': StructureRole.systemboot,
-            'third-image': StructureRole.systemdata,
+            'second-image': StructureRole.system_boot,
+            'third-image': StructureRole.system_data,
             'fourth-image': None,
             },
             {key: gadget_spec.volumes[key].structures[0].role

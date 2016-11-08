@@ -53,8 +53,8 @@ class FileSystemType(Enum):
 
 class StructureRole(Enum):
     mbr = 'mbr'
-    systemboot = 'system-boot'
-    systemdata = 'system-data'
+    system_boot = 'system-boot'
+    system_data = 'system-data'
 
 
 class Enumify:
@@ -146,7 +146,7 @@ GadgetYAML = Schema({
                 Required('type'): Any('mbr', Coerce(HybridId)),
                 Optional('role'): Enumify(
                     StructureRole,
-                    preprocessor=methodcaller('replace', '-', '')),
+                    preprocessor=methodcaller('replace', '-', '_')),
                 Optional('id'): Coerce(UUID),
                 Optional('filesystem', default=FileSystemType.none):
                     Enumify(FileSystemType),
