@@ -12,6 +12,7 @@ from pkg_resources import resource_string as resource_bytes
 from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.helpers import as_size
 from ubuntu_image.i18n import _
+from ubuntu_image.parser import GadgetSpecificationError
 
 
 _logger = logging.getLogger('ubuntu-image')
@@ -169,6 +170,13 @@ def main(argv=None):
             state_machine.run_until(args.until)
         else:
             list(state_machine)
+    except GadgetSpecificationError as error:
+        
+        _logger.error(str(error))
+        if args.debug:
+            _logger.exception('gadget.yaml parse error')
+        else:
+            _logger.error('Use --debug for more information')
     except:
         _logger.exception('Crash in state machine')
         return 1

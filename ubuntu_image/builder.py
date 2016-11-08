@@ -94,6 +94,11 @@ class ModelAssertionBuilder(State):
         self.unpackdir = state['unpackdir']
         self.cloud_init = state['cloud_init']
 
+    def _log_exception(self, name):
+        # Only log the exception if we're in debug mode.
+        if self.args.debug:
+            super()._log_exception(name)
+
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self.workdir, 'root')
         self.unpackdir = os.path.join(self.workdir, 'unpack')

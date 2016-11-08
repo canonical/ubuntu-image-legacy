@@ -62,6 +62,11 @@ class State:
         log.debug('-> [{:2}] {}'.format(self._debug_step, name))
         return step, name
 
+    def _log_exception(self, name):
+        log.exception(
+            'uncaught exception in state machine step: [{}] {}'.format(
+                self._debug_step, name))
+
     def __next__(self):
         try:
             step, name = self._pop()
@@ -72,9 +77,7 @@ class State:
             self.close()
             raise StopIteration from None
         except:
-            log.exception(
-                'uncaught exception in state machine step: [{}] {}'.format(
-                    self._debug_step, name))
+            self._log_exception(name)
             self.close()
             raise
 

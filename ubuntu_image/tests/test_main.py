@@ -26,6 +26,10 @@ def check_returncode(*args, **kws):
     raise CalledProcessError(1, 'failing command')
 
 
+class BadGadgetModelAssertionBuilder(XXXModelAssertionBuilder):
+    gadget_yaml = 'bad-gadget.yaml'
+
+
 class TestParseArgs(TestCase):
     def test_image_size_option_bytes(self):
         args = parseargs(['--image-size', '45', 'model.assertion'])
@@ -247,3 +251,49 @@ class TestMainWithModel(TestCase):
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
         main(('--workdir', workdir, '--resume'))
         self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))
+
+
+class TestMainWithBadGadget(TestCase):
+    def setUp(self):
+        super().setUp()
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
+        # Capture builtin print() output.
+        self._stdout = StringIO()
+        self._stderr = StringIO()
+        self._resources.enter_context(
+            patch('argparse._sys.stdout', self._stdout))
+        # Capture stderr since this is where argparse will spew to.
+        self._resources.enter_context(
+            patch('argparse._sys.stderr', self._stderr))
+        # Set up a few other useful things for these tests.
+        self._log = self._resources.enter_context(LogCapture())
+        self.model_assertion = resource_filename(
+            'ubuntu_image.tests.data', 'model.assertion')
+
+    def test_bad_gadget(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            BadGadgetModelAssertionBuilder))
+        main(('--channel', 'edge',
+              '--workdir', workdir,
+              self.model_assertion))
+        import sys
+        print('----\n', self._stdout.getvalue(), file=sys.__stdout__)
+        print('----\n', self._stderr.getvalue(), file=sys.__stdout__)
+        print('----\n', self._log.logs, file=sys.__stdout__)
+
+    def test_bad_gadget_debug(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            BadGadgetModelAssertionBuilder))
+        main(('--channel', 'edge',
+              '--debug',
+              '--workdir', workdir,
+              self.model_assertion))
+        import sys
+        print('----\n', self._stdout.getvalue(), file=sys.__stdout__)
+        print('----\n', self._stderr.getvalue(), file=sys.__stdout__)
+        print('----\n', self._log.logs, file=sys.__stdout__)

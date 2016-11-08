@@ -278,6 +278,7 @@ def parse(stream_or_string):
               if isinstance(stream_or_string, str)
               else stream_or_string)
     try:
+        raise GadgetSpecificationError('datsa bad yaml!')
         yaml = load(stream, Loader=StrictLoader)
     except GadgetSpecificationError as error:
         _logger.error(str(error))
@@ -285,6 +286,7 @@ def parse(stream_or_string):
     except (ParserError, ScannerError) as error:
         _fail('gadget.yaml file is not valid YAML', error)
     try:
+        raise GadgetSpecificationError('datsa nota gadget!')
         validated = GadgetYAML(yaml)
     except GadgetSpecificationError as error:
         _logger.error(str(error))
@@ -327,11 +329,11 @@ def parse(stream_or_string):
             # MBR.  Note too that 2-item tuples are also already ensured.
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
-                _fail('GUID structure type with non-GPT schema')
+                _fail('MBR structure type with non-MBR schema')
             elif (isinstance(structure_type, str) and
                     structure_type != 'mbr' and
                     schema is not VolumeSchema.mbr):
-                _fail('MBR structure type with non-MBR schema')
+                _fail('GUID structure type with non-GPT schema')
             # Check for implicit vs. explicit partition offset.
             if offset is None:
                 # XXX: Ensure the special case of the 'mbr' type doesn't
