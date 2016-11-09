@@ -320,6 +320,9 @@ volumes:
     structure:
         - type: 00000000-0000-0000-0000-0000deadbeef
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:size')
 
     def test_bad_hybrid_volume_type_1(self):
         with ExitStack() as resources:
@@ -506,6 +509,10 @@ volumes:
           size: 400M
           filesystem: zfs
 """)
+        self.assertEqual(
+            str(cm.exception),
+            ("Invalid gadget.yaml value 'zfs' @ "
+             'volumes:<volume name>:structure:<N>:filesystem'))
 
     def test_volume_structure_role(self):
         gadget_spec = parse("""\
@@ -560,7 +567,6 @@ volumes:
             str(cm.exception),
             ("Invalid gadget.yaml value 'foobar' @ "
              'volumes:<volume name>:structure:<N>:role'))
-
 
     def test_volume_structure_mbr_role_too_big(self):
         with ExitStack() as resources:
