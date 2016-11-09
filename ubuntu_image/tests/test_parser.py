@@ -692,10 +692,22 @@ volumes:
         self.assertRaises(ValueError, parse, """\
 volumes:
   first-image:
+    schema: mbr
     bootloader: u-boot
     structure:
         - type: ef
           size: 1M
+          role: mbr
+""")
+
+    def test_volume_structure_mbr_conflicting_schema(self):
+        self.assertRaises(ValueError, parse, """\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
           role: mbr
 """)
 
