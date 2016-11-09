@@ -72,6 +72,7 @@ class FileSystemType(Enum):
     vfat = 'vfat'
 
 
+@yaml_path('volumes:<volume name>:structure:<N>:role')
 class StructureRole(Enum):
     mbr = 'mbr'
     system_boot = 'system-boot'
@@ -339,7 +340,8 @@ def parse(stream_or_string):
             if offset is None:
                 # XXX: Ensure the special case of the 'mbr' type doesn't
                 # extend beyond the confines of the mbr.
-                if structure_type != 'mbr' and last_offset < MiB(1):
+                if (structure_role is not StructureRole.mbr and
+                        last_offset < MiB(1)):
                     offset = MiB(1)
                 else:
                     offset = last_offset

@@ -556,6 +556,11 @@ volumes:
           size: 100
           role: foobar
 """)
+        self.assertEqual(
+            str(cm.exception),
+            ("Invalid gadget.yaml value 'foobar' @ "
+             'volumes:<volume name>:structure:<N>:role'))
+
 
     def test_volume_structure_mbr_role_too_big(self):
         with ExitStack() as resources:
@@ -571,6 +576,9 @@ volumes:
           size: 1M
           role: mbr
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'mbr role structures cannot be larger than 446 bytes.')
 
     def test_volume_structure_mbr_conflicting_schema(self):
         with ExitStack() as resources:
@@ -585,6 +593,9 @@ volumes:
           size: 100
           role: mbr
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'mbr role with non-MBR volume schema')
 
     def test_volume_structure_mbr_conflicting_id(self):
         with ExitStack() as resources:
@@ -601,6 +612,9 @@ volumes:
           size: 100
           id: 00000000-0000-0000-0000-0000deadbeef
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'mbr role must not specify partition id')
 
     def test_volume_structure_mbr_conflicting_filesystem(self):
         with ExitStack() as resources:
@@ -617,6 +631,9 @@ volumes:
           size: 100
           filesystem: ext4
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'mbr role must not specify a file system')
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\
@@ -1331,22 +1348,6 @@ volumes:
         self.assertEqual(
             str(cm.exception),
             'Invalid gadget.yaml @ volumes:first-image:structure:0:size')
-
-    def test_mbr_structure_conflicting_filesystem(self):
-        with ExitStack() as resources:
-            cm = resources.enter_context(
-                self.assertRaises(GadgetSpecificationError))
-            parse("""\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: mbr
-          size: 400M
-          filesystem: ext4
-""")
-        self.assertEqual(str(cm.exception),
-                         'mbr type must not specify a file system')
 
     def test_bad_hybrid_volume_type_1(self):
         with ExitStack() as resources:
