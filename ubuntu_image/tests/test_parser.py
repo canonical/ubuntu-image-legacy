@@ -1,8 +1,9 @@
 """Tests of the gadget.yaml parser."""
 
+from contextlib import ExitStack
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, VolumeSchema, parse)
+    BootLoader, FileSystemType, GadgetSpecificationError, VolumeSchema, parse)
 from unittest import TestCase
 from uuid import UUID
 
@@ -66,17 +67,6 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.schema, VolumeSchema.mbr)
 
-    def test_bad_schema(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: bad
-    bootloader: u-boot
-    structure:
-        - type: ef
-          size: 400M
-""")
-
     def test_missing_schema(self):
         gadget_spec = parse("""\
 volumes:
@@ -88,49 +78,6 @@ volumes:
 """)
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.schema, VolumeSchema.gpt)
-
-    def test_implicit_gpt_with_two_digit_type(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: ef
-          size: 400M
-""")
-
-    def test_explicit_gpt_with_two_digit_type(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: ef
-          size: 400M
-""")
-
-    def test_mbr_with_guid_type(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: mbr
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-
-    def test_mbr_with_bogus_type(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: mbr
-    bootloader: u-boot
-    structure:
-        - type: 801
-          size: 400M
-""")
 
     def test_mbr_with_hybrid_type(self):
         gadget_spec = parse("""\
@@ -193,36 +140,6 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.bootloader, BootLoader.grub)
 
-    def test_bad_bootloader(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boat
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-
-    def test_missing_bootloader(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-
-    def test_no_nuthin(self):
-        self.assertRaises(ValueError, parse, '')
-
-    def test_no_volumes(self):
-        self.assertRaises(ValueError, parse, """\
-device-tree-origin: kernel
-device-tree: dtree
-""")
-
     def test_guid_volume_id(self):
         gadget_spec = parse("""\
 volumes:
@@ -250,37 +167,6 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.id, '80')
 
-    def test_bad_volume_id(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    id: 3g
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-
-    def test_bad_integer_volume_id(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    id: 3g
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-""")
-
-    def test_no_structure(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-""")
-
     def test_volume_name(self):
         gadget_spec = parse("""\
 volumes:
@@ -297,7 +183,10 @@ volumes:
         self.assertEqual(partition0.filesystem_label, 'my volume')
 
     def test_duplicate_volume_name(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first:
     bootloader: u-boot
@@ -316,6 +205,7 @@ volumes:
           type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
+        self.assertEqual(str(cm.exception), 'Duplicate key: first')
 
     def test_volume_offset(self):
         gadget_spec = parse("""\
@@ -375,43 +265,6 @@ volumes:
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.offset_write, ('some_label', 2112))
 
-    def test_volume_offset_write_relative_syntax_error(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          offset-write: some_label%2112
-""")
-
-    def test_volume_offset_write_larger_than_32bit(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          offset-write: 8G
-""")
-
-    def test_volume_offset_write_is_4G(self):
-        # 4GiB is just outside 32 bits.
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          offset-write: 4G
-""")
-
     def test_volume_offset_write_is_just_under_4G(self):
         gadget_spec = parse("""\
 volumes:
@@ -455,15 +308,6 @@ volumes:
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.size, MiB(3))
 
-    def test_no_size(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-""")
-
     def test_mbr_structure(self):
         gadget_spec = parse("""\
 volumes:
@@ -479,7 +323,10 @@ volumes:
         self.assertEqual(partition0.filesystem, FileSystemType.none)
 
     def test_mbr_structure_conflicting_id(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -488,9 +335,14 @@ volumes:
           size: 400M
           id: 00000000-0000-0000-0000-0000deadbeef
 """)
+        self.assertEqual(str(cm.exception),
+                         'mbr type must not specify partition id')
 
     def test_mbr_structure_conflicting_filesystem(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -499,9 +351,14 @@ volumes:
           size: 400M
           filesystem: ext4
 """)
+        self.assertEqual(str(cm.exception),
+                         'mbr type must not specify a file system')
 
     def test_bad_hybrid_volume_type_1(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -509,9 +366,15 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef,80
           size: 400M
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_2(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -520,9 +383,15 @@ volumes:
 00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_3(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -530,9 +399,15 @@ volumes:
         - type: 80,ab
           size: 400M
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_4(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -540,9 +415,15 @@ volumes:
         - type: 80,
           size: 400M
 """)
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
 
     def test_bad_hybrid_volume_type_5(self):
-        self.assertRaises(ValueError, parse, """\
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -550,6 +431,8 @@ volumes:
         - type: ,00000000-0000-0000-0000-0000deadbeef
           size: 400M
 """)
+        self.assertEqual(str(cm.exception),
+                         'gadget.yaml file is not valid YAML')
 
     def test_volume_id(self):
         gadget_spec = parse("""\
@@ -567,18 +450,6 @@ volumes:
         self.assertEqual(
             partition0.id, UUID(hex='00000000-0000-0000-0000-0000deadbeef'))
 
-    def test_volume_id_not_guid(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          id: ef
-""")
-
     def test_volume_id_mbr(self):
         # Allowed, but ignored.
         gadget_spec = parse("""\
@@ -595,17 +466,6 @@ volumes:
         partition0 = volume0.structures[0]
         self.assertEqual(
             partition0.id, UUID(hex='00000000-0000-0000-0000-0000deadbeef'))
-
-    def test_disallow_hybrid_volume_id(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          id: 80,00000000-0000-0000-0000-0000deadbeef
-""")
 
     def test_volume_filesystem_vfat(self):
         gadget_spec = parse("""\
@@ -665,17 +525,6 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.filesystem, FileSystemType.none)
-
-    def test_volume_filesystem_bad(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          filesystem: zfs
-""")
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\
@@ -830,35 +679,6 @@ volumes:
         self.assertEqual(content0.offset_write, ('label', 2112))
         self.assertIsNone(content0.size)
 
-    def test_content_spec_b_offset_write_larger_than_32bit(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          content:
-          - image: foo.img
-            offset-write: 8G
-""")
-
-    def test_content_spec_b_offset_write_is_4G(self):
-        # 4GiB is just outside 32 bits.
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          content:
-          - image: foo.img
-            offset-write: 4G
-""")
-
     def test_content_spec_b_offset_write_is_just_under_4G(self):
         gadget_spec = parse("""\
 volumes:
@@ -921,51 +741,6 @@ volumes:
         self.assertIsNone(content0.offset_write)
         self.assertEqual(content0.size, MiB(1))
 
-    def test_wrong_content_1(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          filesystem: none
-          content:
-          - source: subdir/
-            target: /
-""")
-
-    def test_wrong_content_2(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          filesystem: ext4
-          content:
-          - image: foo.img
-""")
-
-    def test_content_conflict(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 400M
-          filesystem: ext4
-          content:
-          - source: subdir/
-            target: /
-          - image: foo.img
-""")
-
     def test_content_a_multiple(self):
         gadget_spec = parse("""\
 volumes:
@@ -1019,26 +794,6 @@ volumes:
         self.assertEqual(content1.offset, 2112)
         self.assertIsNone(content1.offset_write)
         self.assertIsNone(content1.size)
-
-    def test_multiple_volumes_no_bootloader(self):
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first-image:
-    schema: gpt
-    structure:
-        - type: ef
-          size: 400M
-  second-image:
-    schema: gpt
-    structure:
-        - type: a0
-          size: 400M
-  third-image:
-    schema: gpt
-    structure:
-        - type: b1
-          size: 400M
-""")
 
     def test_multiple_volumes_with_bootloader(self):
         gadget_spec = parse("""\
@@ -1102,6 +857,644 @@ volumes:
         self.assertEqual(
             gadget_spec.defaults['mfq0tsAY']['other-key'],
             42)
+
+
+class TestParserErrors(TestCase):
+    # Test corner cases, as well as YAML, schema, and specification violations.
+
+    def test_not_yaml(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""foo: bar: baz""")
+        self.assertEqual(str(cm.exception),
+                         'gadget.yaml file is not valid YAML')
+
+    def test_bad_schema(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: bad
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+""")
+        self.assertEqual(
+            str(cm.exception),
+            "Invalid gadget.yaml value 'bad' @ volumes:<volume name>:schema")
+
+    def test_implicit_gpt_with_two_digit_type(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'GUID structure type with non-GPT schema')
+
+    def test_explicit_gpt_with_two_digit_type(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'GUID structure type with non-GPT schema')
+
+    def test_mbr_with_guid_type(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'MBR structure type with non-MBR schema')
+
+    def test_mbr_with_bogus_type(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: 801
+          size: 400M
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
+
+    def test_bad_bootloader(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boat
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ("Invalid gadget.yaml value 'u-boat' @ "
+             'volumes:<volume name>:bootloader'))
+
+    def test_missing_bootloader(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception), 'No bootloader structure named')
+
+    def test_missing_bootloader_multiple_volumes(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+  second-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+  third-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception), 'No bootloader structure named')
+
+    def test_no_nuthin(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse('')
+        self.assertEqual(str(cm.exception), 'Empty gadget.yaml')
+
+    def test_no_volumes(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+device-tree-origin: kernel
+device-tree: dtree
+""")
+        self.assertEqual(str(cm.exception), 'Invalid gadget.yaml @ volumes')
+
+    def test_mixed_offset_conflict(self):
+        # Most of the structures have an offset, but one doesn't.  The
+        # bb00deadbeef part is implicitly offset at 700MiB which because it is
+        # 200MiB in size, conflicts with the offset @ 800M of dd00deadbeef.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+          offset: 800M
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+          offset: 200M
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 200M
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+          offset: 1M
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ('Structure conflict! 00000000-0000-0000-0000-dd00deadbeef: '
+             '838860800 <  943718400'))
+
+    def test_explicit_offset_conflict(self):
+        # All of the structures have an offset, but they conflict.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+          offset: 800M
+          name: dd
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+          offset: 350M
+          name: cc
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 100M
+          offset: 1200M
+          name: bb
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+          offset: 1M
+          name: aa
+""")
+        self.assertEqual(str(cm.exception),
+                         'Structure conflict! dd: 838860800 <  891289600')
+
+    def test_bad_volume_id(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    id: 3g
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'Invalid gadget.yaml @ volumes:first-image:id')
+
+    def test_bad_integer_volume_id(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    id: 801
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'Invalid gadget.yaml @ volumes:first-image:id')
+
+    def test_disallow_hybrid_volume_id(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          id: 80,00000000-0000-0000-0000-0000deadbeef
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:id')
+
+    def test_volume_id_not_guid(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          id: ef
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:id')
+
+    def test_no_structure(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure')
+
+    def test_volume_offset_write_relative_syntax_error(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: some_label%2112
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:offset-write'))
+
+    def test_volume_offset_write_larger_than_32bit(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: 8G
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:offset-write'))
+
+    def test_volume_offset_write_is_4G(self):
+        # 4GiB is just outside 32 bits.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          offset-write: 4G
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:offset-write'))
+
+    def test_no_size(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:size')
+
+    def test_mbr_structure_conflicting_filesystem(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 400M
+          filesystem: ext4
+""")
+        self.assertEqual(str(cm.exception),
+                         'mbr type must not specify a file system')
+
+    def test_bad_hybrid_volume_type_1(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef,80
+          size: 400M
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
+
+    def test_bad_hybrid_volume_type_2(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef,\
+00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
+
+    def test_bad_hybrid_volume_type_3(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 80,ab
+          size: 400M
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
+
+    def test_bad_hybrid_volume_type_4(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 80,
+          size: 400M
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:type')
+
+    def test_bad_hybrid_volume_type_5(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: ,00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'gadget.yaml file is not valid YAML')
+
+    def test_volume_filesystem_bad(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: zfs
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ("Invalid gadget.yaml value 'zfs' @ "
+             'volumes:<volume name>:structure:<N>:filesystem'))
+
+    def test_content_spec_b_offset_write_larger_than_32bit(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 8G
+""")
+        # XXX https://github.com/alecthomas/voluptuous/issues/239
+        front, colon, end = str(cm.exception).rpartition(':')
+        self.assertEqual(
+            front,
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:content:0')
+        self.assertIn(end, ['offset-write', 'image'])
+
+    def test_content_spec_b_offset_write_is_4G(self):
+        # 4GiB is just outside 32 bits.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          content:
+          - image: foo.img
+            offset-write: 4G
+""")
+        # XXX https://github.com/alecthomas/voluptuous/issues/239
+        front, colon, end = str(cm.exception).rpartition(':')
+        self.assertEqual(
+            front,
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:content:0')
+        self.assertIn(end, ['offset-write', 'image'])
+
+    def test_wrong_content_1(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: none
+          content:
+          - source: subdir/
+            target: /
+""")
+        self.assertEqual(str(cm.exception),
+                         'filesystem: none missing image file name')
+
+    def test_wrong_content_2(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: ext4
+          content:
+          - image: foo.img
+""")
+        self.assertEqual(str(cm.exception),
+                         'filesystem: vfat|ext4 missing source/target')
+
+    def test_content_conflict_1(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: ext4
+          content:
+          - source: subdir/
+            target: /
+          - image: foo.img
+""")
+        # https://github.com/alecthomas/voluptuous/issues/239
+        #
+        # XXX Because of the above bug, we get a sort of confusing error
+        # message.  The voluptuous constraint engine will throw an exception
+        # with a less than helpful message, but it's the best we can do.
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:content:1:image'))
+
+    def test_content_conflict_2(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: ext4
+          content:
+          - image: foo.img
+          - source: subdir/
+            target: /
+""")
+        # https://github.com/alecthomas/voluptuous/issues/239
+        #
+        # XXX Because of the above bug, we get a sort of confusing error
+        # message.  The voluptuous constraint engine will throw an exception
+        # with a less than helpful message, but it's the best we can do.
+        self.assertEqual(
+            str(cm.exception),
+            ('Invalid gadget.yaml @ '
+             'volumes:first-image:structure:0:content:0:image'))
 
 
 class TestPartOrder(TestCase):
@@ -1195,48 +1588,3 @@ volumes:
                 (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(700)),
                 (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
                 ])
-
-    def test_mixed_offset_conflict(self):
-        # Most of the structures have an offset, but one doesn't.  The
-        # bb00deadbeef part is implicitly offset at 700MiB which because it is
-        # 200MiB in size, conflicts with the offset @ 800M of dd00deadbeef.
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first:
-    schema: gpt
-    bootloader: grub
-    structure:
-        - type: 00000000-0000-0000-0000-dd00deadbeef
-          size: 400M
-          offset: 800M
-        - type: 00000000-0000-0000-0000-cc00deadbeef
-          size: 500M
-          offset: 200M
-        - type: 00000000-0000-0000-0000-bb00deadbeef
-          size: 200M
-        - type: 00000000-0000-0000-0000-aa00deadbeef
-          size: 100M
-          offset: 1M
-""")
-
-    def test_explicit_offset_conflict(self):
-        # All of the structures have an offset, but they conflict.
-        self.assertRaises(ValueError, parse, """\
-volumes:
-  first:
-    schema: gpt
-    bootloader: grub
-    structure:
-        - type: 00000000-0000-0000-0000-dd00deadbeef
-          size: 400M
-          offset: 800M
-        - type: 00000000-0000-0000-0000-cc00deadbeef
-          size: 500M
-          offset: 350M
-        - type: 00000000-0000-0000-0000-bb00deadbeef
-          size: 100M
-          offset: 1200M
-        - type: 00000000-0000-0000-0000-aa00deadbeef
-          size: 100M
-          offset: 1M
-""")

@@ -1,0 +1,6 @@
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 400M
