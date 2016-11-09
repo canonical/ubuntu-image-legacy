@@ -57,11 +57,12 @@ class TestModelAssertionBuilder(TestCase):
         output = self._resources.enter_context(NamedTemporaryFile())
         args = SimpleNamespace(
             channel='edge',
-            workdir=None,
-            output=output,
-            model_assertion=self.model_assertion,
             cloud_init=None,
+            debug=False,
             extra_snaps=None,
+            model_assertion=self.model_assertion,
+            output=output,
+            workdir=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
         state.run_thru('calculate_bootfs_size')
@@ -89,7 +90,8 @@ class TestModelAssertionBuilder(TestCase):
         seed_patterns = [
             '^pc-kernel_[0-9]+.snap$',
             '^pc_[0-9]+.snap$',
-            '^ubuntu-core_[0-9]+.snap$',
+            # This snap's name is undergoing transition.
+            '^(ubuntu-)?core_[0-9]+.snap$',
             ]
         # Make sure every file matches a pattern and every pattern matches a
         # file.
@@ -106,12 +108,11 @@ class TestModelAssertionBuilder(TestCase):
         patterns_unmatched = set(seed_patterns) - patterns_matched
         files_unmatched = snaps - files_matched
         self.assertEqual(
-            len(patterns_unmatched), 0,
-            'Unmatched patterns: {}'.format(COMMASPACE.join(
-                patterns_unmatched)))
-        self.assertEqual(
-            len(files_unmatched), 0,
-            'Unmatched files: {}'.format(COMMASPACE.join(files_unmatched)))
+            (len(patterns_unmatched), len(files_unmatched)),
+            (0, 0),
+            'Unmatched patterns: {}\nUnmatched files: {}'.format(
+                COMMASPACE.join(patterns_unmatched),
+                COMMASPACE.join(files_unmatched)))
 
     def test_populate_rootfs_contents_without_cloud_init(self):
         with ExitStack() as resources:
@@ -120,11 +121,11 @@ class TestModelAssertionBuilder(TestCase):
             print('cloud init user data', end='', flush=True, file=cloud_init)
             args = SimpleNamespace(
                 channel='edge',
-                workdir=None,
-                model_assertion=self.model_assertion,
-                output=None,
                 cloud_init=None,
                 extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -156,11 +157,11 @@ class TestModelAssertionBuilder(TestCase):
             print('cloud init user data', end='', flush=True, file=cloud_init)
             args = SimpleNamespace(
                 channel='edge',
-                workdir=None,
-                model_assertion=self.model_assertion,
-                output=None,
                 cloud_init=cloud_init.name,
                 extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -191,11 +192,11 @@ class TestModelAssertionBuilder(TestCase):
         with ExitStack() as resources:
             args = SimpleNamespace(
                 channel='edge',
-                workdir=None,
-                model_assertion=self.model_assertion,
-                output=None,
                 cloud_init=None,
                 extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -237,10 +238,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -290,10 +291,11 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                debug=False,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -331,10 +333,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -402,10 +404,11 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                debug=False,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -447,10 +450,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -476,10 +479,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -561,10 +564,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -622,10 +625,11 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                debug=False,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -675,10 +679,11 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                debug=False,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -718,10 +723,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -829,10 +834,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -886,10 +891,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -951,11 +956,11 @@ class TestModelAssertionBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=None,
-                output=None,
                 cloud_init=None,
                 image_size=None,
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -994,11 +999,11 @@ class TestModelAssertionBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=None,
-                output=None,
                 cloud_init=None,
                 image_size=None,
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1032,11 +1037,11 @@ class TestModelAssertionBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=None,
-                output=None,
                 cloud_init=None,
                 image_size=MiB(5),
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1071,12 +1076,12 @@ class TestModelAssertionBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=None,
-                output=None,
                 cloud_init=None,
-                image_size=MiB(1),
                 given_image_size='1M',
+                image_size=MiB(1),
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1125,10 +1130,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))

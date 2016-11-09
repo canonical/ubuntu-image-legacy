@@ -64,16 +64,17 @@ class ModelAssertionBuilder(State):
             boot_images=self.boot_images,
             bootfs=self.bootfs,
             bootfs_sizes=self.bootfs_sizes,
+            cloud_init=self.cloud_init,
             disk_img=self.disk_img,
+            exitcode=self.exitcode,
             gadget=self.gadget,
+            image_size=self.image_size,
             images=self.images,
             output=self.output,
             root_img=self.root_img,
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
-            image_size=self.image_size,
             unpackdir=self.unpackdir,
-            cloud_init=self.cloud_init,
             )
         return state
 
@@ -83,16 +84,22 @@ class ModelAssertionBuilder(State):
         self.boot_images = state['boot_images']
         self.bootfs = state['bootfs']
         self.bootfs_sizes = state['bootfs_sizes']
+        self.cloud_init = state['cloud_init']
         self.disk_img = state['disk_img']
+        self.exitcode = state['exitcode']
         self.gadget = state['gadget']
+        self.image_size = state['image_size']
         self.images = state['images']
         self.output = state['output']
         self.root_img = state['root_img']
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
-        self.image_size = state['image_size']
         self.unpackdir = state['unpackdir']
-        self.cloud_init = state['cloud_init']
+
+    def _log_exception(self, name):
+        # Only log the exception if we're in debug mode.
+        if self.args.debug:
+            super()._log_exception(name)
 
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self.workdir, 'root')

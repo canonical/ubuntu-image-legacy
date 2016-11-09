@@ -10,7 +10,7 @@ from subprocess import run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
-    GiB, MiB, as_bool, as_size, mkfs_ext4, run, snap, sparse_copy, transform)
+    GiB, MiB, as_bool, as_size, mkfs_ext4, run, snap, sparse_copy)
 from ubuntu_image.testing.helpers import LogCapture
 from unittest import TestCase
 from unittest.mock import patch
@@ -101,12 +101,6 @@ class TestHelpers(TestCase):
     def test_size_min_max_outside_range(self):
         self.assertRaises(ValueError, as_size, 3, min=4, max=8)
         self.assertRaises(ValueError, as_size, 10, min=4, max=8)
-
-    def test_transform(self):
-        @transform(ZeroDivisionError, RuntimeError)
-        def oops():
-            1/0
-        self.assertRaises(RuntimeError, oops)
 
     def test_run(self):
         with ExitStack() as resources:
