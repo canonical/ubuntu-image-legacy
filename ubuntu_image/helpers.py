@@ -84,20 +84,9 @@ def as_size(size, min=0, max=None):
 
 
 def run(command, *, check=True, **args):
-    if isinstance(command, str):
-        if command.startswith('sudo ') and os.getuid() == 0:
-            # Don't try to sudo if we're already root.
-            command = command[5:]
-        if 'shell' in args:
-            runnable_command = command
-        else:
-            runnable_command = command.split()
-    else:
-        if command[0] == 'sudo' and os.getuid() == 0:
-            # Don't try to sudo if we're already root.
-            runnable_command = command[1:]
-        else:
-            runnable_command = command
+    runnable_command = (
+        command.split() if isinstance(command, str) and 'shell' not in args
+        else command)
     stdout = args.pop('stdout', PIPE)
     stderr = args.pop('stderr', PIPE)
     proc = subprocess_run(
