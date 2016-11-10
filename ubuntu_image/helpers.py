@@ -84,9 +84,20 @@ def as_size(size, min=0, max=None):
 
 
 def run(command, *, check=True, **args):
-    runnable_command = (
-        command.split() if isinstance(command, str) and 'shell' not in args
-        else command)
+    if isinstance(command, str):
+        if command.startswith('sudo ') and os.getuid() == 0:
+            # Don't try to sudo if we're already root.
+            command = command[5:]
+        if 'shell' in args:
+            runnable_command = command
+        else:
+            runnable_command = command.split()
+    else:
+        if command[0] == 'sudo' and os.getuid() == 0:
+            # Don't try to sudo if we're already root.
+            runnable_command = command[1:]
+        else:
+            runnable_command = command
     stdout = args.pop('stdout', PIPE)
     stderr = args.pop('stderr', PIPE)
     proc = subprocess_run(
@@ -155,7 +166,7 @@ def mkfs_ext4(img_file, contents_dir, label='writable'):
     proc = run(cmd, check=False)
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
-        return
+        return                                      # pragma: noxenial
     run('mkfs.ext4 -L {} -T default -O uninit_bg {}'.format(label, img_file))
     # Only do this if the directory is non-empty.
     if not os.listdir(contents_dir):
