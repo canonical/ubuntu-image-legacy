@@ -15,10 +15,10 @@ Depends: ubuntu-image, man-db
 Test-Command: tox -e py35
 Depends: @builddeps@, git
 
-Tests: tox -e qa
+Test-Command: tox -e qa
 Depends: @builddeps@, git
 
-Test-Command: coverage.sh
+Tests: coverage.sh
 Depends: @builddeps@, git, lsb-release
 
 Tests: mount
