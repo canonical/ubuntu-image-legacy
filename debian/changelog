@@ -20,6 +20,8 @@ ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
   * Skip some tests which touch the actual store when running without
     network access (e.g. during package build time).
   * Move the __version__ calculation to the package's __init__.py
+  * Parse all YAML integer-like values as strings, and then turn them into
+    integers if necessary during post-processing.  (LP: #1640523)
 
  -- Barry Warsaw <barry@ubuntu.com>  Tue, 08 Nov 2016 17:31:21 -0500
 

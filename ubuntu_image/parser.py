@@ -42,6 +42,9 @@ class StrictLoader(SafeLoader):
 
 StrictLoader.add_constructor(
     'tag:yaml.org,2002:map', StrictLoader.construct_mapping)
+# LP: #1640523
+StrictLoader.add_constructor(
+    'tag:yaml.org,2002:int', StrictLoader.construct_yaml_str)
 
 
 # Decorator for naming the path -as best we can statically- within the
@@ -99,15 +102,6 @@ def Id(v):
     """Coerce to either a hex UUID, a 2-digit hex value."""
     # Yes, we actually do want this function to raise ValueErrors instead of
     # GadgetSpecificationErrors.
-    if isinstance(v, int):
-        # Okay, here's the problem.  If the id value is something like '80' in
-        # the yaml file, the yaml parser will turn that into the decimal
-        # integer 80, but that's really not what we want!  We want it to be
-        # the hex value 0x80.  So we have to turn it back into a string and
-        # allow the 2-digit validation matcher to go from there.
-        if v >= 100 or v < 0:
-            raise ValueError(str(v))
-        v = '{:02d}'.format(v)
     try:
         return UUID(hex=v)
     except ValueError:
@@ -122,15 +116,14 @@ def HybridId(v):
     """Like above, but allows for hybrid Ids."""
     # Yes, we actually do want this function to raise ValueErrors instead of
     # GadgetSpecificationErrors.
-    if isinstance(v, str):
-        code, comma, guid = v.partition(',')
-        if comma == ',':
-            # Two digit hex code must appear before GUID.
-            if len(code) != 2 or len(guid) != 36:
-                raise ValueError(v)
-            hex_code = Id(code)
-            guid_code = Id(guid)
-            return hex_code, guid_code
+    code, comma, guid = v.partition(',')
+    if comma == ',':
+        # Two digit hex code must appear before GUID.
+        if len(code) != 2 or len(guid) != 36:
+            raise ValueError(v)
+        hex_code = Id(code)
+        guid_code = Id(guid)
+        return hex_code, guid_code
     return Id(v)
 
 
