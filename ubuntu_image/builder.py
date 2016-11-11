@@ -1,6 +1,5 @@
 """Flow for building a disk image."""
 
-
 import os
 import shutil
 import logging

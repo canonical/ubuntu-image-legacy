@@ -261,6 +261,8 @@ class TestMainWithBadGadget(TestCase):
         self.model_assertion = resource_filename(
             'ubuntu_image.tests.data', 'model.assertion')
 
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
     def test_bad_gadget_log(self):
         log = self._resources.enter_context(LogCapture())
         workdir = self._resources.enter_context(TemporaryDirectory())
@@ -276,6 +278,8 @@ class TestMainWithBadGadget(TestCase):
             (logging.ERROR, 'Use --debug for more information')
             ])
 
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
     def test_bad_gadget_debug_log(self):
         log = self._resources.enter_context(LogCapture())
         workdir = self._resources.enter_context(TemporaryDirectory())

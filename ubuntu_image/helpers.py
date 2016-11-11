@@ -155,7 +155,7 @@ def mkfs_ext4(img_file, contents_dir, label='writable'):
     proc = run(cmd, check=False)
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
-        return
+        return                                      # pragma: noxenial
     run('mkfs.ext4 -L {} -T default -O uninit_bg {}'.format(label, img_file))
     # Only do this if the directory is non-empty.
     if not os.listdir(contents_dir):
