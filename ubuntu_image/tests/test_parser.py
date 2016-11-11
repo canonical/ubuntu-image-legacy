@@ -856,7 +856,7 @@ volumes:
             'some-value')
         self.assertEqual(
             gadget_spec.defaults['mfq0tsAY']['other-key'],
-            42)
+            '42')
 
 
 class TestParserErrors(TestCase):
