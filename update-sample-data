@@ -15,7 +15,7 @@ test suite significantly faster, but we can still do better.
 
 By doing an off-line run and zip, we can avoid having to hit the store at
 all.  For now, this isn't the default, but if you set the environment variable
-`UBUNTUIMAGE_MOCK_SNAP=always`, it enables the very fast path, where only
+`UBUNTU_UIMAGE_MOCK_SNAP=always`, it enables the very fast path, where only
 sample data is used and the store is never touched.  This also allows you to
 run the test suite without having to sudo (although you still currently need
 sudo to generate the .zip file - `snap prepare-image` will eventually fix

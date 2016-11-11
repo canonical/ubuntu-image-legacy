@@ -1,6 +1,5 @@
 """Allows the package to be run with `python3 -m ubuntu_image`."""
 
-
 import os
 import sys
 import logging
@@ -8,7 +7,7 @@ import argparse
 
 from pickle import dump, load
 from contextlib import suppress
-from pkg_resources import resource_string as resource_bytes
+from ubuntu_image import __version__
 from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.helpers import as_size
 from ubuntu_image.i18n import _
@@ -16,19 +15,6 @@ from ubuntu_image.parser import GadgetSpecificationError
 
 
 _logger = logging.getLogger('ubuntu-image')
-
-# Try to get the version number, which will be different if we're living in a
-# snap world or a deb.  Actually, I'd prefer to not even have the -NubuntuY
-# version string when we're running from source, but that's trickier, so don't
-# worry about it.
-__version__ = os.environ.get('SNAP_VERSION')
-if __version__ is None:                                      # pragma: nocover
-    try:
-        __version__ = resource_bytes(
-            'ubuntu_image', 'version.txt').decode('utf-8')
-    except FileNotFoundError:
-        # Probably, setup.py hasn't been run yet to generate the version.txt.
-        __version__ = 'dev'
 
 
 PROGRAM = 'ubuntu-image'
