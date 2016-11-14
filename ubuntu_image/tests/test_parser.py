@@ -568,23 +568,33 @@ volumes:
             ("Invalid gadget.yaml value 'foobar' @ "
              'volumes:<volume name>:structure:<N>:role'))
 
-    def test_volume_structure_mbr_role_too_big(self):
-        with ExitStack() as resources:
-            cm = resources.enter_context(
-                self.assertRaises(GadgetSpecificationError))
-            parse("""\
+    def test_volume_structure_mbr_role_sizes(self):
+        exception = 'mbr role structures cannot be larger than 446 bytes.'
+        cases = {
+            '445': False,
+            '446': False,
+            '447': True,
+            '1M': True,
+            }
+        for size, raises in cases.items():
+            with ExitStack() as resources:
+                if raises:
+                    cm = resources.enter_context(
+                        self.assertRaises(GadgetSpecificationError))
+                parse("""\
 volumes:
   first-image:
     schema: mbr
     bootloader: u-boot
     structure:
         - type: ef
-          size: 1M
+          size: {}
           role: mbr
-""")
-        self.assertEqual(
-            str(cm.exception),
-            'mbr role structures cannot be larger than 446 bytes.')
+""".format(size))
+            if raises:
+                self.assertEqual(
+                    str(cm.exception),
+                    exception)
 
     def test_volume_structure_mbr_conflicting_schema(self):
         with ExitStack() as resources:
@@ -640,6 +650,40 @@ volumes:
         self.assertEqual(
             str(cm.exception),
             'mbr role must not specify a file system')
+
+    def test_volume_special_type_mbr(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 100
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        self.assertEqual(partition0.type, 'mbr')
+        self.assertEqual(partition0.filesystem, FileSystemType.none)
+
+    def test_volume_special_type_mbr_and_role(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          role: mbr
+          size: 100
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Type mbr and role fields assigned at the same time, please use '
+            'role field only')
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\

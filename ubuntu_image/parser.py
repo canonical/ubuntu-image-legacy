@@ -10,6 +10,7 @@ from operator import attrgetter, methodcaller
 from ubuntu_image.helpers import GiB, MiB, as_size
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
+from warnings import warn
 from yaml import load
 from yaml.loader import SafeLoader
 from yaml.parser import ParserError, ScannerError
@@ -169,7 +170,7 @@ GadgetYAML = Schema({
                 Optional('offset-write'): Any(
                     Coerce(Size32bit), RelativeOffset),
                 Required('size'): Coerce(as_size),
-                Required('type'): Coerce(HybridId),
+                Required('type'): Any('mbr', Coerce(HybridId)),
                 Optional('role'): Enumify(
                     StructureRole,
                     preprocessor=methodcaller('replace', '-', '_')),
@@ -320,6 +321,16 @@ def parse(stream_or_string):
             # allowed for either schema, but GUID-only is only allowed for GPT,
             # while 2-digit-only is only allowed for MBR roles.
             # Note too that 2-item tuples are also already ensured.
+            # We also still support the deprecated special type 'mbr' for
+            # legacy purposes, but issue a warning
+            if structure_type == 'mbr':
+                warn('Structure type mbr is deprecated, please use structure '
+                     'roles instead', DeprecationWarning)
+                if structure_role:
+                    raise GadgetSpecificationError(
+                        'Type mbr and role fields assigned at the same time, '
+                        'please use role field only')
+                structure_role = StructureRole.mbr
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
                 raise GadgetSpecificationError(
