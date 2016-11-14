@@ -59,21 +59,15 @@ def straight_up_bytes(count):
 
 
 def as_size(size, min=0, max=None):
-    # Check for int-ness and just return what you get if so.  YAML parsers
-    # will turn values like '108' into ints automatically, but voluptuous will
-    # always try to coerce the value to an as_size.
-    if isinstance(size, int):
-        value = size
-    else:
-        mo = re.match('(\d+)([a-zA-Z]*)', size)
-        if mo is None:
-            raise ValueError(size)
-        size_in_bytes = mo.group(1)
-        value = {
-            '': straight_up_bytes,
-            'G': GiB,
-            'M': MiB,
-            }[mo.group(2)](int(size_in_bytes))
+    mo = re.match('(\d+)([a-zA-Z]*)', size)
+    if mo is None:
+        raise ValueError(size)
+    size_in_bytes = mo.group(1)
+    value = {
+        '': straight_up_bytes,
+        'G': GiB,
+        'M': MiB,
+        }[mo.group(2)](int(size_in_bytes))
     if max is None:
         if value < min:
             raise ValueError('Value outside range: {} < {}'.format(value, min))
@@ -155,7 +149,7 @@ def mkfs_ext4(img_file, contents_dir, label='writable'):
     proc = run(cmd, check=False)
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
-        return
+        return                                      # pragma: noxenial
     run('mkfs.ext4 -L {} -T default -O uninit_bg {}'.format(label, img_file))
     # Only do this if the directory is non-empty.
     if not os.listdir(contents_dir):

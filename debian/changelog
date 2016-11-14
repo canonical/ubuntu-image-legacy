@@ -2,6 +2,26 @@ ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
 
   * Provide human-readable error messages on gadget.yaml parser failures,
     not Python tracebacks (unless --debug is given).  (LP: #1617421)
+  * Change the way we invoke the autopkgtests.
+    - Use a standard d/t/control file instead of d/t/control.autodep8.  We
+      were only using the Python 3 import test anyway.
+    - Add an import.sh stanza to reproduce the Python 3 import bits we
+      lost by removing autodep8.
+    - Turn the `tox -e coverage` Test-Command into a separate test
+      script so that we can manipulate the $UBUNTU_IMAGE_CODENAME
+      environment variable.  This is used by tox.ini to select an
+      appropriate *-coverage.ini file since Xenial does not and cannot
+      cover certain code paths.  Everything after Xenial gets named 'devel'.
+    - Narrow the dependencies so that they aren't just importing all
+      binary packages.  The effects may be similar, but EIBTI.
+  * d/control: Drop Testsuite header; we're not doing autodep8 anymore.
+  * Rename the environment variable $UBUNTUIMAGE_MOCK_SNAP to
+    $UBUNTU_IMAGE_MOCK_SNAP for consistency.
+  * Skip some tests which touch the actual store when running without
+    network access (e.g. during package build time).
+  * Move the __version__ calculation to the package's __init__.py
+  * Parse all YAML integer-like values as strings, and then turn them into
+    integers if necessary during post-processing.  (LP: #1640523)
 
  -- Barry Warsaw <barry@ubuntu.com>  Tue, 08 Nov 2016 17:31:21 -0500
 
