@@ -149,6 +149,22 @@ def RelativeOffset(v):
     return label, Size32bit(offset)
 
 
+def YAMLFormat(v):
+    """Verify supported gadget.yaml format versions."""
+    # Allow ValueError to percolate up.
+    unsupported = False
+    try:
+        value = int(v)
+    except ValueError:
+        unsupported = True
+    else:
+        unsupported = (value != 0)
+    if unsupported:
+        raise GadgetSpecificationError(
+            'Unsupported gadget.yaml format version: {}'.format(v))
+    return value
+
+
 GadgetYAML = Schema({
     Optional('defaults'): {
         Match('^[a-zA-Z0-9]+$'): {
@@ -157,6 +173,7 @@ GadgetYAML = Schema({
     },
     Optional('device-tree-origin', default='gadget'): str,
     Optional('device-tree'): str,
+    Optional('format'): YAMLFormat,
     Required('volumes'): {
         Match('^[-a-zA-Z0-9]+$'): Schema({
             Optional('schema', default=VolumeSchema.gpt):
@@ -255,6 +272,7 @@ class GadgetSpec:
     device_tree = attr.ib()
     volumes = attr.ib()
     defaults = attr.ib()
+    format = attr.ib()
 
 
 def parse(stream_or_string):
@@ -295,6 +313,7 @@ def parse(stream_or_string):
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
     defaults = validated.get('defaults')
+    format = validated.get('format')
     volume_specs = {}
     bootloader_seen = False
     # This item is a dictionary so it can't possibly have duplicate keys.
@@ -415,4 +434,5 @@ def parse(stream_or_string):
             last_end = part.offset + part.size
     if not bootloader_seen:
         raise GadgetSpecificationError('No bootloader structure named')
-    return GadgetSpec(device_tree_origin, device_tree, volume_specs, defaults)
+    return GadgetSpec(device_tree_origin, device_tree, volume_specs,
+                      defaults, format)
