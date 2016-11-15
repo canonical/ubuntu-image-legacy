@@ -324,8 +324,8 @@ def parse(stream_or_string):
             # We also still support the deprecated special type 'mbr' for
             # legacy purposes, but issue a warning
             if structure_type == 'mbr':
-                warn('Structure type mbr is deprecated, please use structure '
-                     'roles instead', DeprecationWarning)
+                warn("volumes:<volume name>:structure:<N>:type = 'mbr' is "
+                     'deprecated; use role instead', DeprecationWarning)
                 if structure_role:
                     raise GadgetSpecificationError(
                         'Type mbr and role fields assigned at the same time, '
