@@ -334,12 +334,12 @@ def parse(stream_or_string):
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
                 raise GadgetSpecificationError(
-                    'MBR structure type with non-MBR schema')
+                    'GUID structure type with non-GPT schema')
             elif (isinstance(structure_type, str) and
                     structure_role is not StructureRole.mbr and
                     schema is not VolumeSchema.mbr):
                 raise GadgetSpecificationError(
-                    'GUID structure type with non-GPT schema')
+                    'MBR structure type with non-MBR schema')
             # Check for implicit vs. explicit partition offset.
             if offset is None:
                 # XXX: Ensure the special case of the 'mbr' type doesn't
