@@ -1018,6 +1018,29 @@ volumes:
             gadget_spec.defaults['mfq0tsAY']['other-key'],
             '42')
 
+    def test_parser_format_version(self):
+        gadget_spec = parse("""\
+format: 0
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(gadget_spec.format, 0)
+
+    def test_parser_format_version_legacy(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertIsNone(gadget_spec.format)
+
 
 class TestParserErrors(TestCase):
     # Test corner cases, as well as YAML, schema, and specification violations.
@@ -1639,6 +1662,54 @@ volumes:
             str(cm.exception),
             ('Invalid gadget.yaml @ '
              'volumes:first-image:structure:0:content:0:image'))
+
+    def test_parser_format_version_error(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+format: 1
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'Unsupported gadget.yaml format version: 1')
+
+    def test_parser_format_version_negative(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+format: -1
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'Unsupported gadget.yaml format version: -1')
+
+    def test_parser_format_version_bogus(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+format: bogus
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        self.assertEqual(str(cm.exception),
+                         'Unsupported gadget.yaml format version: bogus')
 
 
 class TestPartOrder(TestCase):
