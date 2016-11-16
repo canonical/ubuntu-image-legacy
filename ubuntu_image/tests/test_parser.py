@@ -596,23 +596,6 @@ volumes:
                     str(cm.exception),
                     exception)
 
-    def test_volume_structure_mbr_conflicting_schema(self):
-        with ExitStack() as resources:
-            cm = resources.enter_context(
-                self.assertRaises(GadgetSpecificationError))
-            parse("""\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: ef
-          size: 100
-          role: mbr
-""")
-        self.assertEqual(
-            str(cm.exception),
-            'mbr role with non-MBR volume schema')
-
     def test_volume_structure_mbr_conflicting_id(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
@@ -649,7 +632,7 @@ volumes:
 """)
         self.assertEqual(
             str(cm.exception),
-            'mbr role must not specify a file system')
+            'mbr structure must not specify a file system')
 
     def test_volume_special_type_mbr(self):
         gadget_spec = parse("""\
@@ -684,6 +667,24 @@ volumes:
             str(cm.exception),
             'Type mbr and role fields assigned at the same time, please use '
             'role field only')
+
+    def test_volume_special_type_mbr_and_filesystem(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 100
+          filesystem: ext4
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'mbr structure must not specify a file system')
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\
@@ -1059,7 +1060,7 @@ volumes:
           size: 400M
 """)
         self.assertEqual(str(cm.exception),
-                         'GUID structure type with non-GPT schema')
+                         'MBR structure type with non-MBR')
 
     def test_explicit_gpt_with_two_digit_type(self):
         with ExitStack() as resources:
@@ -1075,7 +1076,7 @@ volumes:
           size: 400M
 """)
         self.assertEqual(str(cm.exception),
-                         'GUID structure type with non-GPT schema')
+                         'MBR structure type with non-MBR')
 
     def test_mbr_with_guid_type(self):
         with ExitStack() as resources:
@@ -1091,7 +1092,7 @@ volumes:
           size: 400M
 """)
         self.assertEqual(str(cm.exception),
-                         'MBR structure type with non-MBR schema')
+                         'GUID structure type with non-GPT')
 
     def test_mbr_with_bogus_type(self):
         with ExitStack() as resources:
