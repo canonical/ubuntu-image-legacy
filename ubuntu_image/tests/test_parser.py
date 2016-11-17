@@ -3,7 +3,8 @@
 from contextlib import ExitStack
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, GadgetSpecificationError, VolumeSchema, parse)
+    BootLoader, FileSystemType, GadgetSpecificationError, StructureRole,
+    VolumeSchema, parse)
 from unittest import TestCase
 from uuid import UUID
 
@@ -308,21 +309,7 @@ volumes:
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.size, MiB(3))
 
-    def test_mbr_structure(self):
-        gadget_spec = parse("""\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: mbr
-          size: 400M
-""")
-        volume0 = gadget_spec.volumes['first-image']
-        partition0 = volume0.structures[0]
-        self.assertEqual(partition0.type, 'mbr')
-        self.assertEqual(partition0.filesystem, FileSystemType.none)
-
-    def test_mbr_structure_conflicting_id(self):
+    def test_no_size(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
@@ -331,28 +318,11 @@ volumes:
   first-image:
     bootloader: u-boot
     structure:
-        - type: mbr
-          size: 400M
-          id: 00000000-0000-0000-0000-0000deadbeef
+        - type: 00000000-0000-0000-0000-0000deadbeef
 """)
-        self.assertEqual(str(cm.exception),
-                         'mbr type must not specify partition id')
-
-    def test_mbr_structure_conflicting_filesystem(self):
-        with ExitStack() as resources:
-            cm = resources.enter_context(
-                self.assertRaises(GadgetSpecificationError))
-            parse("""\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: mbr
-          size: 400M
-          filesystem: ext4
-""")
-        self.assertEqual(str(cm.exception),
-                         'mbr type must not specify a file system')
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml @ volumes:first-image:structure:0:size')
 
     def test_bad_hybrid_volume_type_1(self):
         with ExitStack() as resources:
@@ -525,6 +495,197 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.filesystem, FileSystemType.none)
+
+    def test_volume_filesystem_bad(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+          filesystem: zfs
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ("Invalid gadget.yaml value 'zfs' @ "
+             'volumes:<volume name>:structure:<N>:filesystem'))
+
+    def test_volume_structure_role(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          role: system-boot
+  third-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 300
+          role: system-data
+  fourth-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 400
+""")
+        self.assertEqual(len(gadget_spec.volumes), 4)
+        self.assertEqual({
+            'first-image': StructureRole.mbr,
+            'second-image': StructureRole.system_boot,
+            'third-image': StructureRole.system_data,
+            'fourth-image': None,
+            },
+            {key: gadget_spec.volumes[key].structures[0].role
+             for key in gadget_spec.volumes}
+            )
+
+    def test_volume_structure_invalid_role(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 100
+          role: foobar
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ("Invalid gadget.yaml value 'foobar' @ "
+             'volumes:<volume name>:structure:<N>:role'))
+
+    def test_volume_structure_mbr_role_sizes(self):
+        exception = 'mbr structures cannot be larger than 446 bytes.'
+        cases = {
+            '445': False,
+            '446': False,
+            '447': True,
+            '1M': True,
+            }
+        for size, raises in cases.items():
+            with ExitStack() as resources:
+                if raises:
+                    cm = resources.enter_context(
+                        self.assertRaises(GadgetSpecificationError))
+                parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: {}
+          role: mbr
+""".format(size))
+            if raises:
+                self.assertEqual(
+                    str(cm.exception),
+                    exception)
+
+    def test_volume_structure_mbr_conflicting_id(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          role: mbr
+          size: 100
+          id: 00000000-0000-0000-0000-0000deadbeef
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'mbr structures must not specify partition id')
+
+    def test_volume_structure_mbr_conflicting_filesystem(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          role: mbr
+          size: 100
+          filesystem: ext4
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'mbr structures must not specify a file system')
+
+    def test_volume_special_type_mbr(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 100
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition0 = volume0.structures[0]
+        self.assertEqual(partition0.type, 'mbr')
+        self.assertEqual(partition0.role, StructureRole.mbr)
+        self.assertEqual(partition0.filesystem, FileSystemType.none)
+
+    def test_volume_special_type_mbr_and_role(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          role: mbr
+          size: 100
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Type mbr and role fields assigned at the same time, please use '
+            'the mbr role instead')
+
+    def test_volume_special_type_mbr_and_filesystem(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: mbr
+          size: 100
+          filesystem: ext4
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'mbr structures must not specify a file system')
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\
@@ -1262,22 +1423,6 @@ volumes:
         self.assertEqual(
             str(cm.exception),
             'Invalid gadget.yaml @ volumes:first-image:structure:0:size')
-
-    def test_mbr_structure_conflicting_filesystem(self):
-        with ExitStack() as resources:
-            cm = resources.enter_context(
-                self.assertRaises(GadgetSpecificationError))
-            parse("""\
-volumes:
-  first-image:
-    bootloader: u-boot
-    structure:
-        - type: mbr
-          size: 400M
-          filesystem: ext4
-""")
-        self.assertEqual(str(cm.exception),
-                         'mbr type must not specify a file system')
 
     def test_bad_hybrid_volume_type_1(self):
         with ExitStack() as resources:
