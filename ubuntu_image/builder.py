@@ -380,7 +380,7 @@ class ModelAssertionBuilder(State):
         volume = list(volumes)[0]
         # XXX: This ought to be a single constructor that figures out the
         # class for us when we pass in the schema.
-        if volume.schema == VolumeSchema.mbr:
+        if volume.schema is VolumeSchema.mbr:
             image = MBRImage(self.disk_img, self.image_size)
         else:
             image = Image(self.disk_img, self.image_size)

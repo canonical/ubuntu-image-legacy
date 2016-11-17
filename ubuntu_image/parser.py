@@ -42,6 +42,9 @@ class StrictLoader(SafeLoader):
 
 StrictLoader.add_constructor(
     'tag:yaml.org,2002:map', StrictLoader.construct_mapping)
+# LP: #1640523
+StrictLoader.add_constructor(
+    'tag:yaml.org,2002:int', StrictLoader.construct_yaml_str)
 
 
 # Decorator for naming the path -as best we can statically- within the
@@ -99,15 +102,6 @@ def Id(v):
     """Coerce to either a hex UUID, a 2-digit hex value."""
     # Yes, we actually do want this function to raise ValueErrors instead of
     # GadgetSpecificationErrors.
-    if isinstance(v, int):
-        # Okay, here's the problem.  If the id value is something like '80' in
-        # the yaml file, the yaml parser will turn that into the decimal
-        # integer 80, but that's really not what we want!  We want it to be
-        # the hex value 0x80.  So we have to turn it back into a string and
-        # allow the 2-digit validation matcher to go from there.
-        if v >= 100 or v < 0:
-            raise ValueError(str(v))
-        v = '{:02d}'.format(v)
     try:
         return UUID(hex=v)
     except ValueError:
@@ -122,15 +116,14 @@ def HybridId(v):
     """Like above, but allows for hybrid Ids."""
     # Yes, we actually do want this function to raise ValueErrors instead of
     # GadgetSpecificationErrors.
-    if isinstance(v, str):
-        code, comma, guid = v.partition(',')
-        if comma == ',':
-            # Two digit hex code must appear before GUID.
-            if len(code) != 2 or len(guid) != 36:
-                raise ValueError(v)
-            hex_code = Id(code)
-            guid_code = Id(guid)
-            return hex_code, guid_code
+    code, comma, guid = v.partition(',')
+    if comma == ',':
+        # Two digit hex code must appear before GUID.
+        if len(code) != 2 or len(guid) != 36:
+            raise ValueError(v)
+        hex_code = Id(code)
+        guid_code = Id(guid)
+        return hex_code, guid_code
     return Id(v)
 
 
@@ -148,6 +141,22 @@ def RelativeOffset(v):
     return label, Size32bit(offset)
 
 
+def YAMLFormat(v):
+    """Verify supported gadget.yaml format versions."""
+    # Allow ValueError to percolate up.
+    unsupported = False
+    try:
+        value = int(v)
+    except ValueError:
+        unsupported = True
+    else:
+        unsupported = (value != 0)
+    if unsupported:
+        raise GadgetSpecificationError(
+            'Unsupported gadget.yaml format version: {}'.format(v))
+    return value
+
+
 GadgetYAML = Schema({
     Optional('defaults'): {
         Match('^[a-zA-Z0-9]+$'): {
@@ -156,6 +165,7 @@ GadgetYAML = Schema({
     },
     Optional('device-tree-origin', default='gadget'): str,
     Optional('device-tree'): str,
+    Optional('format'): YAMLFormat,
     Required('volumes'): {
         Match('^[-a-zA-Z0-9]+$'): Schema({
             Optional('schema', default=VolumeSchema.gpt):
@@ -250,6 +260,7 @@ class GadgetSpec:
     device_tree = attr.ib()
     volumes = attr.ib()
     defaults = attr.ib()
+    format = attr.ib()
 
 
 def parse(stream_or_string):
@@ -290,6 +301,7 @@ def parse(stream_or_string):
     device_tree_origin = validated.get('device-tree-origin')
     device_tree = validated.get('device-tree')
     defaults = validated.get('defaults')
+    format = validated.get('format')
     volume_specs = {}
     bootloader_seen = False
     # This item is a dictionary so it can't possibly have duplicate keys.
@@ -391,4 +403,5 @@ def parse(stream_or_string):
             last_end = part.offset + part.size
     if not bootloader_seen:
         raise GadgetSpecificationError('No bootloader structure named')
-    return GadgetSpec(device_tree_origin, device_tree, volume_specs, defaults)
+    return GadgetSpec(device_tree_origin, device_tree, volume_specs,
+                      defaults, format)
