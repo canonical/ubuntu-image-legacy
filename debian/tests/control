@@ -23,4 +23,4 @@ Depends: @builddeps@, git, lsb-release
 
 Tests: mount
 Restrictions: needs-root, allow-stderr
-Depends: @, kpartx, ca-certificates, grub-common
+Depends: @, kpartx

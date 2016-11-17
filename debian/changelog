@@ -26,6 +26,8 @@ ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
     version number supported by the gadget.yaml.  Currently only format 0
     is supported, which is a legacy version (omitting the format is
     equivalent).  (LP: #1638926)
+  * d/control: Add run-time dependencies which are missing from snapd but
+    are required for `snap prepare-image`.  (LP: #1642427)
 
  -- Barry Warsaw <barry@ubuntu.com>  Tue, 08 Nov 2016 17:31:21 -0500
 
