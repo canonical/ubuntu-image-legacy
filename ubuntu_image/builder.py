@@ -112,7 +112,7 @@ class ModelAssertionBuilder(State):
     def prepare_image(self):
         try:
             snap(self.args.model_assertion, self.unpackdir,
-                 self.args.channel, self.args.extra_snaps)
+                 self.args.channel, self.args.extra_snaps, self.args.devmode)
         except CalledProcessError:
             if self.args.debug:
                 _logger.exception('Full debug traceback follows')

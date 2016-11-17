@@ -52,7 +52,7 @@ class MockerBase:
         self.patcher = patch('ubuntu_image.builder.snap', self.snap_mock)
 
     def snap_mock(self, model_assertion, root_dir,
-                  channel=None, extra_snaps=None):
+                  channel=None, extra_snaps=None, devmode=None):
         raise NotImplementedError
 
     def _checksum(self, model_assertion, channel):
@@ -76,7 +76,7 @@ class MockerBase:
 
 class SecondAndOnwardMock(MockerBase):
     def snap_mock(self, model_assertion, root_dir,
-                  channel=None, extra_snaps=None):
+                  channel=None, extra_snaps=None, devmode=None):
         run_tmp = os.path.join(
             self._tmpdir,
             self._checksum(model_assertion, channel))
@@ -94,7 +94,7 @@ class SecondAndOnwardMock(MockerBase):
 
 class AlwaysMock(MockerBase):
     def snap_mock(self, model_assertion, root_dir,
-                  channel=None, extra_snaps=None):
+                  channel=None, extra_snaps=None, devmode=None):
         zipfile = resource_filename(
             'ubuntu_image.tests.data',
             '{}.zip'.format(self._checksum(model_assertion, channel)))

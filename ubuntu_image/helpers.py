@@ -98,7 +98,8 @@ def run(command, *, check=True, **args):
     return proc
 
 
-def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
+def snap(model_assertion, root_dir, channel=None, extra_snaps=None,
+         devmode=False):
     snap_cmd = os.environ.get('UBUNTU_IMAGE_SNAP_CMD', 'snap')
     # Create a list of the command arguments to run.  We do it this way rather
     # than just .format() into a template string in order to have a more
@@ -107,6 +108,8 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
     arg_list = [snap_cmd, 'prepare-image']
     if channel is not None:
         arg_list.append('--channel={}'.format(channel))
+    if devmode:
+        arg_list.append('--devmode')
     # Fails if extra_snaps is None or the empty list.
     if extra_snaps:
         arg_list.append(SPACE.join('--extra-snaps={}'.format(extra)

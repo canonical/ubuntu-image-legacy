@@ -76,6 +76,10 @@ def parseargs(argv=None):
         help=_("""Extra snaps to install.  This is passed through to `snap
         prepare-image`."""))
     snap_group.add_argument(
+        '--devmode',
+        default=False, action='store_true',
+        help=_("""Tell snap prepare-image to allow devmode snaps."""))
+    snap_group.add_argument(
         '--cloud-init',
         default=None, metavar='USER-DATA-FILE',
         help=_('cloud-config data to be copied to the image'))
