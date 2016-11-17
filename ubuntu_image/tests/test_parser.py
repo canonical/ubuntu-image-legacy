@@ -647,6 +647,7 @@ volumes:
         volume0 = gadget_spec.volumes['first-image']
         partition0 = volume0.structures[0]
         self.assertEqual(partition0.type, 'mbr')
+        self.assertEqual(partition0.role, StructureRole.mbr)
         self.assertEqual(partition0.filesystem, FileSystemType.none)
 
     def test_volume_special_type_mbr_and_role(self):
@@ -1083,7 +1084,7 @@ volumes:
           size: 400M
 """)
         self.assertEqual(str(cm.exception),
-                         'MBR structure type with non-MBR schema')
+                         'GUID structure type with non-GPT schema')
 
     def test_explicit_gpt_with_two_digit_type(self):
         with ExitStack() as resources:
@@ -1099,7 +1100,7 @@ volumes:
           size: 400M
 """)
         self.assertEqual(str(cm.exception),
-                         'MBR structure type with non-MBR schema')
+                         'GUID structure type with non-GPT schema')
 
     def test_mbr_with_guid_type(self):
         with ExitStack() as resources:
@@ -1115,7 +1116,7 @@ volumes:
           size: 400M
 """)
         self.assertEqual(str(cm.exception),
-                         'GUID structure type with non-GPT schema')
+                         'MBR structure type with non-MBR schema')
 
     def test_mbr_with_bogus_type(self):
         with ExitStack() as resources:
