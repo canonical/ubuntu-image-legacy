@@ -343,12 +343,12 @@ def parse(stream_or_string):
             # We also still support the deprecated special type 'mbr' for
             # legacy purposes, but issue a warning
             if structure_type == 'mbr':
-                warn("volumes:<volume name>:structure:<N>:type = 'mbr' is "
-                     'deprecated; use role instead', DeprecationWarning)
                 if structure_role:
                     raise GadgetSpecificationError(
                         'Type mbr and role fields assigned at the same time, '
                         'please use the mbr role instead')
+                warn("volumes:<volume name>:structure:<N>:type = 'mbr' is "
+                     'deprecated; use role instead', DeprecationWarning)
                 structure_role = StructureRole.mbr
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
