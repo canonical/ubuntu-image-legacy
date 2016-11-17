@@ -20,7 +20,7 @@ Build-Depends: debhelper (>= 9),
                python3-voluptuous,
                python3-yaml,
                snapd (>= 2.0.11~ppa0),
-               tox
+               tox,
 Standards-Version: 3.9.8
 Homepage: http://launchpad.net/ubuntu-image
 
@@ -28,7 +28,7 @@ Package: ubuntu-image
 Architecture: all
 Depends: python3-ubuntu-image (= ${binary:Version}),
          ${misc:Depends},
-         ${python3:Depends}
+         ${python3:Depends},
 Description: toolkit for building Ubuntu images.
  .
  This package contains the ubuntu-image program.
@@ -48,7 +48,7 @@ Depends: ca-certificates,
          python3-yaml,
          snapd,
          ${misc:Depends},
-         ${python3:Depends}
+         ${python3:Depends},
 Description: toolkit for building Ubuntu images
  .
  This package contains the ubuntu-image library for Python 3.
