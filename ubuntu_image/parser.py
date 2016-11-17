@@ -333,8 +333,6 @@ def parse(stream_or_string):
             size = structure['size']
             structure_type = structure['type']
             structure_role = structure.get('role')
-            is_mbr = \
-                structure_type == 'mbr' or structure_role is StructureRole.mbr
             # Validate structure types and roles. These can be either GUIDs,
             # two hex digits or hybrids.  The basic syntactic validation
             # happens above in the Voluptuous schema, but here we need to
@@ -350,13 +348,14 @@ def parse(stream_or_string):
                 if structure_role:
                     raise GadgetSpecificationError(
                         'Type mbr and role fields assigned at the same time, '
-                        'please use role field only')
+                        'please use the mbr role instead')
+                structure_role = StructureRole.mbr
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
                 raise GadgetSpecificationError(
                     'GUID structure type with non-GPT schema')
             elif (isinstance(structure_type, str) and
-                    not is_mbr and
+                    structure_role is not StructureRole.mbr and
                     schema is not VolumeSchema.mbr):
                 raise GadgetSpecificationError(
                     'MBR structure type with non-MBR schema')
@@ -365,7 +364,6 @@ def parse(stream_or_string):
                 # XXX: Ensure the special case of the 'mbr' type doesn't
                 # extend beyond the confines of the mbr.
                 if (structure_role is not StructureRole.mbr and
-                        structure_type is not 'mbr' and
                         last_offset < MiB(1)):
                     offset = MiB(1)
                 else:
@@ -377,17 +375,13 @@ def parse(stream_or_string):
             if structure_role is StructureRole.mbr:
                 if size > 446:
                     raise GadgetSpecificationError(
-                        'mbr role structures cannot be larger than 446 bytes.')
-                if schema is not VolumeSchema.mbr:
-                    raise GadgetSpecificationError(
-                        'mbr role with non-MBR volume schema')
+                        'mbr structures cannot be larger than 446 bytes.')
                 if structure_id is not None:
                     raise GadgetSpecificationError(
-                        'mbr role must not specify partition id')
-            if (is_mbr and
-                    filesystem is not FileSystemType.none):
-                raise GadgetSpecificationError(
-                    'mbr structure must not specify a file system')
+                        'mbr structures must not specify partition id')
+                if filesystem is not FileSystemType.none:
+                    raise GadgetSpecificationError(
+                        'mbr structures must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed

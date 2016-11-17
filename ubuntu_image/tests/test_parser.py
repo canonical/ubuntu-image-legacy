@@ -569,7 +569,7 @@ volumes:
              'volumes:<volume name>:structure:<N>:role'))
 
     def test_volume_structure_mbr_role_sizes(self):
-        exception = 'mbr role structures cannot be larger than 446 bytes.'
+        exception = 'mbr structures cannot be larger than 446 bytes.'
         cases = {
             '445': False,
             '446': False,
@@ -613,7 +613,7 @@ volumes:
 """)
         self.assertEqual(
             str(cm.exception),
-            'mbr role must not specify partition id')
+            'mbr structures must not specify partition id')
 
     def test_volume_structure_mbr_conflicting_filesystem(self):
         with ExitStack() as resources:
@@ -632,7 +632,7 @@ volumes:
 """)
         self.assertEqual(
             str(cm.exception),
-            'mbr structure must not specify a file system')
+            'mbr structures must not specify a file system')
 
     def test_volume_special_type_mbr(self):
         gadget_spec = parse("""\
@@ -666,7 +666,7 @@ volumes:
         self.assertEqual(
             str(cm.exception),
             'Type mbr and role fields assigned at the same time, please use '
-            'role field only')
+            'the mbr role instead')
 
     def test_volume_special_type_mbr_and_filesystem(self):
         with ExitStack() as resources:
@@ -684,7 +684,7 @@ volumes:
 """)
         self.assertEqual(
             str(cm.exception),
-            'mbr structure must not specify a file system')
+            'mbr structures must not specify a file system')
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\
