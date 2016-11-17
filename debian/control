@@ -6,6 +6,7 @@ Build-Depends: debhelper (>= 9),
                dh-python,
                dosfstools,
                gdisk,
+               grub-common,
                mtools,
                python3-all,
                python3-attr,
@@ -19,8 +20,7 @@ Build-Depends: debhelper (>= 9),
                python3-voluptuous,
                python3-yaml,
                snapd (>= 2.0.11~ppa0),
-               grub-common,
-               tox,
+               tox
 Standards-Version: 3.9.8
 Homepage: http://launchpad.net/ubuntu-image
 
@@ -28,7 +28,7 @@ Package: ubuntu-image
 Architecture: all
 Depends: python3-ubuntu-image (= ${binary:Version}),
          ${misc:Depends},
-         ${python3:Depends},
+         ${python3:Depends}
 Description: toolkit for building Ubuntu images.
  .
  This package contains the ubuntu-image program.
@@ -36,8 +36,10 @@ Description: toolkit for building Ubuntu images.
 Package: python3-ubuntu-image
 Architecture: all
 Section: python
-Depends: dosfstools,
+Depends: ca-certificates,
+         dosfstools,
          gdisk,
+         grub-common,
          mtools (>= 4.0.18-2ubuntu0),
          python3-attr,
          python3-pkg-resources,
@@ -46,7 +48,7 @@ Depends: dosfstools,
          python3-yaml,
          snapd,
          ${misc:Depends},
-         ${python3:Depends},
+         ${python3:Depends}
 Description: toolkit for building Ubuntu images
  .
  This package contains the ubuntu-image library for Python 3.
