@@ -135,7 +135,7 @@ class ModelAssertionBuilder(State):
         dst = os.path.join(self.rootfs, 'system-data')
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
-            # /boot which goos to the boot partition.
+            # /boot which goes to the boot partition.
             if subdir != 'boot':
                 shutil.move(os.path.join(src, subdir),
                             os.path.join(dst, subdir))
