@@ -1781,7 +1781,8 @@ volumes:
                 ])
 
     def test_explicit_offset_ordering(self):
-        # All of the structures have an offset, so they get ordered that way.
+        # All of the structures have an offset, specified in an order that
+        # does not match their partitioning order.
         gadget_spec = parse("""\
 volumes:
   first:
@@ -1804,10 +1805,10 @@ volumes:
         parts = gadget_spec.volumes['first'].structures
         self.assertEqual(
             [(part.type, part.offset) for part in parts], [
-                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
-                (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(200)),
                 (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
+                (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(200)),
                 (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(1200)),
+                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
                 ])
 
     def test_mixed_offset_ordering(self):
@@ -1834,8 +1835,8 @@ volumes:
         parts = gadget_spec.volumes['first'].structures
         self.assertEqual(
             [(part.type, part.offset) for part in parts], [
-                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
+                (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
                 (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(200)),
                 (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(700)),
-                (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
+                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
                 ])

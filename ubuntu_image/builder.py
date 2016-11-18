@@ -386,7 +386,7 @@ class ModelAssertionBuilder(State):
             image = Image(self.disk_img, self.image_size)
         offset_writes = []
         part_offsets = {}
-        next_offset = 1
+        root_offset = 0
         for i, part in enumerate(volume.structures):
             if part.name is not None:
                 part_offsets[part.name] = part.offset
@@ -415,17 +415,20 @@ class ModelAssertionBuilder(State):
                 partition_args['change_name'] = part.name
             image.partition(part_id, **partition_args)
             part_id += 1
-            next_offset = (part.offset + part.size) // MiB(1)
-        # Create main snappy writable partition as the last partition.
+            # Put the rootfs after the farthest out structure, which may not
+            # be the last named structure in the gadget.yaml.
+            root_offset = max(root_offset, (part.offset + part.size) // MiB(1))
+        # Create and write the main snappy writable partition (i.e. rootfs) as
+        # the last partition.
         image.partition(
             part_id,
-            new='{}M:+{}K'.format(next_offset, ceil(self.rootfs_size / 1024)),
+            new='{}M:+{}K'.format(root_offset, ceil(self.rootfs_size / 1024)),
             typecode=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
         if volume.schema is VolumeSchema.gpt:
             image.partition(part_id, change_name='writable')
         image.copy_blob(
             self.root_img,
-            bs='1M', seek=next_offset,
+            bs='1M', seek=root_offset,
             count=ceil(self.rootfs_size / MiB(1)),
             conv='notrunc')
         for value, dest in offset_writes:

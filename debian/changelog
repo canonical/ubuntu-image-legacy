@@ -1,5 +1,10 @@
 ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
 
+  * Revert previous change which sorted structure volumes by their
+    offset.  Instead, we preserve gadget.yaml order for purposes of
+    partition numbering, but we still provide implicit offsets when they
+    are missing, and we still sanity check for partition overlap.
+    (LP: #1642999)
   * Provide human-readable error messages on gadget.yaml parser failures,
     not Python tracebacks (unless --debug is given).  (LP: #1617421)
   * Change the way we invoke the autopkgtests.
