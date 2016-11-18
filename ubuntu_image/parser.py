@@ -350,6 +350,12 @@ def parse(stream_or_string):
                 warn("volumes:<volume name>:structure:<N>:type = 'mbr' is "
                      'deprecated; use role instead', DeprecationWarning)
                 structure_role = StructureRole.mbr
+            # For now, the structure type value can be of several Python
+            # types. 1) a UUID for GPT schemas; 2) a 2-letter str for MBR
+            # schemas; 3) a 2-tuple of #1 and #2 for mixed schemas; 4) the
+            # special string 'mbr' which can appear for either GPT or MBR
+            # schemas.  #4 is deprecated and will eventually go away.  What
+            # we're doing here is some simple validation of #1 and #2.
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
                 raise GadgetSpecificationError(
@@ -361,8 +367,6 @@ def parse(stream_or_string):
                     'GUID structure type with non-GPT schema')
             # Check for implicit vs. explicit partition offset.
             if offset is None:
-                # XXX: Ensure the special case of the 'mbr' type doesn't
-                # extend beyond the confines of the mbr.
                 if (structure_role is not StructureRole.mbr and
                         last_offset < MiB(1)):
                     offset = MiB(1)
@@ -376,6 +380,9 @@ def parse(stream_or_string):
                 if size > 446:
                     raise GadgetSpecificationError(
                         'mbr structures cannot be larger than 446 bytes.')
+                if offset != 0:
+                    raise GadgetSpecificationError(
+                        'mbr structure must start at offset 0')
                 if structure_id is not None:
                     raise GadgetSpecificationError(
                         'mbr structures must not specify partition id')

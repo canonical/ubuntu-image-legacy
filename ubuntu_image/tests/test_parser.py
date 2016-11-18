@@ -1712,6 +1712,41 @@ volumes:
         self.assertEqual(str(cm.exception),
                          'Unsupported gadget.yaml format version: bogus')
 
+    def test_mbr_structure_not_at_offset_zero_explicit(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - role: mbr
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 446
+          offset: 10
+""")
+        self.assertEqual(str(cm.exception),
+                         'mbr structure must start at offset 0')
+
+    def test_mbr_structure_not_at_offset_zero_implicit(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 2M
+        - role: mbr
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 446
+""")
+        self.assertEqual(str(cm.exception),
+                         'mbr structure must start at offset 0')
+
 
 class TestPartOrder(TestCase):
     # LP: #1631423
