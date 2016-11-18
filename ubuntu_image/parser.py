@@ -361,7 +361,7 @@ def parse(stream_or_string):
                     'GUID structure type with non-GPT schema')
             # Check for implicit vs. explicit partition offset.
             if offset is None:
-                # XXX: Ensure the special case of the 'mbr' type doesn't
+                # XXX: Ensure the special case of the mbr role doesn't
                 # extend beyond the confines of the mbr.
                 if (structure_role is not StructureRole.mbr and
                         last_offset < MiB(1)):
@@ -383,6 +383,17 @@ def parse(stream_or_string):
                     raise GadgetSpecificationError(
                         'mbr structures must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
+            # Support the legacy mode setting of partition roles through
+            # filesystem labels
+            if not structure_role:
+                if filesystem_label == 'system-boot':
+                    structure_role = StructureRole.system_boot
+                elif filesystem_label == 'system-data':
+                    structure_role = StructureRole.system_data
+                if structure_role:
+                    warn('volumes:<volume name>:structure:<N>:filesystem_label'
+                         ' used for defining partition roles; use role '
+                         'instead.', DeprecationWarning)
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
             # in a single structure, they must all be of type A or type B.  If

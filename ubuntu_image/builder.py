@@ -10,7 +10,8 @@ from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, VolumeSchema, parse as parse_yaml)
+    BootLoader, FileSystemType, StructureRole, VolumeSchema,
+    parse as parse_yaml)
 from ubuntu_image.state import State
 
 
@@ -195,7 +196,7 @@ class ModelAssertionBuilder(State):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
             # XXX: Use file system label for the moment, until we get a proper
             # way to identify the boot partition.
-            if part.filesystem_label == 'system-boot':
+            if part.role is StructureRole.system_boot:
                 self.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
                     boot = os.path.join(
@@ -396,7 +397,7 @@ class ModelAssertionBuilder(State):
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
-            if part.type == 'mbr':
+            if part.role is StructureRole.mbr:
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
@@ -409,7 +410,7 @@ class ModelAssertionBuilder(State):
                 )
             # XXX: special-casing.
             if (volume.schema is VolumeSchema.mbr and
-                    part.filesystem_label == 'system-boot'):
+                    part.role is StructureRole.system_boot):
                 partition_args['activate'] = True
             if part.name is not None:
                 partition_args['change_name'] = part.name

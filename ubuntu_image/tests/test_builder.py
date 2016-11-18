@@ -13,7 +13,8 @@ from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import MiB, run
-from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
+from ubuntu_image.parser import (
+    BootLoader, FileSystemType, StructureRole, VolumeSchema)
 from ubuntu_image.testing.helpers import LogCapture, XXXModelAssertionBuilder
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
@@ -249,6 +250,7 @@ class TestModelAssertionBuilder(TestCase):
             # Now we have to craft enough of gadget definition to drive the
             # method under test.
             part = SimpleNamespace(
+                role=StructureRole.system_boot,
                 filesystem_label='system-boot',
                 filesystem=FileSystemType.none,
                 )
@@ -303,6 +305,7 @@ class TestModelAssertionBuilder(TestCase):
             # Now we have to craft enough of gadget definition to drive the
             # method under test.
             part = SimpleNamespace(
+                role=StructureRole.system_boot,
                 filesystem_label='system-boot',
                 filesystem=FileSystemType.none,
                 )
@@ -354,6 +357,7 @@ class TestModelAssertionBuilder(TestCase):
                 target='bt/',
                 )
             part = SimpleNamespace(
+                role=None,
                 filesystem_label='not a boot',
                 filesystem=FileSystemType.ext4,
                 content=[contents1, contents2],
@@ -423,6 +427,7 @@ class TestModelAssertionBuilder(TestCase):
                 target='bt',
                 )
             part = SimpleNamespace(
+                role=None,
                 filesystem_label='not a boot',
                 filesystem=FileSystemType.ext4,
                 content=[contents],
@@ -460,6 +465,7 @@ class TestModelAssertionBuilder(TestCase):
             state._next.append(state.calculate_bootfs_size)
             # Craft a gadget specification.
             part = SimpleNamespace(
+                role=None,
                 filesystem=FileSystemType.none,
                 )
             volume = SimpleNamespace(
@@ -516,6 +522,7 @@ class TestModelAssertionBuilder(TestCase):
                 offset=127,
                 )
             part = SimpleNamespace(
+                role=None,
                 filesystem=FileSystemType.none,
                 content=[contents1, contents2, contents3, contents4],
                 size=150,
@@ -586,6 +593,7 @@ class TestModelAssertionBuilder(TestCase):
                 offset=None,
                 )
             part = SimpleNamespace(
+                role=None,
                 filesystem=FileSystemType.ext4,
                 filesystem_label='hold the door',
                 content=[contents1],
@@ -648,6 +656,7 @@ class TestModelAssertionBuilder(TestCase):
                 offset=None,
                 )
             part = SimpleNamespace(
+                role=None,
                 filesystem=801,
                 filesystem_label='hold the door',
                 content=[contents1],
@@ -742,6 +751,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
@@ -749,6 +759,7 @@ class TestModelAssertionBuilder(TestCase):
             part1 = SimpleNamespace(
                 name='beta',
                 type='ef',
+                role=None,
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=200,
@@ -756,6 +767,7 @@ class TestModelAssertionBuilder(TestCase):
             part2 = SimpleNamespace(
                 name='gamma',
                 type='mbr',
+                role=StructureRole.mbr,
                 size=MiB(1),
                 offset=0,
                 offset_write=None,
@@ -827,8 +839,8 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(partitions[2], ('writable', 10240))
 
     def test_make_disk_with_parts_system_boot(self):
-        # For MBR-style volumes, a part with a filesystem-label of
-        # 'system-boot' gets the boot flag turned on in the partition table.
+        # For MBR-style volumes, a part with a role of 'system-boot'
+        # gets the boot flag turned on in the partition table.
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             unpackdir = resources.enter_context(TemporaryDirectory())
@@ -852,6 +864,7 @@ class TestModelAssertionBuilder(TestCase):
             # Craft a gadget schema.
             part0 = SimpleNamespace(
                 name=None,
+                role=StructureRole.system_boot,
                 filesystem_label='system-boot',
                 type='da',
                 size=MiB(1),
@@ -910,6 +923,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
@@ -917,6 +931,7 @@ class TestModelAssertionBuilder(TestCase):
             part1 = SimpleNamespace(
                 name='beta',
                 type='ef',
+                role=None,
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=('alpha', 200),
@@ -970,6 +985,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),
                 offset=0,
@@ -1013,6 +1029,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),
                 offset=0,
@@ -1051,6 +1068,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),
                 offset=0,
@@ -1091,6 +1109,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),
                 offset=0,
@@ -1153,6 +1172,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             part0 = SimpleNamespace(
                 name=None,
+                role=StructureRole.system_boot,
                 filesystem_label='system-boot',
                 filesystem='vfat',
                 type='0C',

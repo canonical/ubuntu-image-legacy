@@ -687,6 +687,30 @@ volumes:
             str(cm.exception),
             'mbr structures must not specify a file system')
 
+    def test_volume_special_label_system_boot_data(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          filesystem_label: system-boot
+  second-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 200
+          filesystem_label: system-data
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition = volume0.structures[0]
+        self.assertEqual(partition.filesystem_label, 'system-boot')
+        self.assertEqual(partition.role, StructureRole.system_boot)
+        volume1 = gadget_spec.volumes['second-image']
+        partition = volume1.structures[0]
+        self.assertEqual(partition.filesystem_label, 'system-data')
+        self.assertEqual(partition.role, StructureRole.system_data)
+
     def test_content_spec_a(self):
         gadget_spec = parse("""\
 volumes:
