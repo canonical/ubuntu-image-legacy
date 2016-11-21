@@ -423,13 +423,12 @@ def parse(stream_or_string):
                 content_specs))
         # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(
-            schema, bootloader, image_id,
-            sorted(structures, key=attrgetter('offset')))
+            schema, bootloader, image_id, structures)
         # Sanity check the partition offsets to ensure that there is no
         # overlap conflict where a part's offset begins before the previous
         # part's end.
         last_end = -1
-        for part in volume_specs[image_name].structures:
+        for part in sorted(structures, key=attrgetter('offset')):
             if part.offset < last_end:
                 raise GadgetSpecificationError(
                     'Structure conflict! {}: {} <  {}'.format(

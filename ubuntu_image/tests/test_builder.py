@@ -761,7 +761,7 @@ class TestModelAssertionBuilder(TestCase):
                 offset_write=None,
                 )
             volume = SimpleNamespace(
-                # Ordered by offset, as would happen by the parser.
+                # gadget.yaml appearance order.
                 structures=[part2, part0, part1],
                 schema=VolumeSchema.gpt,
                 )
@@ -824,6 +824,121 @@ class TestModelAssertionBuilder(TestCase):
                 ]
             self.assertEqual(partitions[0], ('alpha', 4096))
             self.assertEqual(partitions[1], ('beta', 8192))
+            self.assertEqual(partitions[2], ('writable', 10240))
+
+    def test_make_disk_with_parts_out_of_order(self):
+        # Structures get partition numbers matching their appearance in the
+        # gadget.yaml, even if these are out of order with respect to their
+        # disk offsets.  LP: #1642999
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = MiB(10)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='aa',
+                size=MiB(1),
+                offset=MiB(2),
+                offset_write=100,
+                )
+            part1 = SimpleNamespace(
+                name='beta',
+                type='bb',
+                size=MiB(1),
+                offset=MiB(4),
+                offset_write=200,
+                )
+            part2 = SimpleNamespace(
+                name='gamma',
+                type='mbr',
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order which does not match the disk
+                # offset order.  LP: #1642999
+                structures=[part1, part0, part2],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            part1_img = os.path.join(state.images, 'part1.img')
+            with open(part1_img, 'wb') as fp:
+                fp.write(b'\2' * 12)
+            part2_img = os.path.join(state.images, 'part2.img')
+            with open(part2_img, 'wb') as fp:
+                fp.write(b'\3' * 13)
+            state.root_img = os.path.join(state.images, 'root.img')
+            state.rootfs_size = MiB(1)
+            with open(state.root_img, 'wb') as fp:
+                fp.write(b'\4' * 14)
+            state.boot_images = [part1_img, part0_img, part2_img]
+            # Create the disk.
+            next(state)
+            # Verify some parts of the disk.img's content.  First, that we've
+            # written the part offsets at the right place.y
+            with open(state.disk_img, 'rb') as fp:
+                # Part 0's offset is written at position 100.
+                fp.seek(100)
+                # Read a 32-bit little-ending integer.  Remember
+                # struct.unpack() always returns tuples, and the values are
+                # written in sector units, which are hard-coded as 512 bytes.
+                offset = unpack('<I', fp.read(4))[0]
+                self.assertEqual(offset, MiB(2) / 512)
+                # Part 1's offset is written at position 200.
+                fp.seek(200)
+                offset = unpack('<I', fp.read(4))[0]
+                self.assertEqual(offset, MiB(4) / 512)
+                # Part 0's image lives at MiB(2).
+                fp.seek(MiB(2))
+                self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
+                # Part 1's image lives at MiB(4).
+                fp.seek(MiB(4))
+                self.assertEqual(fp.read(15), b'\2' * 12 + b'\0' * 3)
+                # Part 2's image is an MBR so it must live at offset 0.
+                fp.seek(0)
+                self.assertEqual(fp.read(15), b'\3' * 13 + b'\0' * 2)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out non-mbr
+                # partition is at 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
+            # Verify the disk image's partition table.
+            proc = run('sfdisk --json {}'.format(state.disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'], part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            # Partition number matches gadget.yaml order, i.e. part1, part0,
+            # rootfs (part2 is an mbr).
+            self.assertEqual(partitions[0], ('beta', 8192))
+            self.assertEqual(partitions[1], ('alpha', 4096))
             self.assertEqual(partitions[2], ('writable', 10240))
 
     def test_make_disk_with_parts_system_boot(self):
