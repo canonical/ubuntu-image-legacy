@@ -78,6 +78,7 @@ class FileSystemType(Enum):
 
 @yaml_path('volumes:<volume name>:structure:<N>:role')
 class StructureRole(Enum):
+    bare = 'bare'
     mbr = 'mbr'
     system_boot = 'system-boot'
     system_data = 'system-data'

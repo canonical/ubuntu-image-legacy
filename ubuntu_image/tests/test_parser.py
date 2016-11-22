@@ -550,6 +550,31 @@ volumes:
              for key in gadget_spec.volumes}
             )
 
+    def test_volume_structure_bare_role(self):
+        gadget_spec = parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          role: bare
+""")
+        self.assertEqual(len(gadget_spec.volumes), 2)
+        self.assertEqual({
+            'first-image': StructureRole.mbr,
+            'second-image': StructureRole.bare,
+            },
+            {key: gadget_spec.volumes[key].structures[0].role
+             for key in gadget_spec.volumes}
+             )
+
     def test_volume_structure_invalid_role(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
