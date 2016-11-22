@@ -782,6 +782,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\3' * 13)
             state.root_img = os.path.join(state.images, 'root.img')
             state.rootfs_size = MiB(1)
+            state.rootfs_offset = MiB(5)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
             state.boot_images = [part2_img, part0_img, part1_img]
@@ -826,7 +827,7 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(partitions[1], ('beta', 8192))
             self.assertEqual(partitions[2], ('writable', 10240))
 
-    def test_make_disk_with_parts_out_of_order(self):
+    def test_make_disk_with_out_of_order_structures(self):
         # Structures get partition numbers matching their appearance in the
         # gadget.yaml, even if these are out of order with respect to their
         # disk offsets.  LP: #1642999
@@ -895,6 +896,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\3' * 13)
             state.root_img = os.path.join(state.images, 'root.img')
             state.rootfs_size = MiB(1)
+            state.rootfs_offset = MiB(5)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
             state.boot_images = [part1_img, part0_img, part2_img]
@@ -988,6 +990,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\1' * 11)
             state.root_img = os.path.join(state.images, 'root.img')
             state.rootfs_size = MiB(1)
+            state.rootfs_offset = MiB(2)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
             state.boot_images = [part0_img]
@@ -1232,6 +1235,84 @@ class TestModelAssertionBuilder(TestCase):
                 'Ignoring --image-size=1M smaller '
                 'than minimum required size 2114560')
 
+    def test_image_size_too_small_with_out_of_order_structures(self):
+        # Here we have a bunch of structures which are not sorted by offset.
+        # In fact the last partition is at offset 0 with a size of 1MiB.  If
+        # the "--image-size fits" calculation is performed against just the
+        # last partition offset + its size, this will appear to be big
+        # enough.  In reality though it's not because an earlier partition
+        # (specifically part1) starts at 4MiB and has a size of 1MiB, so a
+        # disk image of 3MiB won't fit.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                given_image_size='3M',
+                image_size=MiB(3),
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='aa',
+                size=MiB(1),
+                offset=MiB(2),
+                offset_write=100,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='alpha',
+                )
+            part1 = SimpleNamespace(
+                name='beta',
+                type='bb',
+                size=MiB(1),
+                offset=MiB(4),
+                offset_write=200,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='beta',
+                )
+            part2 = SimpleNamespace(
+                name='gamma',
+                type='mbr',
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='gamma',
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order which does not match the disk
+                # offset order.  LP: #1642999
+                structures=[part1, part0, part2],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            state.rootfs_size = MiB(1)
+            # Mock the run() call to prove that we never call dd.
+            resources.enter_context(patch('ubuntu_image.builder.run'))
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder._logger.warning'))
+            next(state)
+            # The actual image size is 6MiB + 17KiB.  The former value comes
+            # from the farthest out structure (part1 at offset 4MiB + 1MiB
+            # size) + the rootfs size of 1MiB.  The latter comes from the
+            # empirically derived 34 sector GPT backup space.
+            self.assertEqual(state.image_size, 6308864)
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'Ignoring --image-size=3M smaller '
+                'than minimum required size 6308864')
+
     def test_round_up_size_for_mbr_root_partitions(self):
         # LP: #1634557 - two rounding errors conspired to make mbr partitions
         # undersized.  First, an internal calculation in the builder used
@@ -1291,6 +1372,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\1' * 11)
             state.root_img = os.path.join(state.images, 'root.img')
             state.rootfs_size = 947980
+            state.rootfs_offset = MiB(129)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\2' * 947980)
             state.boot_images = [part0_img]
