@@ -36,6 +36,8 @@ ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
   * Structures with type='mbr' are deprecated.  Use structure role
     instead.  (LP: #1638660)
   * mbr structures must start at offset 0.  (LP: #1630769)
+  * Fixed sanity checking of --image-size argument for out-of-offset-order
+    structure definitions.  (LP: #1643598)
 
  -- Barry Warsaw <barry@ubuntu.com>  Tue, 08 Nov 2016 17:31:21 -0500
 
