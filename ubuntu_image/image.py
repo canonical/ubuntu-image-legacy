@@ -185,6 +185,8 @@ class MBRImage(Image):
                 if isinstance(value, tuple):
                     value = value[0]
                 command_input.append('type={}'.format(value))
+            elif key == 'change_name':
+                pass
             else:
                 raise ValueError('{} option not supported for MBR partitions'
                                  .format(key))
