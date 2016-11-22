@@ -13,7 +13,8 @@ from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import MiB, run
-from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
+from ubuntu_image.parser import (
+    BootLoader, FileSystemType, StructureRole, VolumeSchema)
 from ubuntu_image.testing.helpers import LogCapture, XXXModelAssertionBuilder
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
@@ -826,6 +827,80 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(partitions[0], ('alpha', 4096))
             self.assertEqual(partitions[1], ('beta', 8192))
             self.assertEqual(partitions[2], ('writable', 10240))
+
+    def test_make_disk_with_bare_parts(self):
+        # The second structure has a role:bare meaning it is not wrapped in a
+        # disk partition.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = MiB(10)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='assets',
+                role=StructureRole.bare,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                type='da',
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order.
+                structures=[part0],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            state.root_img = os.path.join(state.images, 'root.img')
+            state.rootfs_size = MiB(1)
+            state.rootfs_offset = MiB(5)
+            with open(state.root_img, 'wb') as fp:
+                fp.write(b'\4' * 14)
+            state.boot_images = [part0_img]
+            # Create the disk.
+            next(state)
+            # Verify some parts of the disk.img's content.  First, that we've
+            # written the part offsets at the right place.y
+            with open(state.disk_img, 'rb') as fp:
+                fp.seek(0)
+                self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out non-mbr
+                # partition is at 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
+            # Verify the disk image's partition table.
+            proc = run('sfdisk --json {}'.format(state.disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'], part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            self.assertEqual(len(partitions), 1)
+            self.assertEqual(partitions[0], ('writable', 10240))
 
     def test_make_disk_with_out_of_order_structures(self):
         # Structures get partition numbers matching their appearance in the
