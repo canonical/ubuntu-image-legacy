@@ -743,6 +743,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
@@ -750,6 +751,7 @@ class TestModelAssertionBuilder(TestCase):
             part1 = SimpleNamespace(
                 name='beta',
                 type='ef',
+                role=None,
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=200,
@@ -757,6 +759,7 @@ class TestModelAssertionBuilder(TestCase):
             part2 = SimpleNamespace(
                 name='gamma',
                 type='mbr',
+                role=None,
                 size=MiB(1),
                 offset=0,
                 offset_write=None,
@@ -930,6 +933,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='aa',
+                role=None,
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
@@ -937,6 +941,7 @@ class TestModelAssertionBuilder(TestCase):
             part1 = SimpleNamespace(
                 name='beta',
                 type='bb',
+                role=None,
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=200,
@@ -944,6 +949,7 @@ class TestModelAssertionBuilder(TestCase):
             part2 = SimpleNamespace(
                 name='gamma',
                 type='mbr',
+                role=None,
                 size=MiB(1),
                 offset=0,
                 offset_write=None,
@@ -1046,6 +1052,7 @@ class TestModelAssertionBuilder(TestCase):
                 name=None,
                 filesystem_label='system-boot',
                 type='da',
+                role=None,
                 size=MiB(1),
                 offset=MiB(1),
                 offset_write=None,
@@ -1103,6 +1110,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
@@ -1110,6 +1118,7 @@ class TestModelAssertionBuilder(TestCase):
             part1 = SimpleNamespace(
                 name='beta',
                 type='ef',
+                role=None,
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=('alpha', 200),
@@ -1427,6 +1436,7 @@ class TestModelAssertionBuilder(TestCase):
                 filesystem_label='system-boot',
                 filesystem='vfat',
                 type='0C',
+                role=None,
                 size=MiB(128),
                 offset=MiB(1),
                 offset_write=None,
