@@ -10,8 +10,7 @@ from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, StructureRole, VolumeSchema,
-    parse as parse_yaml)
+    BootLoader, FileSystemType, VolumeSchema, parse as parse_yaml)
 from ubuntu_image.state import State
 
 
@@ -404,7 +403,7 @@ class ModelAssertionBuilder(State):
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
-            if part.role is StructureRole.bare or part.type == 'mbr':
+            if part.type in ('none', 'mbr'):
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.

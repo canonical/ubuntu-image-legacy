@@ -13,8 +13,7 @@ from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import MiB, run
-from ubuntu_image.parser import (
-    BootLoader, FileSystemType, StructureRole, VolumeSchema)
+from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
 from ubuntu_image.testing.helpers import LogCapture, XXXModelAssertionBuilder
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
@@ -857,11 +856,10 @@ class TestModelAssertionBuilder(TestCase):
             # Craft a gadget schema.
             part0 = SimpleNamespace(
                 name='assets',
-                role=StructureRole.bare,
                 size=MiB(1),
                 offset=0,
                 offset_write=None,
-                type='da',
+                type='none',
                 )
             volume = SimpleNamespace(
                 # gadget.yaml appearance order.
