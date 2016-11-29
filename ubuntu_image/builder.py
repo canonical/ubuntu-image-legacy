@@ -403,7 +403,7 @@ class ModelAssertionBuilder(State):
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
-            if part.type == 'mbr':
+            if part.type in ('bare', 'mbr'):
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.

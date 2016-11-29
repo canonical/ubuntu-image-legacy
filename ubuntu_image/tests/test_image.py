@@ -3,6 +3,7 @@
 import os
 
 from contextlib import suppress
+from json import loads as load_json
 from struct import unpack
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, MiB, run
@@ -163,3 +164,26 @@ class TestImage(TestCase):
         self.assertRaises(
             ValueError,
             image.partition, 1, new='0:100', cracktivate=1, typecode='fe')
+
+    def test_mbr_image_partition_named(self):
+        # sfdisk does not support the --change-name argument, so it's
+        # currently just ignored.
+        image = MBRImage(self.img, MiB(2))
+        self.assertFalse(image.initialized)
+        image.partition(1, new='33:3000', activate=True, typecode='83',
+                        change_name='first')
+        self.assertTrue(image.initialized)
+        proc = run('sfdisk --list {} --json'.format(self.img))
+        disk_info = load_json(proc.stdout)
+        partitions = disk_info['partitiontable']
+        # See?  No name.  However, the device id is unpredictable.
+        partitions.pop('id')
+        self.assertEqual(partitions, {
+            'device': self.img,
+            'label': 'dos',
+            'partitions': [{'bootable': True,
+                            'node': '{}1'.format(self.img),
+                            'size': 3000,
+                            'start': 33,
+                            'type': '83'}],
+            'unit': 'sectors'})

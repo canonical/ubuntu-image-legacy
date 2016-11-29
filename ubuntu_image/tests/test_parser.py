@@ -550,6 +550,100 @@ volumes:
              for key in gadget_spec.volumes}
             )
 
+    def test_volume_structure_type_none(self):
+        gadget_spec = parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: bare
+          size: 200
+""")
+        self.assertEqual(len(gadget_spec.volumes), 2)
+        self.assertEqual({
+            'first-image': 'EF',
+            'second-image': 'bare',
+            },
+            {key: gadget_spec.volumes[key].structures[0].type
+             for key in gadget_spec.volumes}
+             )
+
+    def test_volume_structure_type_role_conflict_1(self):
+        # type:none means there's no partition, so you can't have a role of
+        # system-{boot,data}.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: bare
+          size: 200
+          role: system-boot
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml: structure role/type conflict')
+
+    def test_volume_structure_type_role_conflict_2(self):
+        # type:none means there's no partition, so you can't have a role of
+        # system-{boot,data}.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: bare
+          size: 200
+          role: system-data
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml: structure role/type conflict')
+
+    def test_volume_structure_type_role_redundant(self):
+        # type:none means there's no partition.  It's valid, but redundant to
+        # also give a role:mbr.
+        gadget_spec = parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: bare
+          size: 100
+          role: mbr
+""")
+        self.assertEqual(len(gadget_spec.volumes), 1)
+        volume = gadget_spec.volumes['first-image']
+        self.assertEqual(len(volume.structures), 1)
+        structure = volume.structures[0]
+        self.assertEqual(structure.role, StructureRole.mbr)
+        self.assertEqual(structure.type, 'bare')
+
     def test_volume_structure_invalid_role(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
