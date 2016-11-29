@@ -562,13 +562,13 @@ volumes:
           role: mbr
   second-image:
     structure:
-        - type: none
+        - type: bare
           size: 200
 """)
         self.assertEqual(len(gadget_spec.volumes), 2)
         self.assertEqual({
             'first-image': 'EF',
-            'second-image': 'none',
+            'second-image': 'bare',
             },
             {key: gadget_spec.volumes[key].structures[0].type
              for key in gadget_spec.volumes}
@@ -591,7 +591,7 @@ volumes:
           role: mbr
   second-image:
     structure:
-        - type: none
+        - type: bare
           size: 200
           role: system-boot
 """)
@@ -616,7 +616,7 @@ volumes:
           role: mbr
   second-image:
     structure:
-        - type: none
+        - type: bare
           size: 200
           role: system-data
 """)
@@ -633,7 +633,7 @@ volumes:
     schema: mbr
     bootloader: u-boot
     structure:
-        - type: none
+        - type: bare
           size: 100
           role: mbr
 """)
@@ -642,7 +642,7 @@ volumes:
         self.assertEqual(len(volume.structures), 1)
         structure = volume.structures[0]
         self.assertEqual(structure.role, StructureRole.mbr)
-        self.assertEqual(structure.type, 'none')
+        self.assertEqual(structure.type, 'bare')
 
     def test_volume_structure_invalid_role(self):
         with ExitStack() as resources:

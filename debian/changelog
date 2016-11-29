@@ -38,6 +38,8 @@ ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
   * mbr structures must start at offset 0.  (LP: #1630769)
   * Fixed sanity checking of --image-size argument for out-of-offset-order
     structure definitions.  (LP: #1643598)
+  * Prevent wrapping blobs in disk partitions by using the `type: bare`
+    structure key.  (LP: #1645750)
 
  -- Barry Warsaw <barry@ubuntu.com>  Tue, 08 Nov 2016 17:31:21 -0500
 

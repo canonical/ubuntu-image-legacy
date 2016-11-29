@@ -859,7 +859,7 @@ class TestModelAssertionBuilder(TestCase):
                 size=MiB(1),
                 offset=0,
                 offset_write=None,
-                type='none',
+                type='bare',
                 )
             volume = SimpleNamespace(
                 # gadget.yaml appearance order.

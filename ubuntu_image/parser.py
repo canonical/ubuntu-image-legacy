@@ -187,7 +187,7 @@ GadgetYAML = Schema({
                 Optional('offset-write'): Any(
                     Coerce(Size32bit), RelativeOffset),
                 Required('size'): Coerce(as_size),
-                Required('type'): Any('mbr', 'none', Coerce(HybridId)),
+                Required('type'): Any('mbr', 'bare', Coerce(HybridId)),
                 Optional('role'): Enumify(
                     StructureRole,
                     preprocessor=methodcaller('replace', '-', '_')),
@@ -379,7 +379,7 @@ def parse(stream_or_string):
             # For now, the structure type value can be of several Python
             # types. 1) a UUID for GPT schemas; 2) a 2-letter str for MBR
             # schemas; 3) a 2-tuple of #1 and #2 for mixed schemas; 4) the
-            # special strings 'mbr' and 'none' which can appear for either GPT
+            # special strings 'mbr' and 'bare' which can appear for either GPT
             # or MBR schemas.  type:mbr is deprecated and will eventually go
             # away.  What we're doing here is some simple validation of #1 and
             # #2.
@@ -387,7 +387,7 @@ def parse(stream_or_string):
                     schema is not VolumeSchema.gpt):
                 raise GadgetSpecificationError(
                     'MBR structure type with non-MBR schema')
-            elif structure_type == 'none':
+            elif structure_type == 'bare':
                 if structure_role not in (None, StructureRole.mbr):
                     raise GadgetSpecificationError(
                         'Invalid gadget.yaml: structure role/type conflict')
