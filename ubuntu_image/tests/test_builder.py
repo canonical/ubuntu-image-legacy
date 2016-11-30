@@ -499,7 +499,7 @@ class TestModelAssertionBuilder(TestCase):
             state.images = os.path.join(workdir, '.images')
             os.makedirs(state.images)
             part0_img = os.path.join(state.images, 'part0.img')
-            state.boot_images = [part0_img]
+            state.part_images = [part0_img]
             # Craft a gadget specification.
             contents1 = SimpleNamespace(
                 image='image1.img',
@@ -585,7 +585,7 @@ class TestModelAssertionBuilder(TestCase):
             state.images = os.path.join(workdir, '.images')
             os.makedirs(state.images)
             part0_img = os.path.join(state.images, 'part0.img')
-            state.boot_images = [part0_img]
+            state.part_images = [part0_img]
             # Craft a gadget specification.
             contents1 = SimpleNamespace(
                 image='image1.img',
@@ -619,7 +619,7 @@ class TestModelAssertionBuilder(TestCase):
             # actually got called twice, but it's only the first call
             # (i.e. the one creating the part, not the image) that we care
             # about.
-            self.assertEqual(len(mock.call_args_list), 2)
+            self.assertEqual(len(mock.call_args_list), 1)
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(
                 posargs,
@@ -648,7 +648,7 @@ class TestModelAssertionBuilder(TestCase):
             state.images = os.path.join(workdir, '.images')
             os.makedirs(state.images)
             part0_img = os.path.join(state.images, 'part0.img')
-            state.boot_images = [part0_img]
+            state.part_images = [part0_img]
             # Craft a gadget specification.
             contents1 = SimpleNamespace(
                 image='image1.img',
@@ -772,9 +772,17 @@ class TestModelAssertionBuilder(TestCase):
                 offset=0,
                 offset_write=None,
                 )
+            part3 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=MiB(1),
+                offset=MiB(5),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
                 # Ordered by offset, as would happen by the parser.
-                structures=[part2, part0, part1],
+                structures=[part2, part0, part1, part3],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
@@ -792,11 +800,11 @@ class TestModelAssertionBuilder(TestCase):
             part2_img = os.path.join(state.images, 'part2.img')
             with open(part2_img, 'wb') as fp:
                 fp.write(b'\3' * 13)
-            state.root_img = os.path.join(state.images, 'root.img')
+            root_img = os.path.join(state.images, 'part3.img')
             state.rootfs_size = MiB(1)
-            with open(state.root_img, 'wb') as fp:
+            with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.boot_images = [part2_img, part0_img, part1_img]
+            state.part_images = [part2_img, part0_img, part1_img, root_img]
             # Create the disk.
             next(state)
             # Verify some parts of the disk.img's content.  First, that we've
@@ -888,7 +896,7 @@ class TestModelAssertionBuilder(TestCase):
             state.rootfs_size = MiB(1)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.boot_images = [part0_img]
+            state.part_images = [part0_img]
             # Create the disk.
             next(state)
             # Verify the disk image's partition table.
@@ -956,7 +964,7 @@ class TestModelAssertionBuilder(TestCase):
             state.rootfs_size = MiB(1)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.boot_images = [part0_img, part1_img]
+            state.part_images = [part0_img, part1_img]
             # Create the disk.
             next(state)
             # Verify that beta's offset was written 200 bytes past the start
@@ -1166,6 +1174,7 @@ class TestModelAssertionBuilder(TestCase):
             os.makedirs(state.images)
             # Craft a gadget schema.  This is based on the official pi3-kernel
             # gadget.yaml file.
+            state.rootfs_size = 947980
             contents0 = SimpleNamespace(
                 source='boot-assets/',
                 target='/',
@@ -1181,10 +1190,18 @@ class TestModelAssertionBuilder(TestCase):
                 offset_write=None,
                 contents=[contents0],
                 )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=state.rootfs_size,
+                offset=MiB(129),
+                offset_write=None,
+                )
             volume0 = SimpleNamespace(
                 schema=VolumeSchema.mbr,
                 bootloader=BootLoader.uboot,
-                structures=[part0],
+                structures=[part0, part1],
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(pi3=volume0),
@@ -1194,11 +1211,10 @@ class TestModelAssertionBuilder(TestCase):
             part0_img = os.path.join(state.images, 'part0.img')
             with open(part0_img, 'wb') as fp:
                 fp.write(b'\1' * 11)
-            state.root_img = os.path.join(state.images, 'root.img')
-            state.rootfs_size = 947980
-            with open(state.root_img, 'wb') as fp:
-                fp.write(b'\2' * 947980)
-            state.boot_images = [part0_img]
+            root_img = os.path.join(state.images, 'part1.img')
+            with open(root_img, 'wb') as fp:
+                fp.write(b'\2' * state.rootfs_size)
+            state.part_images = [part0_img, root_img]
             # Create the disk.
             next(state)
             # The root file system must be at least 947980 bytes.

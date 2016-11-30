@@ -695,12 +695,12 @@ volumes:
     structure:
         - type: 00000000-0000-0000-0000-0000feedface
           size: 200
-          filesystem_label: system-boot
+          filesystem-label: system-boot
   second-image:
     structure:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 200
-          filesystem_label: system-data
+          filesystem-label: system-data
 """)
         volume0 = gadget_spec.volumes['first-image']
         partition = volume0.structures[0]

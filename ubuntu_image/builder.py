@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, StructureRole, VolumeSchema,
+    BootLoader, FileSystemType, StructureRole, StructureSpec, VolumeSchema,
     parse as parse_yaml)
 from ubuntu_image.state import State
 
@@ -43,12 +43,12 @@ class ModelAssertionBuilder(State):
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
+        self.part_images = None
         self.image_size = 0
         self.bootfs = None
         self.bootfs_sizes = None
         self.images = None
-        self.boot_images = None
-        self.root_img = None
+        self.entry = None
         self.disk_img = None
         self.gadget = None
         self.args = args
@@ -61,7 +61,7 @@ class ModelAssertionBuilder(State):
         state = super().__getstate__()
         state.update(
             args=self.args,
-            boot_images=self.boot_images,
+            part_images=self.part_images,
             bootfs=self.bootfs,
             bootfs_sizes=self.bootfs_sizes,
             cloud_init=self.cloud_init,
@@ -71,7 +71,6 @@ class ModelAssertionBuilder(State):
             image_size=self.image_size,
             images=self.images,
             output=self.output,
-            root_img=self.root_img,
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
             unpackdir=self.unpackdir,
@@ -81,7 +80,7 @@ class ModelAssertionBuilder(State):
     def __setstate__(self, state):
         super().__setstate__(state)
         self.args = state['args']
-        self.boot_images = state['boot_images']
+        self.part_images = state['part_images']
         self.bootfs = state['bootfs']
         self.bootfs_sizes = state['bootfs_sizes']
         self.cloud_init = state['cloud_init']
@@ -91,7 +90,6 @@ class ModelAssertionBuilder(State):
         self.image_size = state['image_size']
         self.images = state['images']
         self.output = state['output']
-        self.root_img = state['root_img']
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
         self.unpackdir = state['unpackdir']
@@ -277,33 +275,58 @@ class ModelAssertionBuilder(State):
         self.images = os.path.join(self.workdir, '.images')
         os.makedirs(self.images)
         # The image for the boot partition.
-        self.boot_images = []
+        self.part_images = []
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
+        root_img = None
         for partnum, part in enumerate(volume.structures):
             part_img = os.path.join(self.images, 'part{}.img'.format(partnum))
-            self.boot_images.append(part_img)
-            run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
-                part_img, part.size))
-            if part.filesystem is FileSystemType.vfat:
-                label_option = (
-                    '-n {}'.format(part.filesystem_label)
-                    # XXX I think this could be None or the empty string, but
-                    # this needs verification.
-                    if part.filesystem_label
-                    else '')
-                # XXX: hard-coding of sector size
-                run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
-                    label_option, part_img))
-            # XXX: Does not handle the case of partitions at the end of the
-            # image.
-            next_avail = part.offset + part.size
+            if part.role is StructureRole.system_data:
+                if part.size < self.rootfs_size:
+                    _logger.warning('Rootfs partition size ({}) smaller than '
+                                    'actual rootfs contents {}.',
+                                    self.rootfs_size, part.size)
+                    part.size = self.rootfs_size
+                root_img = part_img
+            else:
+                run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
+                    part_img, part.size))
+                if part.filesystem is FileSystemType.vfat:
+                    label_option = (
+                        '-n {}'.format(part.filesystem_label)
+                        # XXX I think this could be None or the empty string,
+                        # but this needs verification.
+                        if part.filesystem_label
+                        else '')
+                    # XXX: hard-coding of sector size
+                    run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
+                        label_option, part_img))
+            self.part_images.append(part_img)
+            next_offset = part.offset + part.size
         # The image for the root partition.
-        #
+        # We still need to handle the case of unspecified system-data partition
+        # where we simply attach the rootfs at the end of the partition list.
+        if not root_img:
+            volume.structures.append(StructureSpec(
+                None, next_offset, None, self.rootfs_size,
+                ('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                None, StructureRole.system_data,
+                FileSystemType.ext4, 'system-data',
+                None))
+            root_img = os.path.join(
+                self.images, 'part{}.img'.format(partnum + 1))
+            next_offset += self.rootfs_size
+        # Create empty file for the rootfs with holes.
+        with open(root_img,  'w'):
+            pass
+        os.truncate(root_img, self.rootfs_size)
+        # We defer creating the root file system image because we have to
+        # populate it at the same time.  See mkfs.ext4(8) for details.
+        # Calculate or check the final image size.
         # XXX: Hard-codes last 34 512-byte sectors for backup GPT,
         # empirically derived from sgdisk behavior.
-        calculated = ceil((self.rootfs_size + next_avail) / 1024 + 17) * 1024
+        calculated = ceil(next_offset / 1024 + 17) * 1024
         if self.args.image_size is None:
             self.image_size = calculated
         else:
@@ -314,13 +337,6 @@ class ModelAssertionBuilder(State):
                 self.image_size = calculated
             else:
                 self.image_size = self.args.image_size
-        self.root_img = os.path.join(self.images, 'root.img')
-        # Create empty file with holes.
-        with open(self.root_img,  'w'):
-            pass
-        os.truncate(self.root_img, self.rootfs_size)
-        # We defer creating the root file system image because we have to
-        # populate it at the same time.  See mkfs.ext4(8) for details.
         self._next.append(self.populate_filesystems)
 
     def populate_filesystems(self):
@@ -328,8 +344,13 @@ class ModelAssertionBuilder(State):
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
         for partnum, part in enumerate(volume.structures):
-            part_img = self.boot_images[partnum]
+            part_img = self.part_images[partnum]
             part_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
+            if part.role is StructureRole.system_data:
+                # The root partition needs to be ext4, which may or may not be
+                # populated at creation time, depending on the version of
+                # e2fsprogs.
+                mkfs_ext4(part_img, self.rootfs, part.filesystem_label)
             if part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0
@@ -361,9 +382,6 @@ class ModelAssertionBuilder(State):
             else:
                 raise AssertionError('Invalid part filesystem type: {}'.format(
                     part.filesystem))
-        # The root partition needs to be ext4, which may or may not be
-        # populated at creation time, depending on the version of e2fsprogs.
-        mkfs_ext4(self.root_img, self.rootfs)
         self._next.append(self.make_disk)
 
     def make_disk(self):
@@ -387,13 +405,12 @@ class ModelAssertionBuilder(State):
             image = Image(self.disk_img, self.image_size)
         offset_writes = []
         part_offsets = {}
-        next_offset = 1
         for i, part in enumerate(volume.structures):
             if part.name is not None:
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
-            image.copy_blob(self.boot_images[i],
+            image.copy_blob(self.part_images[i],
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
@@ -404,31 +421,21 @@ class ModelAssertionBuilder(State):
             #
             # XXX Size must not be zero, which will happen if part.size < 1MiB
             partition_args = dict(
-                new='{}M:+{}M'.format(
-                    part.offset // MiB(1), part.size // MiB(1)),
+                new='{}M:+{}K'.format(
+                    part.offset // MiB(1), ceil(part.size / 1024)),
                 typecode=part.type,
                 )
             # XXX: special-casing.
             if (volume.schema is VolumeSchema.mbr and
                     part.role is StructureRole.system_boot):
                 partition_args['activate'] = True
+            elif (volume.schema is VolumeSchema.gpt and
+                    part.role is StructureRole.system_data):
+                partition_args['change_name'] = 'writable'
             if part.name is not None:
                 partition_args['change_name'] = part.name
             image.partition(part_id, **partition_args)
             part_id += 1
-            next_offset = (part.offset + part.size) // MiB(1)
-        # Create main snappy writable partition as the last partition.
-        image.partition(
-            part_id,
-            new='{}M:+{}K'.format(next_offset, ceil(self.rootfs_size / 1024)),
-            typecode=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
-        if volume.schema is VolumeSchema.gpt:
-            image.partition(part_id, change_name='writable')
-        image.copy_blob(
-            self.root_img,
-            bs='1M', seek=next_offset,
-            count=ceil(self.rootfs_size / MiB(1)),
-            conv='notrunc')
         for value, dest in offset_writes:
             # Decipher non-numeric offset_write values.
             if isinstance(dest, tuple):
