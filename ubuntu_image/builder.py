@@ -1,6 +1,5 @@
 """Flow for building a disk image."""
 
-
 import os
 import shutil
 import logging
@@ -43,6 +42,7 @@ class ModelAssertionBuilder(State):
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
+        self.rootfs_offset = 0
         self.image_size = 0
         self.bootfs = None
         self.bootfs_sizes = None
@@ -64,16 +64,18 @@ class ModelAssertionBuilder(State):
             boot_images=self.boot_images,
             bootfs=self.bootfs,
             bootfs_sizes=self.bootfs_sizes,
+            cloud_init=self.cloud_init,
             disk_img=self.disk_img,
+            exitcode=self.exitcode,
             gadget=self.gadget,
+            image_size=self.image_size,
             images=self.images,
             output=self.output,
             root_img=self.root_img,
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
-            image_size=self.image_size,
+            rootfs_offset=self.rootfs_offset,
             unpackdir=self.unpackdir,
-            cloud_init=self.cloud_init,
             )
         return state
 
@@ -83,16 +85,23 @@ class ModelAssertionBuilder(State):
         self.boot_images = state['boot_images']
         self.bootfs = state['bootfs']
         self.bootfs_sizes = state['bootfs_sizes']
+        self.cloud_init = state['cloud_init']
         self.disk_img = state['disk_img']
+        self.exitcode = state['exitcode']
         self.gadget = state['gadget']
+        self.image_size = state['image_size']
         self.images = state['images']
         self.output = state['output']
         self.root_img = state['root_img']
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
-        self.image_size = state['image_size']
+        self.rootfs_offset = state['rootfs_offset']
         self.unpackdir = state['unpackdir']
-        self.cloud_init = state['cloud_init']
+
+    def _log_exception(self, name):
+        # Only log the exception if we're in debug mode.
+        if self.args.debug:
+            super()._log_exception(name)
 
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self.workdir, 'root')
@@ -129,7 +138,7 @@ class ModelAssertionBuilder(State):
         dst = os.path.join(self.rootfs, 'system-data')
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
-            # /boot which goos to the boot partition.
+            # /boot which goes to the boot partition.
             if subdir != 'boot':
                 shutil.move(os.path.join(src, subdir),
                             os.path.join(dst, subdir))
@@ -275,6 +284,11 @@ class ModelAssertionBuilder(State):
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
         for partnum, part in enumerate(volume.structures):
+            # The root file system implicitly lives right after the farthest
+            # out structure, which may not be the last named structure in the
+            # gadget.yaml.
+            self.rootfs_offset = max(
+                self.rootfs_offset, (part.offset + part.size))
             part_img = os.path.join(self.images, 'part{}.img'.format(partnum))
             self.boot_images.append(part_img)
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
@@ -289,14 +303,12 @@ class ModelAssertionBuilder(State):
                 # XXX: hard-coding of sector size
                 run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                     label_option, part_img))
-            # XXX: Does not handle the case of partitions at the end of the
-            # image.
-            next_avail = part.offset + part.size
-        # The image for the root partition.
-        #
-        # XXX: Hard-codes last 34 512-byte sectors for backup GPT,
-        # empirically derived from sgdisk behavior.
-        calculated = ceil((self.rootfs_size + next_avail) / 1024 + 17) * 1024
+        # Sanity check whether everything will fit on the disk if an explicit
+        # size was given on the command line.  XXX: This hard-codes last 34
+        # 512-byte sectors for backup GPT, empirically derived from sgdisk
+        # behavior.
+        calculated = ceil(
+            (self.rootfs_offset + self.rootfs_size) / 1024 + 17) * 1024
         if self.args.image_size is None:
             self.image_size = calculated
         else:
@@ -307,6 +319,7 @@ class ModelAssertionBuilder(State):
                 self.image_size = calculated
             else:
                 self.image_size = self.args.image_size
+        # The image for the root partition.
         self.root_img = os.path.join(self.images, 'root.img')
         # Create empty file with holes.
         with open(self.root_img,  'w'):
@@ -374,13 +387,13 @@ class ModelAssertionBuilder(State):
         volume = list(volumes)[0]
         # XXX: This ought to be a single constructor that figures out the
         # class for us when we pass in the schema.
-        if volume.schema == VolumeSchema.mbr:
+        if volume.schema is VolumeSchema.mbr:
             image = MBRImage(self.disk_img, self.image_size)
         else:
             image = Image(self.disk_img, self.image_size)
         offset_writes = []
         part_offsets = {}
-        next_offset = 1
+        root_offset = 0
         for i, part in enumerate(volume.structures):
             if part.name is not None:
                 part_offsets[part.name] = part.offset
@@ -390,7 +403,7 @@ class ModelAssertionBuilder(State):
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
-            if part.type == 'mbr':
+            if part.type in ('bare', 'mbr'):
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
@@ -409,17 +422,22 @@ class ModelAssertionBuilder(State):
                 partition_args['change_name'] = part.name
             image.partition(part_id, **partition_args)
             part_id += 1
-            next_offset = (part.offset + part.size) // MiB(1)
-        # Create main snappy writable partition as the last partition.
+            # Put the rootfs after the farthest out structure, which may not
+            # be the last named structure in the gadget.yaml.
+            root_offset = max(root_offset, (part.offset + part.size))
+        # Create and write the main snappy writable partition (i.e. rootfs) as
+        # the last partition.
+        root_offset_mib = self.rootfs_offset // MiB(1)
+        root_size_kib = ceil(self.rootfs_size / 1024)
         image.partition(
             part_id,
-            new='{}M:+{}K'.format(next_offset, ceil(self.rootfs_size / 1024)),
+            new='{}M:+{}K'.format(root_offset_mib, root_size_kib),
             typecode=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
         if volume.schema is VolumeSchema.gpt:
             image.partition(part_id, change_name='writable')
         image.copy_blob(
             self.root_img,
-            bs='1M', seek=next_offset,
+            bs='1M', seek=root_offset_mib,
             count=ceil(self.rootfs_size / MiB(1)),
             conv='notrunc')
         for value, dest in offset_writes:

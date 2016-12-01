@@ -185,6 +185,14 @@ class MBRImage(Image):
                 if isinstance(value, tuple):
                     value = value[0]
                 command_input.append('type={}'.format(value))
+            elif key == 'change_name':
+                # If the gadget.yaml has an mbr schema with a named structure,
+                # the builder will try to set the partition's name to this
+                # value.  That's not supported by sfdisk and is probably not
+                # allowed by the mbr partition table format.  Rather than
+                # change the builder (i.e. in case we find a workaround), for
+                # now, just ignore the argument.
+                pass
             else:
                 raise ValueError('{} option not supported for MBR partitions'
                                  .format(key))

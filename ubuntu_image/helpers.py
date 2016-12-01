@@ -19,7 +19,6 @@ __all__ = [
     'run',
     'snap',
     'sparse_copy',
-    'transform',
     ]
 
 
@@ -60,21 +59,15 @@ def straight_up_bytes(count):
 
 
 def as_size(size, min=0, max=None):
-    # Check for int-ness and just return what you get if so.  YAML parsers
-    # will turn values like '108' into ints automatically, but voluptuous will
-    # always try to coerce the value to an as_size.
-    if isinstance(size, int):
-        value = size
-    else:
-        mo = re.match('(\d+)([a-zA-Z]*)', size)
-        if mo is None:
-            raise ValueError(size)
-        size_in_bytes = mo.group(1)
-        value = {
-            '': straight_up_bytes,
-            'G': GiB,
-            'M': MiB,
-            }[mo.group(2)](int(size_in_bytes))
+    mo = re.match('(\d+)([a-zA-Z]*)', size)
+    if mo is None:
+        raise ValueError(size)
+    size_in_bytes = mo.group(1)
+    value = {
+        '': straight_up_bytes,
+        'G': GiB,
+        'M': MiB,
+        }[mo.group(2)](int(size_in_bytes))
     if max is None:
         if value < min:
             raise ValueError('Value outside range: {} < {}'.format(value, min))
@@ -82,29 +75,6 @@ def as_size(size, min=0, max=None):
         raise ValueError('Value outside range: {} <= {} < {}'.format(
             min, value, max))
     return value
-
-
-def transform(caught_excs, new_exc):
-    """Transform any caught exceptions into a new exception.
-
-    This is a decorator which runs the decorated function, catching all
-    specified exceptions.  If one of those exceptions occurs, it is
-    transformed (i.e. re-raised) into a new exception.  The original exception
-    is retained via exception chaining.
-
-    :param caught_excs: The exception or exceptions to catch.
-    :type caught_excs: A single exception, or a tuple of exceptions.
-    :param new_exc: The new exception to re-raise.
-    :type new_exc: An exception.
-    """
-    def outer(func):
-        def inner(*args, **kws):
-            try:
-                return func(*args, **kws)
-            except caught_excs as exception:
-                raise new_exc from exception
-        return inner
-    return outer
 
 
 def run(command, *, check=True, **args):
@@ -179,7 +149,7 @@ def mkfs_ext4(img_file, contents_dir, label='writable'):
     proc = run(cmd, check=False)
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
-        return                                      # pragma: nocover
+        return                                      # pragma: noxenial
     run('mkfs.ext4 -L {} -T default -O uninit_bg {}'.format(label, img_file))
     # Only do this if the directory is non-empty.
     if not os.listdir(contents_dir):
