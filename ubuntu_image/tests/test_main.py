@@ -26,6 +26,10 @@ def check_returncode(*args, **kws):
     raise CalledProcessError(1, 'failing command')
 
 
+class BadGadgetModelAssertionBuilder(XXXModelAssertionBuilder):
+    gadget_yaml = 'bad-gadget.yaml'
+
+
 class TestParseArgs(TestCase):
     def test_image_size_option_bytes(self):
         args = parseargs(['--image-size', '45', 'model.assertion'])
@@ -247,3 +251,49 @@ class TestMainWithModel(TestCase):
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
         main(('--workdir', workdir, '--resume'))
         self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))
+
+
+class TestMainWithBadGadget(TestCase):
+    def setUp(self):
+        super().setUp()
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
+        self.model_assertion = resource_filename(
+            'ubuntu_image.tests.data', 'model.assertion')
+
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
+    def test_bad_gadget_log(self):
+        log = self._resources.enter_context(LogCapture())
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            BadGadgetModelAssertionBuilder))
+        main(('--channel', 'edge',
+              '--workdir', workdir,
+              self.model_assertion))
+        self.assertEqual(log.logs, [
+            (logging.ERROR, 'gadget.yaml parse error: '
+                            'GUID structure type with non-GPT schema'),
+            (logging.ERROR, 'Use --debug for more information')
+            ])
+
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
+    def test_bad_gadget_debug_log(self):
+        log = self._resources.enter_context(LogCapture())
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            BadGadgetModelAssertionBuilder))
+        main(('--channel', 'edge',
+              '--debug',
+              '--workdir', workdir,
+              self.model_assertion))
+        self.assertEqual(log.logs, [
+            (logging.ERROR, 'uncaught exception in state machine step: '
+                            '[2] load_gadget_yaml'),
+            'IMAGINE THE TRACEBACK HERE',
+            (logging.ERROR, 'gadget.yaml parse error'),
+            'IMAGINE THE TRACEBACK HERE',
+            ])

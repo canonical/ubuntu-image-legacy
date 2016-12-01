@@ -58,6 +58,11 @@ setup(
     author_email='snapcraft@lists.ubuntu.com',
     url='https://github.com/CanonicalLtd/ubuntu-image',
     packages=find_packages(),
+    install_requires=[
+        'attrs',
+        'pyyaml',
+        'voluptuous',
+        ],
     include_package_data=True,
     scripts=['ubuntu-image'],
     entry_points={

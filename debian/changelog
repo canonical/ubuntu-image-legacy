@@ -1,3 +1,48 @@
+ubuntu-image (0.12+16.10ubuntu1) yakkety; urgency=medium
+
+  * Revert previous change which sorted structure volumes by their
+    offset.  Instead, we preserve gadget.yaml order for purposes of
+    partition numbering, but we still provide implicit offsets when they
+    are missing, and we still sanity check for partition overlap.
+    (LP: #1642999)
+  * Provide human-readable error messages on gadget.yaml parser failures,
+    not Python tracebacks (unless --debug is given).  (LP: #1617421)
+  * Change the way we invoke the autopkgtests.
+    - Use a standard d/t/control file instead of d/t/control.autodep8.  We
+      were only using the Python 3 import test anyway.
+    - Add an import.sh stanza to reproduce the Python 3 import bits we
+      lost by removing autodep8.
+    - Turn the `tox -e coverage` Test-Command into a separate test
+      script so that we can manipulate the $UBUNTU_IMAGE_CODENAME
+      environment variable.  This is used by tox.ini to select an
+      appropriate *-coverage.ini file since Xenial does not and cannot
+      cover certain code paths.  Everything after Xenial gets named 'devel'.
+    - Narrow the dependencies so that they aren't just importing all
+      binary packages.  The effects may be similar, but EIBTI.
+  * d/control: Drop Testsuite header; we're not doing autodep8 anymore.
+  * Rename the environment variable $UBUNTUIMAGE_MOCK_SNAP to
+    $UBUNTU_IMAGE_MOCK_SNAP for consistency.
+  * Skip some tests which touch the actual store when running without
+    network access (e.g. during package build time).
+  * Move the __version__ calculation to the package's __init__.py
+  * Parse all YAML integer-like values as strings, and then turn them into
+    integers if necessary during post-processing.  (LP: #1640523)
+  * gadget.yaml files can include an optional `format` key which names the
+    version number supported by the gadget.yaml.  Currently only format 0
+    is supported, which is a legacy version (omitting the format is
+    equivalent).  (LP: #1638926)
+  * d/control: Add run-time dependencies which are missing from snapd but
+    are required for `snap prepare-image`.  (LP: #1642427)
+  * Structures with type='mbr' are deprecated.  Use structure role
+    instead.  (LP: #1638660)
+  * mbr structures must start at offset 0.  (LP: #1630769)
+  * Fixed sanity checking of --image-size argument for out-of-offset-order
+    structure definitions.  (LP: #1643598)
+  * Prevent wrapping blobs in disk partitions by using the `type: bare`
+    structure key.  (LP: #1645750)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Tue, 08 Nov 2016 17:31:21 -0500
+
 ubuntu-image (0.11+16.10ubuntu1) yakkety; urgency=medium
 
   * SRU tracking bug LP: #1639381

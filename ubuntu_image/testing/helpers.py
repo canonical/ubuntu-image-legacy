@@ -23,8 +23,8 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
         meta_dir = os.path.join(gadget_dir, 'meta')
         os.makedirs(meta_dir, exist_ok=True)
         shutil.copy(
-            resource_filename('ubuntu_image.tests.data', 'gadget.yaml'),
-            os.path.join(meta_dir, self.gadget_yaml))
+            resource_filename('ubuntu_image.tests.data', self.gadget_yaml),
+            os.path.join(meta_dir, 'gadget.yaml'))
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', 'grubx64.efi'),
             os.path.join(gadget_dir, 'grubx64.efi'))

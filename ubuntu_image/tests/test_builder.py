@@ -57,11 +57,12 @@ class TestModelAssertionBuilder(TestCase):
         output = self._resources.enter_context(NamedTemporaryFile())
         args = SimpleNamespace(
             channel='edge',
-            workdir=None,
-            output=output,
-            model_assertion=self.model_assertion,
             cloud_init=None,
+            debug=False,
             extra_snaps=None,
+            model_assertion=self.model_assertion,
+            output=output,
+            workdir=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
         state.run_thru('calculate_bootfs_size')
@@ -89,7 +90,8 @@ class TestModelAssertionBuilder(TestCase):
         seed_patterns = [
             '^pc-kernel_[0-9]+.snap$',
             '^pc_[0-9]+.snap$',
-            '^ubuntu-core_[0-9]+.snap$',
+            # This snap's name is undergoing transition.
+            '^(ubuntu-)?core_[0-9]+.snap$',
             ]
         # Make sure every file matches a pattern and every pattern matches a
         # file.
@@ -106,12 +108,11 @@ class TestModelAssertionBuilder(TestCase):
         patterns_unmatched = set(seed_patterns) - patterns_matched
         files_unmatched = snaps - files_matched
         self.assertEqual(
-            len(patterns_unmatched), 0,
-            'Unmatched patterns: {}'.format(COMMASPACE.join(
-                patterns_unmatched)))
-        self.assertEqual(
-            len(files_unmatched), 0,
-            'Unmatched files: {}'.format(COMMASPACE.join(files_unmatched)))
+            (len(patterns_unmatched), len(files_unmatched)),
+            (0, 0),
+            'Unmatched patterns: {}\nUnmatched files: {}'.format(
+                COMMASPACE.join(patterns_unmatched),
+                COMMASPACE.join(files_unmatched)))
 
     def test_populate_rootfs_contents_without_cloud_init(self):
         with ExitStack() as resources:
@@ -120,11 +121,11 @@ class TestModelAssertionBuilder(TestCase):
             print('cloud init user data', end='', flush=True, file=cloud_init)
             args = SimpleNamespace(
                 channel='edge',
-                workdir=None,
-                model_assertion=self.model_assertion,
-                output=None,
                 cloud_init=None,
                 extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -156,11 +157,11 @@ class TestModelAssertionBuilder(TestCase):
             print('cloud init user data', end='', flush=True, file=cloud_init)
             args = SimpleNamespace(
                 channel='edge',
-                workdir=None,
-                model_assertion=self.model_assertion,
-                output=None,
                 cloud_init=cloud_init.name,
                 extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -191,11 +192,11 @@ class TestModelAssertionBuilder(TestCase):
         with ExitStack() as resources:
             args = SimpleNamespace(
                 channel='edge',
-                workdir=None,
-                model_assertion=self.model_assertion,
-                output=None,
                 cloud_init=None,
                 extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -237,10 +238,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -290,10 +291,11 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                debug=False,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -331,10 +333,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -402,10 +404,11 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                debug=False,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -447,10 +450,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -476,10 +479,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -561,10 +564,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -622,10 +625,11 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                debug=False,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -675,10 +679,11 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                debug=False,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -718,10 +723,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -737,6 +742,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
@@ -744,6 +750,7 @@ class TestModelAssertionBuilder(TestCase):
             part1 = SimpleNamespace(
                 name='beta',
                 type='ef',
+                role=None,
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=200,
@@ -751,12 +758,13 @@ class TestModelAssertionBuilder(TestCase):
             part2 = SimpleNamespace(
                 name='gamma',
                 type='mbr',
+                role=None,
                 size=MiB(1),
                 offset=0,
                 offset_write=None,
                 )
             volume = SimpleNamespace(
-                # Ordered by offset, as would happen by the parser.
+                # gadget.yaml appearance order.
                 structures=[part2, part0, part1],
                 schema=VolumeSchema.gpt,
                 )
@@ -777,6 +785,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\3' * 13)
             state.root_img = os.path.join(state.images, 'root.img')
             state.rootfs_size = MiB(1)
+            state.rootfs_offset = MiB(5)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
             state.boot_images = [part2_img, part0_img, part1_img]
@@ -821,6 +830,198 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(partitions[1], ('beta', 8192))
             self.assertEqual(partitions[2], ('writable', 10240))
 
+    def test_make_disk_with_bare_parts(self):
+        # The second structure has a role:bare meaning it is not wrapped in a
+        # disk partition.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = MiB(10)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='assets',
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                type='bare',
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order.
+                structures=[part0],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            state.root_img = os.path.join(state.images, 'root.img')
+            state.rootfs_size = MiB(1)
+            state.rootfs_offset = MiB(5)
+            with open(state.root_img, 'wb') as fp:
+                fp.write(b'\4' * 14)
+            state.boot_images = [part0_img]
+            # Create the disk.
+            next(state)
+            # Verify some parts of the disk.img's content.  First, that we've
+            # written the part offsets at the right place.y
+            with open(state.disk_img, 'rb') as fp:
+                fp.seek(0)
+                self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out non-mbr
+                # partition is at 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
+            # Verify the disk image's partition table.
+            proc = run('sfdisk --json {}'.format(state.disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'], part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            self.assertEqual(len(partitions), 1)
+            self.assertEqual(partitions[0], ('writable', 10240))
+
+    def test_make_disk_with_out_of_order_structures(self):
+        # Structures get partition numbers matching their appearance in the
+        # gadget.yaml, even if these are out of order with respect to their
+        # disk offsets.  LP: #1642999
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = MiB(10)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='aa',
+                role=None,
+                size=MiB(1),
+                offset=MiB(2),
+                offset_write=100,
+                )
+            part1 = SimpleNamespace(
+                name='beta',
+                type='bb',
+                role=None,
+                size=MiB(1),
+                offset=MiB(4),
+                offset_write=200,
+                )
+            part2 = SimpleNamespace(
+                name='gamma',
+                type='mbr',
+                role=None,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order which does not match the disk
+                # offset order.  LP: #1642999
+                structures=[part1, part0, part2],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            part1_img = os.path.join(state.images, 'part1.img')
+            with open(part1_img, 'wb') as fp:
+                fp.write(b'\2' * 12)
+            part2_img = os.path.join(state.images, 'part2.img')
+            with open(part2_img, 'wb') as fp:
+                fp.write(b'\3' * 13)
+            state.root_img = os.path.join(state.images, 'root.img')
+            state.rootfs_size = MiB(1)
+            state.rootfs_offset = MiB(5)
+            with open(state.root_img, 'wb') as fp:
+                fp.write(b'\4' * 14)
+            state.boot_images = [part1_img, part0_img, part2_img]
+            # Create the disk.
+            next(state)
+            # Verify some parts of the disk.img's content.  First, that we've
+            # written the part offsets at the right place.y
+            with open(state.disk_img, 'rb') as fp:
+                # Part 0's offset is written at position 100.
+                fp.seek(100)
+                # Read a 32-bit little-ending integer.  Remember
+                # struct.unpack() always returns tuples, and the values are
+                # written in sector units, which are hard-coded as 512 bytes.
+                offset = unpack('<I', fp.read(4))[0]
+                self.assertEqual(offset, MiB(2) / 512)
+                # Part 1's offset is written at position 200.
+                fp.seek(200)
+                offset = unpack('<I', fp.read(4))[0]
+                self.assertEqual(offset, MiB(4) / 512)
+                # Part 0's image lives at MiB(2).
+                fp.seek(MiB(2))
+                self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
+                # Part 1's image lives at MiB(4).
+                fp.seek(MiB(4))
+                self.assertEqual(fp.read(15), b'\2' * 12 + b'\0' * 3)
+                # Part 2's image is an MBR so it must live at offset 0.
+                fp.seek(0)
+                self.assertEqual(fp.read(15), b'\3' * 13 + b'\0' * 2)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out non-mbr
+                # partition is at 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
+            # Verify the disk image's partition table.
+            proc = run('sfdisk --json {}'.format(state.disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'], part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            # Partition number matches gadget.yaml order, i.e. part1, part0,
+            # rootfs (part2 is an mbr).
+            self.assertEqual(partitions[0], ('beta', 8192))
+            self.assertEqual(partitions[1], ('alpha', 4096))
+            self.assertEqual(partitions[2], ('writable', 10240))
+
     def test_make_disk_with_parts_system_boot(self):
         # For MBR-style volumes, a part with a filesystem-label of
         # 'system-boot' gets the boot flag turned on in the partition table.
@@ -829,10 +1030,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -849,6 +1050,7 @@ class TestModelAssertionBuilder(TestCase):
                 name=None,
                 filesystem_label='system-boot',
                 type='da',
+                role=None,
                 size=MiB(1),
                 offset=MiB(1),
                 offset_write=None,
@@ -868,6 +1070,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\1' * 11)
             state.root_img = os.path.join(state.images, 'root.img')
             state.rootfs_size = MiB(1)
+            state.rootfs_offset = MiB(2)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
             state.boot_images = [part0_img]
@@ -886,10 +1089,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -905,6 +1108,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
+                role=None,
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
@@ -912,6 +1116,7 @@ class TestModelAssertionBuilder(TestCase):
             part1 = SimpleNamespace(
                 name='beta',
                 type='ef',
+                role=None,
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=('alpha', 200),
@@ -951,11 +1156,11 @@ class TestModelAssertionBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=None,
-                output=None,
                 cloud_init=None,
                 image_size=None,
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -994,11 +1199,11 @@ class TestModelAssertionBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=None,
-                output=None,
                 cloud_init=None,
                 image_size=None,
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1032,11 +1237,11 @@ class TestModelAssertionBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=None,
-                output=None,
                 cloud_init=None,
                 image_size=MiB(5),
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1071,12 +1276,12 @@ class TestModelAssertionBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=None,
-                output=None,
                 cloud_init=None,
-                image_size=MiB(1),
                 given_image_size='1M',
+                image_size=MiB(1),
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1112,6 +1317,84 @@ class TestModelAssertionBuilder(TestCase):
                 'Ignoring --image-size=1M smaller '
                 'than minimum required size 2114560')
 
+    def test_image_size_too_small_with_out_of_order_structures(self):
+        # Here we have a bunch of structures which are not sorted by offset.
+        # In fact the last partition is at offset 0 with a size of 1MiB.  If
+        # the "--image-size fits" calculation is performed against just the
+        # last partition offset + its size, this will appear to be big
+        # enough.  In reality though it's not because an earlier partition
+        # (specifically part1) starts at 4MiB and has a size of 1MiB, so a
+        # disk image of 3MiB won't fit.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                given_image_size='3M',
+                image_size=MiB(3),
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='aa',
+                size=MiB(1),
+                offset=MiB(2),
+                offset_write=100,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='alpha',
+                )
+            part1 = SimpleNamespace(
+                name='beta',
+                type='bb',
+                size=MiB(1),
+                offset=MiB(4),
+                offset_write=200,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='beta',
+                )
+            part2 = SimpleNamespace(
+                name='gamma',
+                type='mbr',
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='gamma',
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order which does not match the disk
+                # offset order.  LP: #1642999
+                structures=[part1, part0, part2],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            state.rootfs_size = MiB(1)
+            # Mock the run() call to prove that we never call dd.
+            resources.enter_context(patch('ubuntu_image.builder.run'))
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder._logger.warning'))
+            next(state)
+            # The actual image size is 6MiB + 17KiB.  The former value comes
+            # from the farthest out structure (part1 at offset 4MiB + 1MiB
+            # size) + the rootfs size of 1MiB.  The latter comes from the
+            # empirically derived 34 sector GPT backup space.
+            self.assertEqual(state.image_size, 6308864)
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'Ignoring --image-size=3M smaller '
+                'than minimum required size 6308864')
+
     def test_round_up_size_for_mbr_root_partitions(self):
         # LP: #1634557 - two rounding errors conspired to make mbr partitions
         # undersized.  First, an internal calculation in the builder used
@@ -1125,10 +1408,10 @@ class TestModelAssertionBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
-                workdir=workdir,
-                unpackdir=unpackdir,
-                output=None,
                 cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1151,6 +1434,7 @@ class TestModelAssertionBuilder(TestCase):
                 filesystem_label='system-boot',
                 filesystem='vfat',
                 type='0C',
+                role=None,
                 size=MiB(128),
                 offset=MiB(1),
                 offset_write=None,
@@ -1171,6 +1455,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\1' * 11)
             state.root_img = os.path.join(state.images, 'root.img')
             state.rootfs_size = 947980
+            state.rootfs_offset = MiB(129)
             with open(state.root_img, 'wb') as fp:
                 fp.write(b'\2' * 947980)
             state.boot_images = [part0_img]
