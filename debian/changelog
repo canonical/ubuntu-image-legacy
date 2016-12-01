@@ -1,4 +1,4 @@
-ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.12+17.04ubuntu1) zesty; urgency=medium
 
   * Revert previous change which sorted structure volumes by their
     offset.  Instead, we preserve gadget.yaml order for purposes of
