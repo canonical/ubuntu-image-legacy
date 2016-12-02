@@ -316,6 +316,7 @@ class ModelAssertionBuilder(State):
                 None))
             root_img = os.path.join(
                 self.images, 'part{}.img'.format(partnum + 1))
+            self.part_images.append(root_img)
             next_offset += self.rootfs_size
         # Create empty file for the rootfs with holes.
         with open(root_img,  'w'):
@@ -351,7 +352,7 @@ class ModelAssertionBuilder(State):
                 # populated at creation time, depending on the version of
                 # e2fsprogs.
                 mkfs_ext4(part_img, self.rootfs, part.filesystem_label)
-            if part.filesystem is FileSystemType.none:
+            elif part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0
                 for content in part.content:
