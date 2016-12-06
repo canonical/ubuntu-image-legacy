@@ -990,6 +990,7 @@ class TestModelAssertionBuilder(TestCase):
             state._next.pop()
             state._next.append(state.prepare_filesystems)
             # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
@@ -999,14 +1000,22 @@ class TestModelAssertionBuilder(TestCase):
                 offset=0,
                 offset_write=None,
                 )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0],
+                structures=[part0, part1],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            state.rootfs_size = MiB(1)
             # Mock the run() call to prove that we never call dd.
             mock = resources.enter_context(patch('ubuntu_image.builder.run'))
             next(state)
@@ -1034,6 +1043,7 @@ class TestModelAssertionBuilder(TestCase):
             state._next.pop()
             state._next.append(state.prepare_filesystems)
             # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
@@ -1043,14 +1053,22 @@ class TestModelAssertionBuilder(TestCase):
                 offset=0,
                 offset_write=None,
                 )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0],
+                structures=[part0, part1],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            state.rootfs_size = MiB(1)
             # Mock the run() call to prove that we never call dd.
             resources.enter_context(patch('ubuntu_image.builder.run'))
             next(state)
@@ -1073,6 +1091,7 @@ class TestModelAssertionBuilder(TestCase):
             state._next.pop()
             state._next.append(state.prepare_filesystems)
             # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
@@ -1082,14 +1101,22 @@ class TestModelAssertionBuilder(TestCase):
                 offset=0,
                 offset_write=None,
                 )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0],
+                structures=[part0, part1],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            state.rootfs_size = MiB(1)
             # Mock the run() call to prove that we never call dd.
             resources.enter_context(patch('ubuntu_image.builder.run'))
             next(state)
@@ -1114,6 +1141,7 @@ class TestModelAssertionBuilder(TestCase):
             state._next.pop()
             state._next.append(state.prepare_filesystems)
             # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
                 type='da',
@@ -1123,14 +1151,22 @@ class TestModelAssertionBuilder(TestCase):
                 offset=0,
                 offset_write=None,
                 )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0],
+                structures=[part0, part1],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            state.rootfs_size = MiB(1)
             # Mock the run() call to prove that we never call dd.
             resources.enter_context(patch('ubuntu_image.builder.run'))
             mock = resources.enter_context(
