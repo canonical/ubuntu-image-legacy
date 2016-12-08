@@ -61,7 +61,7 @@ class TestModelAssertionBuilder(TestCase):
             debug=False,
             extra_snaps=None,
             model_assertion=self.model_assertion,
-            output=output,
+            output=output.name,
             workdir=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
