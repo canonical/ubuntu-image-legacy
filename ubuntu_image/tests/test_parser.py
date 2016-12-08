@@ -18,6 +18,9 @@ volumes:
     structure:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
+        - type: 83,00000000-0000-0000-0000-0000feedface
+          role: system-data
+          size: 100M
 """)
         self.assertEqual(gadget_spec.device_tree_origin, 'gadget')
         self.assertIsNone(gadget_spec.device_tree)
@@ -26,7 +29,7 @@ volumes:
         self.assertEqual(volume0.schema, VolumeSchema.gpt)
         self.assertEqual(volume0.bootloader, BootLoader.uboot)
         self.assertIsNone(volume0.id)
-        self.assertEqual(len(volume0.structures), 1)
+        self.assertEqual(len(volume0.structures), 2)
         structure0 = volume0.structures[0]
         self.assertIsNone(structure0.name)
         self.assertEqual(structure0.offset, MiB(1))
@@ -1736,6 +1739,25 @@ volumes:
         self.assertEqual(str(cm.exception),
                          'Unsupported gadget.yaml format version: bogus')
 
+    def test_implicit_system_data_partition(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 100M
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(len(volume0.structures), 3)
+        partition2 = volume0.structures[2]
+        self.assertEqual(partition2.role, StructureRole.system_data)
+        self.assertEqual(partition2.offset, MiB(501))
+        self.assertEqual(partition2.size, 0)
+        self.assertEqual(partition2.filesystem, FileSystemType.ext4)
+
 
 class TestPartOrder(TestCase):
     # LP: #1631423
@@ -1754,6 +1776,7 @@ volumes:
         - type: 00000000-0000-0000-0000-dd00deadbeef
           size: 400M
         - type: 00000000-0000-0000-0000-cc00deadbeef
+          role: system-data
           size: 500M
         - type: 00000000-0000-0000-0000-bb00deadbeef
           size: 100M
@@ -1781,6 +1804,7 @@ volumes:
           size: 400M
           offset: 800M
         - type: 00000000-0000-0000-0000-cc00deadbeef
+          role: system-data
           size: 500M
           offset: 200M
         - type: 00000000-0000-0000-0000-bb00deadbeef
@@ -1812,6 +1836,7 @@ volumes:
           size: 400M
           offset: 800M
         - type: 00000000-0000-0000-0000-cc00deadbeef
+          role: system-data
           size: 500M
           offset: 200M
         - type: 00000000-0000-0000-0000-bb00deadbeef

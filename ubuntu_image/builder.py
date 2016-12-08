@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import (
-    BootLoader, FileSystemType, StructureRole, StructureSpec, VolumeSchema,
+    BootLoader, FileSystemType, StructureRole, VolumeSchema,
     parse as parse_yaml)
 from ubuntu_image.state import State
 
@@ -279,16 +279,18 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
-        root_img = None
         for partnum, part in enumerate(volume.structures):
             part_img = os.path.join(self.images, 'part{}.img'.format(partnum))
             if part.role is StructureRole.system_data:
+                # The image for the root partition.
                 if part.size < self.rootfs_size:
                     _logger.warning('Rootfs partition size ({}) smaller than '
                                     'actual rootfs contents {}.',
                                     self.rootfs_size, part.size)
                     part.size = self.rootfs_size
-                root_img = part_img
+                with open(part_img,  'w'):
+                    pass
+                os.truncate(part_img, self.rootfs_size)
             else:
                 run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                     part_img, part.size))
@@ -304,24 +306,6 @@ class ModelAssertionBuilder(State):
                         label_option, part_img))
             self.part_images.append(part_img)
             next_offset = part.offset + part.size
-        # The image for the root partition.
-        # We still need to handle the case of unspecified system-data partition
-        # where we simply attach the rootfs at the end of the partition list.
-        if not root_img:
-            volume.structures.append(StructureSpec(
-                None, next_offset, None, self.rootfs_size,
-                ('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
-                None, StructureRole.system_data,
-                FileSystemType.ext4, 'system-data',
-                None))
-            root_img = os.path.join(
-                self.images, 'part{}.img'.format(partnum + 1))
-            self.part_images.append(root_img)
-            next_offset += self.rootfs_size
-        # Create empty file for the rootfs with holes.
-        with open(root_img,  'w'):
-            pass
-        os.truncate(root_img, self.rootfs_size)
         # We defer creating the root file system image because we have to
         # populate it at the same time.  See mkfs.ext4(8) for details.
         # Calculate or check the final image size.

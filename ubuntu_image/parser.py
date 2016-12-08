@@ -326,6 +326,7 @@ def parse(stream_or_string):
         image_id = image_spec.get('id')
         structures = []
         last_offset = 0
+        rootfs_seen = False
         for structure in image_spec['structure']:
             name = structure.get('name')
             offset = structure.get('offset')
@@ -394,6 +395,8 @@ def parse(stream_or_string):
                     warn('volumes:<volume name>:structure:<N>:filesystem_label'
                          ' used for defining partition roles; use role '
                          'instead.', DeprecationWarning)
+            if structure_role is StructureRole.system_data:
+                rootfs_seen = True
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
             # in a single structure, they must all be of type A or type B.  If
@@ -425,6 +428,23 @@ def parse(stream_or_string):
                 structure_type, structure_id, structure_role,
                 filesystem, filesystem_label,
                 content_specs))
+        if not rootfs_seen:
+            # We still need to handle the case of unspecified system-data
+            # partition where we simply attach the rootfs at the end of the
+            # partition list.
+            # Since so far we have no knowledge of the rootfs contents, the
+            # size is set to 0, knowing that the builder code will resize it
+            # to fit all the contents.
+            warn('No role: system-data partition found, a implicit rootfs '
+                 'partition will be appended at the end of the partition '
+                 'list. An explicit system-data partition is now required.',
+                 DeprecationWarning)
+            structures.append(StructureSpec(
+                None, last_offset, None, 0,
+                ('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                None, StructureRole.system_data,
+                FileSystemType.ext4, 'system-data',
+                []))
         # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(
             schema, bootloader, image_id,
