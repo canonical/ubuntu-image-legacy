@@ -18,6 +18,10 @@ SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
 
+class TMPNotReadableFromOutsideSnap(Exception):
+    """ubuntu-image snap cannot write images to /tmp"""
+
+
 class ModelAssertionBuilder(State):
     def __init__(self, args):
         super().__init__()
@@ -34,11 +38,17 @@ class ModelAssertionBuilder(State):
             self.resources.enter_context(TemporaryDirectory())
             if args.workdir is None
             else args.workdir)
-        # Where the disk.img file ends up.
+        # Where the disk.img file ends up.  /tmp to a snap is not the same
+        # /tmp outside of the snap.  When running as a snap, don't allow the
+        # user to output a disk image to a location that won't exist for them.
         self.output = (
             os.path.join(self.workdir, 'disk.img')
             if args.output is None
             else args.output)
+        in_snap = any(key.startswith('SNAP') for key in os.environ)
+        path = os.sep.join(self.output.split(os.sep)[:2])
+        if in_snap and path == '/tmp':
+            raise TMPNotReadableFromOutsideSnap
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
