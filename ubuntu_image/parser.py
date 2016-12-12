@@ -10,6 +10,7 @@ from operator import attrgetter, methodcaller
 from ubuntu_image.helpers import GiB, MiB, as_size
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
+from warnings import warn
 from yaml import load
 from yaml.loader import SafeLoader
 from yaml.parser import ParserError, ScannerError
@@ -73,6 +74,13 @@ class FileSystemType(Enum):
     none = 'none'
     ext4 = 'ext4'
     vfat = 'vfat'
+
+
+@yaml_path('volumes:<volume name>:structure:<N>:role')
+class StructureRole(Enum):
+    mbr = 'mbr'
+    system_boot = 'system-boot'
+    system_data = 'system-data'
 
 
 class Enumify:
@@ -179,7 +187,10 @@ GadgetYAML = Schema({
                 Optional('offset-write'): Any(
                     Coerce(Size32bit), RelativeOffset),
                 Required('size'): Coerce(as_size),
-                Required('type'): Any('mbr', Coerce(HybridId)),
+                Required('type'): Any('mbr', 'bare', Coerce(HybridId)),
+                Optional('role'): Enumify(
+                    StructureRole,
+                    preprocessor=methodcaller('replace', '-', '_')),
                 Optional('id'): Coerce(UUID),
                 Optional('filesystem', default=FileSystemType.none):
                     Enumify(FileSystemType),
@@ -241,6 +252,7 @@ class StructureSpec:
     size = attr.ib()
     type = attr.ib()
     id = attr.ib()
+    role = attr.ib()
     filesystem = attr.ib()
     filesystem_label = attr.ib()
     content = attr.ib()
@@ -320,27 +332,74 @@ def parse(stream_or_string):
             offset_write = structure.get('offset-write')
             size = structure['size']
             structure_type = structure['type']
-            # Validate structure types.  These can be either GUIDs, two hex
-            # digits, hybrids, or the special 'mbr' type.  The basic syntactic
-            # validation happens above in the Voluptuous schema, but here we
-            # need to ensure cross-attribute constraints.  Specifically,
-            # hybrids and 'mbr' are allowed for either schema, but GUID-only
-            # is only allowed for GPT, while 2-digit-only is only allowed for
-            # MBR.  Note too that 2-item tuples are also already ensured.
+            structure_role = structure.get('role')
+            # Structure types and roles work together to define how the
+            # structure is laid out on disk, along with any disk partitions
+            # wrapping the structure.  In general, the type field names the
+            # disk partition type code for the wrapping partition, and it will
+            # either be a GUID for GPT disk schemas, a two hex digit string
+            # for MBR disk schemas, or a hybrid type where a tuple-like string
+            # names both type codes.
+            #
+            # The role specifies how the structure is to be used.  It may be a
+            # partition holding boot assets, or a partition holding the
+            # operating system data.  Without a role specification, we drop
+            # back to the filesystem label to determine this.
+            #
+            # There are two complications.  Disks can have a special
+            # non-partition wrapped Master Boot Record section on the disk
+            # containing bootstrapping code.  MBRs must start at offset 0 and
+            # be no larger than 446 bytes (there is some variability for other
+            # MBR layouts, but 446 is the max).  The Wikipedia page has some
+            # good diagrams: https://en.wikipedia.org/wiki/Master_boot_record
+            #
+            # MBR sections are identified by a role:mbr key, and in that case,
+            # the gadget.yaml may not include a type field (since the MBR
+            # isn't a partition).
+            #
+            # Some use cases involve putting bootstrapping code at other
+            # locations on the disk, with offsets other than zero and
+            # arbitrary sizes.  This bootstrapping code is also not wrapped in
+            # a disk partition.  For these, type:none is the way to specify
+            # that, but in that case, you cannot include a role key.
+            # Technically speaking though, role:mbr is allowed, but somewhat
+            # redundant.  All other roles with type:none are prohibited.
+            #
+            # For backward compatibility, we still allow the type:mbr field,
+            # which is exactly equivalent to the preferred role:mbr field,
+            # however a deprecation warning is issued in the former case.
+            if structure_type == 'mbr':
+                if structure_role:
+                    raise GadgetSpecificationError(
+                        'Type mbr and role fields assigned at the same time, '
+                        'please use the mbr role instead')
+                warn("volumes:<volume name>:structure:<N>:type = 'mbr' is "
+                     'deprecated; use role instead', DeprecationWarning)
+                structure_role = StructureRole.mbr
+            # For now, the structure type value can be of several Python
+            # types. 1) a UUID for GPT schemas; 2) a 2-letter str for MBR
+            # schemas; 3) a 2-tuple of #1 and #2 for mixed schemas; 4) the
+            # special strings 'mbr' and 'bare' which can appear for either GPT
+            # or MBR schemas.  type:mbr is deprecated and will eventually go
+            # away.  What we're doing here is some simple validation of #1 and
+            # #2.
             if (isinstance(structure_type, UUID) and
                     schema is not VolumeSchema.gpt):
                 raise GadgetSpecificationError(
                     'MBR structure type with non-MBR schema')
+            elif structure_type == 'bare':
+                if structure_role not in (None, StructureRole.mbr):
+                    raise GadgetSpecificationError(
+                        'Invalid gadget.yaml: structure role/type conflict')
             elif (isinstance(structure_type, str) and
-                    structure_type != 'mbr' and
+                    structure_role is not StructureRole.mbr and
                     schema is not VolumeSchema.mbr):
                 raise GadgetSpecificationError(
                     'GUID structure type with non-GPT schema')
             # Check for implicit vs. explicit partition offset.
             if offset is None:
-                # XXX: Ensure the special case of the 'mbr' type doesn't
-                # extend beyond the confines of the mbr.
-                if structure_type != 'mbr' and last_offset < MiB(1):
+                if (structure_role is not StructureRole.mbr and
+                        last_offset < MiB(1)):
                     offset = MiB(1)
                 else:
                     offset = last_offset
@@ -348,13 +407,19 @@ def parse(stream_or_string):
             # Extract the rest of the structure data.
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
-            if structure_type == 'mbr':
+            if structure_role is StructureRole.mbr:
+                if size > 446:
+                    raise GadgetSpecificationError(
+                        'mbr structures cannot be larger than 446 bytes.')
+                if offset != 0:
+                    raise GadgetSpecificationError(
+                        'mbr structure must start at offset 0')
                 if structure_id is not None:
                     raise GadgetSpecificationError(
-                        'mbr type must not specify partition id')
-                elif filesystem is not FileSystemType.none:
+                        'mbr structures must not specify partition id')
+                if filesystem is not FileSystemType.none:
                     raise GadgetSpecificationError(
-                        'mbr type must not specify a file system')
+                        'mbr structures must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
@@ -384,17 +449,17 @@ def parse(stream_or_string):
                             content_specs.append(spec)
             structures.append(StructureSpec(
                 name, offset, offset_write, size,
-                structure_type, structure_id, filesystem, filesystem_label,
+                structure_type, structure_id, structure_role,
+                filesystem, filesystem_label,
                 content_specs))
         # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(
-            schema, bootloader, image_id,
-            sorted(structures, key=attrgetter('offset')))
+            schema, bootloader, image_id, structures)
         # Sanity check the partition offsets to ensure that there is no
         # overlap conflict where a part's offset begins before the previous
         # part's end.
         last_end = -1
-        for part in volume_specs[image_name].structures:
+        for part in sorted(structures, key=attrgetter('offset')):
             if part.offset < last_end:
                 raise GadgetSpecificationError(
                     'Structure conflict! {}: {} <  {}'.format(

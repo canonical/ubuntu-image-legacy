@@ -3,24 +3,29 @@ Depends: python3-ubuntu-image
 
 Test-Command: ubuntu-image --help
 Depends: ubuntu-image
+Features: test-name=help
 
 Test-Command: ubuntu-image --version
 Depends: ubuntu-image
+Features: test-name=version
 
 Test-Command: man ubuntu-image
 Depends: ubuntu-image, man-db
+Features: test-name=manpage
 
 # Something in the tox/pip/setuptools stack requires git.
 
 Test-Command: tox -e py35
 Depends: @builddeps@, git
+Features: test-name=unittests
 
 Test-Command: tox -e qa
 Depends: @builddeps@, git
+Features: test-name=qa
 
 Tests: coverage.sh
 Depends: @builddeps@, git, lsb-release
 
 Tests: mount
 Restrictions: needs-root, allow-stderr
-Depends: @, kpartx, ca-certificates, grub-common
+Depends: @, kpartx

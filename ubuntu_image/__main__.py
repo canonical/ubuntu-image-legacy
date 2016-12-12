@@ -8,7 +8,8 @@ import argparse
 from pickle import dump, load
 from contextlib import suppress
 from ubuntu_image import __version__
-from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.builder import (
+    ModelAssertionBuilder, TMPNotReadableFromOutsideSnap)
 from ubuntu_image.helpers import as_size
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
@@ -147,7 +148,11 @@ def main(argv=None):
             state_machine = load(fp)
         state_machine.workdir = args.workdir
     else:
-        state_machine = ModelAssertionBuilder(args)
+        try:
+            state_machine = ModelAssertionBuilder(args)
+        except TMPNotReadableFromOutsideSnap as error:
+            print(error.__doc__, file=sys.stderr)
+            return 1
     # Run the state machine, either to the end or thru/until the named state.
     try:
         if args.thru:

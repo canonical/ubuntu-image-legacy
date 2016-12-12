@@ -18,6 +18,10 @@ SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
 
+class TMPNotReadableFromOutsideSnap(Exception):
+    """ubuntu-image snap cannot write images to /tmp"""
+
+
 class ModelAssertionBuilder(State):
     def __init__(self, args):
         super().__init__()
@@ -34,14 +38,21 @@ class ModelAssertionBuilder(State):
             self.resources.enter_context(TemporaryDirectory())
             if args.workdir is None
             else args.workdir)
-        # Where the disk.img file ends up.
+        # Where the disk.img file ends up.  /tmp to a snap is not the same
+        # /tmp outside of the snap.  When running as a snap, don't allow the
+        # user to output a disk image to a location that won't exist for them.
         self.output = (
             os.path.join(self.workdir, 'disk.img')
             if args.output is None
             else args.output)
+        in_snap = any(key.startswith('SNAP') for key in os.environ)
+        path = os.sep.join(self.output.split(os.sep)[:2])
+        if in_snap and path == '/tmp':
+            raise TMPNotReadableFromOutsideSnap
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
+        self.rootfs_offset = 0
         self.image_size = 0
         self.bootfs = None
         self.bootfs_sizes = None
@@ -73,6 +84,7 @@ class ModelAssertionBuilder(State):
             root_img=self.root_img,
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
+            rootfs_offset=self.rootfs_offset,
             unpackdir=self.unpackdir,
             )
         return state
@@ -93,6 +105,7 @@ class ModelAssertionBuilder(State):
         self.root_img = state['root_img']
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
+        self.rootfs_offset = state['rootfs_offset']
         self.unpackdir = state['unpackdir']
 
     def _log_exception(self, name):
@@ -135,7 +148,7 @@ class ModelAssertionBuilder(State):
         dst = os.path.join(self.rootfs, 'system-data')
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
-            # /boot which goos to the boot partition.
+            # /boot which goes to the boot partition.
             if subdir != 'boot':
                 shutil.move(os.path.join(src, subdir),
                             os.path.join(dst, subdir))
@@ -281,6 +294,11 @@ class ModelAssertionBuilder(State):
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
         for partnum, part in enumerate(volume.structures):
+            # The root file system implicitly lives right after the farthest
+            # out structure, which may not be the last named structure in the
+            # gadget.yaml.
+            self.rootfs_offset = max(
+                self.rootfs_offset, (part.offset + part.size))
             part_img = os.path.join(self.images, 'part{}.img'.format(partnum))
             self.boot_images.append(part_img)
             run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
@@ -295,14 +313,12 @@ class ModelAssertionBuilder(State):
                 # XXX: hard-coding of sector size
                 run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                     label_option, part_img))
-            # XXX: Does not handle the case of partitions at the end of the
-            # image.
-            next_avail = part.offset + part.size
-        # The image for the root partition.
-        #
-        # XXX: Hard-codes last 34 512-byte sectors for backup GPT,
-        # empirically derived from sgdisk behavior.
-        calculated = ceil((self.rootfs_size + next_avail) / 1024 + 17) * 1024
+        # Sanity check whether everything will fit on the disk if an explicit
+        # size was given on the command line.  XXX: This hard-codes last 34
+        # 512-byte sectors for backup GPT, empirically derived from sgdisk
+        # behavior.
+        calculated = ceil(
+            (self.rootfs_offset + self.rootfs_size) / 1024 + 17) * 1024
         if self.args.image_size is None:
             self.image_size = calculated
         else:
@@ -313,6 +329,7 @@ class ModelAssertionBuilder(State):
                 self.image_size = calculated
             else:
                 self.image_size = self.args.image_size
+        # The image for the root partition.
         self.root_img = os.path.join(self.images, 'root.img')
         # Create empty file with holes.
         with open(self.root_img,  'w'):
@@ -386,7 +403,7 @@ class ModelAssertionBuilder(State):
             image = Image(self.disk_img, self.image_size)
         offset_writes = []
         part_offsets = {}
-        next_offset = 1
+        root_offset = 0
         for i, part in enumerate(volume.structures):
             if part.name is not None:
                 part_offsets[part.name] = part.offset
@@ -396,7 +413,7 @@ class ModelAssertionBuilder(State):
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
-            if part.type == 'mbr':
+            if part.type in ('bare', 'mbr'):
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
@@ -415,17 +432,22 @@ class ModelAssertionBuilder(State):
                 partition_args['change_name'] = part.name
             image.partition(part_id, **partition_args)
             part_id += 1
-            next_offset = (part.offset + part.size) // MiB(1)
-        # Create main snappy writable partition as the last partition.
+            # Put the rootfs after the farthest out structure, which may not
+            # be the last named structure in the gadget.yaml.
+            root_offset = max(root_offset, (part.offset + part.size))
+        # Create and write the main snappy writable partition (i.e. rootfs) as
+        # the last partition.
+        root_offset_mib = self.rootfs_offset // MiB(1)
+        root_size_kib = ceil(self.rootfs_size / 1024)
         image.partition(
             part_id,
-            new='{}M:+{}K'.format(next_offset, ceil(self.rootfs_size / 1024)),
+            new='{}M:+{}K'.format(root_offset_mib, root_size_kib),
             typecode=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'))
         if volume.schema is VolumeSchema.gpt:
             image.partition(part_id, change_name='writable')
         image.copy_blob(
             self.root_img,
-            bs='1M', seek=next_offset,
+            bs='1M', seek=root_offset_mib,
             count=ceil(self.rootfs_size / MiB(1)),
             conv='notrunc')
         for value, dest in offset_writes:
