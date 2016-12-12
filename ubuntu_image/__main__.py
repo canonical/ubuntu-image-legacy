@@ -5,8 +5,8 @@ import sys
 import logging
 import argparse
 
-from pickle import dump, load
 from contextlib import suppress
+from pickle import dump, load
 from ubuntu_image import __version__
 from ubuntu_image.builder import (
     ModelAssertionBuilder, TMPNotReadableFromOutsideSnap)
