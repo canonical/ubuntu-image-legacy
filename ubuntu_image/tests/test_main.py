@@ -4,8 +4,8 @@ import os
 import logging
 
 from contextlib import ExitStack, contextmanager
-from io import StringIO
 from flufl.testing.nose import NosePlugin
+from io import StringIO
 from pickle import load
 from pkg_resources import resource_filename
 from subprocess import CalledProcessError
