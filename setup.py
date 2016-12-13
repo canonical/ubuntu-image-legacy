@@ -65,9 +65,6 @@ setup(
         ],
     include_package_data=True,
     scripts=['ubuntu-image'],
-    entry_points={
-        'flake8.extension': ['B4 = ubuntu_image.testing.flake8:ImportOrder'],
-        },
     license='GPLv3',
     classifiers=(
         'Development Status :: 3 - Alpha',

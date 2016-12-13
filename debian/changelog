@@ -2,6 +2,7 @@ ubuntu-image (0.13+17.04ubuntu1) UNRELEASED; urgency=medium
 
   * Refuse to write images to /tmp when running ubuntu-image as a snap,
     since the snap's /tmp is not accessible to the user.  (LP: #1646968)
+  * Use flufl.testing to avoid affecting global system state.  (LP: #1631156)
 
  -- Barry Warsaw <barry@ubuntu.com>  Thu, 01 Dec 2016 17:33:19 -0500
 

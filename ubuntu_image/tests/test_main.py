@@ -4,6 +4,7 @@ import os
 import logging
 
 from contextlib import ExitStack, contextmanager
+from flufl.testing.nose import NosePlugin
 from io import StringIO
 from pickle import load
 from pkg_resources import resource_filename
@@ -16,7 +17,6 @@ from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
     LogCapture, XXXModelAssertionBuilder)
-from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
 
