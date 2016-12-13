@@ -6,6 +6,7 @@ ubuntu-image (0.13+17.04ubuntu1) UNRELEASED; urgency=medium
     mode,ownership,timestamps.  Over remote file systems (e.g. afp, hgfs)
     this can fail.  Over local file systems, they'll be preserved anyway.
     (LP: #1637554)
+  * d/tests/mount: Switch to the stable channel for snaps.
 
  -- Barry Warsaw <barry@ubuntu.com>  Thu, 01 Dec 2016 17:33:19 -0500
 
