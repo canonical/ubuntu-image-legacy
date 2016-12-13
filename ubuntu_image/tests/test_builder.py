@@ -6,6 +6,7 @@ import json
 import logging
 
 from contextlib import ExitStack
+from flufl.testing.nose import NosePlugin
 from itertools import product
 from pkg_resources import resource_filename
 from struct import unpack
@@ -15,7 +16,6 @@ from types import SimpleNamespace
 from ubuntu_image.helpers import MiB, run
 from ubuntu_image.parser import BootLoader, FileSystemType, VolumeSchema
 from ubuntu_image.testing.helpers import LogCapture, XXXModelAssertionBuilder
-from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import patch
 

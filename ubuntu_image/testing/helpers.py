@@ -5,9 +5,13 @@ import shutil
 import logging
 
 from contextlib import ExitStack
+from hashlib import sha256
 from pkg_resources import resource_filename
+from tempfile import TemporaryDirectory
 from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.helpers import as_bool, run as real_run, snap as real_snap
 from unittest.mock import patch
+from zipfile import ZipFile
 
 
 class XXXModelAssertionBuilder(ModelAssertionBuilder):
@@ -87,3 +91,110 @@ class LogCapture:
         self._resources.close()
         # Don't suppress any exceptions.
         return False
+
+
+# Create a mock for the `sudo snap prepare-image` command.  This is an
+# expensive command which hits the actual snap store.  We want this to run at
+# least once so we know our tests are valid.  We can cache the results in a
+# test-suite-wide temporary directory and simulate future calls by just
+# recursively copying the contents to the specified directories.
+#
+# It's a bit more complicated than that though, because it's possible that the
+# channel and model.assertion will be different, so we need to make the cache
+# dependent on those values.
+#
+# Finally, to enable full end-to-end tests, check an environment variable to
+# see if the mocking should even be done.  This way, we can make our Travis-CI
+# job do at least one real end-to-end test.
+
+def mock_run(command, *, check=True, **args):
+    # In the test suite, we have to mock out the run() call to do two things.
+    # First, it must not print progress to stdout/stderr since this clutters
+    # up the test output.  Since the default is to capture these, it's enough
+    # to just remove any keyword arguments from args.
+    #
+    # Second, it must set UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL so that we
+    # can use our test data model.assertion, which obviously isn't signed.
+    args.pop('stdout', None)
+    args.pop('stderr', None)
+    env = args.setdefault('env', os.environ)
+    env['UBUNTU_IMAGE_SKIP_COPY_UNVERIFIED_MODEL'] = '1'
+    real_run(command, check=check, **args)
+
+
+class MockerBase:
+    def __init__(self, tmpdir):
+        self._tmpdir = tmpdir
+        self.patcher = patch('ubuntu_image.builder.snap', self.snap_mock)
+
+    def snap_mock(self, model_assertion, root_dir,
+                  channel=None, extra_snaps=None):
+        raise NotImplementedError
+
+    def _checksum(self, model_assertion, channel):
+        # Hash the contents of the model.assertion file + the channel name and
+        # use that in the cache directory name.  This is more accurate than
+        # using the model.assertion basename.
+        with open(model_assertion, 'rb') as fp:
+            checksum = sha256(fp.read())
+        checksum.update(
+            ('default' if channel is None else channel).encode('utf-8'))
+        return checksum.hexdigest()
+
+    def __enter__(self):
+        self.patcher.start()
+        return self
+
+    def __exit__(self, *args):
+        self.patcher.stop()
+        return False
+
+
+class SecondAndOnwardMock(MockerBase):
+    def snap_mock(self, model_assertion, root_dir,
+                  channel=None, extra_snaps=None):
+        run_tmp = os.path.join(
+            self._tmpdir,
+            self._checksum(model_assertion, channel))
+        tmp_root = os.path.join(run_tmp, 'root')
+        if not os.path.isdir(run_tmp):
+            os.makedirs(tmp_root)
+            with patch('ubuntu_image.helpers.run', mock_run):
+                real_snap(model_assertion, tmp_root, channel)
+        # copytree() requires that the destination directories do not exist.
+        # Since this code only ever executes during the test suite, and even
+        # though only when mocking `snap` for speed, this is always safe.
+        shutil.rmtree(root_dir, ignore_errors=True)
+        shutil.copytree(tmp_root, root_dir)
+
+
+class AlwaysMock(MockerBase):
+    def snap_mock(self, model_assertion, root_dir,
+                  channel=None, extra_snaps=None):
+        zipfile = resource_filename(
+            'ubuntu_image.tests.data',
+            '{}.zip'.format(self._checksum(model_assertion, channel)))
+        with ZipFile(zipfile, 'r') as zf:
+            zf.extractall(root_dir)
+
+
+def start_test_run(plugin):
+    """[flufl.testing]start_run hook."""
+    plugin.resources = ExitStack()
+    # How should we mock `snap prepare-image`?  If set to 'always' (case
+    # insensitive), then use the sample data in the .zip file.  Any other
+    # truthy value says to use a second-and-onward mock.
+    should_we_mock = os.environ.get('UBUNTU_IMAGE_MOCK_SNAP', 'yes')
+    if should_we_mock.lower() == 'always':
+        mock_class = AlwaysMock
+    elif as_bool(should_we_mock):
+        mock_class = SecondAndOnwardMock
+    else:
+        mock_class = None
+    if mock_class is not None:
+        tmpdir = plugin.resources.enter_context(TemporaryDirectory())
+        # Record the actual snap mocker on the class so that other tests
+        # can temporarily disable it.  Some tests need to run the actual
+        # snap() helper function.
+        plugin.__class__.snap_mocker = plugin.resources.enter_context(
+            mock_class(tmpdir))
