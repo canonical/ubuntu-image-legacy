@@ -3,8 +3,8 @@ ubuntu-image (0.13+17.04ubuntu1) UNRELEASED; urgency=medium
   * Refuse to write images to /tmp when running ubuntu-image as a snap,
     since the snap's /tmp is not accessible to the user.  (LP: #1646968)
   * When sparse copying the resulting disk image, don't try to preserve
-    timestamps.  It isn't that important and it fails when copying the
-    file to certain destinations (e.g. afp mounted directories).
+    mode,ownership,timestamps.  Over remote file systems (e.g. afp, hgfs)
+    this can fail.  Over local file systems, they'll be preserved anyway.
     (LP: #1637554)
 
  -- Barry Warsaw <barry@ubuntu.com>  Thu, 01 Dec 2016 17:33:19 -0500

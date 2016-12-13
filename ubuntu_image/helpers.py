@@ -117,7 +117,7 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
 
 
 def sparse_copy(src, dst, *, follow_symlinks=True):
-    args = ['cp', '--preserve=mode,ownership', '--sparse=always', src, dst]
+    args = ['cp', '--sparse=always', src, dst]
     if not follow_symlinks:
         args.append('-P')
     run(args)
