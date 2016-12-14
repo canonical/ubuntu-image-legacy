@@ -1987,3 +1987,28 @@ volumes:
                 (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(700)),
                 (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
                 ])
+
+    def test_mixed_offset_ordering_implicit_rootfs(self):
+        gadget_spec = parse("""\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+          offset: 800M
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+          offset: 200M
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 100M
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+          offset: 1M
+""")
+        volume0 = gadget_spec.volumes['first']
+        self.assertEqual(len(volume0.structures), 5)
+        partition4 = volume0.structures[4]
+        self.assertEqual(partition4.role, StructureRole.system_data)
+        self.assertEqual(partition4.offset, MiB(1200))
