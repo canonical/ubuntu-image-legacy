@@ -23,7 +23,7 @@ from ubuntu_image.parser import FileSystemType, parse
 TMP = os.environ['AUTOPKGTEST_TMP']
 DIR = os.path.abspath(os.path.join('debian', 'tests', 'models'))
 STATUS = {}
-CHANNEL = 'beta'
+CHANNEL = 'stable'
 
 
 for model_file in os.listdir(DIR):
