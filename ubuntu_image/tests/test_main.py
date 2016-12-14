@@ -3,7 +3,7 @@
 import os
 import logging
 
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from io import StringIO
 from pickle import load
 from pkg_resources import resource_filename
@@ -24,6 +24,31 @@ from unittest.mock import call, patch
 # For forcing a test failure.
 def check_returncode(*args, **kws):
     raise CalledProcessError(1, 'failing command')
+
+
+@contextmanager
+def envar(key, value):
+    missing = object()
+    # Temporary set an environment variable.
+    old_value = os.environ.get(key, missing)
+    os.environ[key] = value
+    try:
+        yield
+    finally:
+        if old_value is missing:
+            del os.environ[key]
+        else:
+            os.environ[key] = old_value
+
+
+@contextmanager
+def chdir(new_dir):
+    here = os.getcwd()
+    try:
+        os.chdir(new_dir)
+        yield
+    finally:
+        os.chdir(here)
 
 
 class BadGadgetModelAssertionBuilder(XXXModelAssertionBuilder):
@@ -175,6 +200,51 @@ class TestMainWithModel(TestCase):
         self.assertFalse(os.path.exists(imgfile))
         main(('--output', imgfile, self.model_assertion))
         self.assertTrue(os.path.exists(imgfile))
+
+    def test_output_to_snaps_tmp(self):
+        # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
+        # a snap you cannot use `-o /tmp/something`.
+        #
+        # For reference see:
+        # http://snapcraft.io/docs/reference/env
+        # http://www.zygoon.pl/2016/08/snap-execution-environment.html
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        self.assertFalse(os.path.exists(imgfile))
+        code = main(('--output', '/tmp/my.img', self.model_assertion))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            self._stderr.getvalue(),
+            'ubuntu-image snap cannot write images to /tmp\n')
+
+    def test_no_output_as_snaps_pwd_tmp(self):
+        # LP: 1646968 - With no --output, if the current working directory is
+        # /tmp, refuse to run.
+        #
+        # For reference see:
+        # http://snapcraft.io/docs/reference/env
+        # http://www.zygoon.pl/2016/08/snap-execution-environment.html
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        # XXX This could fail if /tmp doesn't exist for some reason.  It might
+        # be better to actually mock os.getcwd() to return /tmp instead.  I'm
+        # not doing that here though because I don't want to track down the
+        # mock location.
+        self._resources.enter_context(chdir('/tmp'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        self.assertFalse(os.path.exists(imgfile))
+        code = main((self.model_assertion,))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            self._stderr.getvalue(),
+            'ubuntu-image snap cannot write images to /tmp\n')
 
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:

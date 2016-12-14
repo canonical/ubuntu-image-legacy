@@ -19,6 +19,10 @@ SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
 
+class TMPNotReadableFromOutsideSnap(Exception):
+    """ubuntu-image snap cannot write images to /tmp"""
+
+
 class ModelAssertionBuilder(State):
     def __init__(self, args):
         super().__init__()
@@ -35,11 +39,17 @@ class ModelAssertionBuilder(State):
             self.resources.enter_context(TemporaryDirectory())
             if args.workdir is None
             else args.workdir)
-        # Where the disk.img file ends up.
+        # Where the disk.img file ends up.  /tmp to a snap is not the same
+        # /tmp outside of the snap.  When running as a snap, don't allow the
+        # user to output a disk image to a location that won't exist for them.
         self.output = (
             os.path.join(self.workdir, 'disk.img')
             if args.output is None
             else args.output)
+        in_snap = any(key.startswith('SNAP') for key in os.environ)
+        path = os.sep.join(self.output.split(os.sep)[:2])
+        if in_snap and path == '/tmp':
+            raise TMPNotReadableFromOutsideSnap
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
@@ -134,7 +144,7 @@ class ModelAssertionBuilder(State):
         dst = os.path.join(self.rootfs, 'system-data')
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
-            # /boot which goos to the boot partition.
+            # /boot which goes to the boot partition.
             if subdir != 'boot':
                 shutil.move(os.path.join(src, subdir),
                             os.path.join(dst, subdir))
@@ -279,6 +289,7 @@ class ModelAssertionBuilder(State):
         volumes = self.gadget.volumes.values()
         assert len(volumes) == 1, 'For now, only one volume is allowed'
         volume = list(volumes)[0]
+        farthest_offset = 0
         for partnum, part in enumerate(volume.structures):
             part_img = os.path.join(self.images, 'part{}.img'.format(partnum))
             if part.role is StructureRole.system_data:
@@ -288,6 +299,8 @@ class ModelAssertionBuilder(State):
                                     'actual rootfs contents {}.',
                                     self.rootfs_size, part.size)
                     part.size = self.rootfs_size
+                # We defer creating the root file system image because we have
+                # to populate it at the same time. See mkfs.ext4(8) for details
                 with open(part_img,  'w'):
                     pass
                 os.truncate(part_img, self.rootfs_size)
@@ -305,13 +318,12 @@ class ModelAssertionBuilder(State):
                     run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                         label_option, part_img))
             self.part_images.append(part_img)
-            next_offset = part.offset + part.size
-        # We defer creating the root file system image because we have to
-        # populate it at the same time.  See mkfs.ext4(8) for details.
+            farthest_offset = max(
+                farthest_offset, (part.offset + part.size))
         # Calculate or check the final image size.
         # XXX: Hard-codes last 34 512-byte sectors for backup GPT,
         # empirically derived from sgdisk behavior.
-        calculated = ceil(next_offset / 1024 + 17) * 1024
+        calculated = ceil(farthest_offset / 1024 + 17) * 1024
         if self.args.image_size is None:
             self.image_size = calculated
         else:
@@ -399,7 +411,8 @@ class ModelAssertionBuilder(State):
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
-            if part.role is StructureRole.mbr:
+            if (part.role is StructureRole.mbr or
+                    part.type == 'bare'):
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.

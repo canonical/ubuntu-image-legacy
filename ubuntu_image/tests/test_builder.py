@@ -62,7 +62,7 @@ class TestModelAssertionBuilder(TestCase):
             debug=False,
             extra_snaps=None,
             model_assertion=self.model_assertion,
-            output=output,
+            output=output.name,
             workdir=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
@@ -746,6 +746,7 @@ class TestModelAssertionBuilder(TestCase):
             state.images = os.path.join(workdir, '.images')
             state.disk_img = os.path.join(workdir, 'disk.img')
             state.image_size = MiB(10)
+            state.rootfs_size = MiB(1)
             os.makedirs(state.images)
             # Craft a gadget schema.
             part0 = SimpleNamespace(
@@ -776,12 +777,12 @@ class TestModelAssertionBuilder(TestCase):
                 name=None,
                 type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
                 role=StructureRole.system_data,
-                size=MiB(1),
+                size=state.rootfs_size,
                 offset=MiB(5),
                 offset_write=None,
                 )
             volume = SimpleNamespace(
-                # Ordered by offset, as would happen by the parser.
+                # gadget.yaml appearance order.
                 structures=[part2, part0, part1, part3],
                 schema=VolumeSchema.gpt,
                 )
@@ -801,7 +802,6 @@ class TestModelAssertionBuilder(TestCase):
             with open(part2_img, 'wb') as fp:
                 fp.write(b'\3' * 13)
             root_img = os.path.join(state.images, 'part3.img')
-            state.rootfs_size = MiB(1)
             with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
             state.part_images = [part2_img, part0_img, part1_img, root_img]
@@ -846,6 +846,213 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(partitions[1], ('beta', 8192))
             self.assertEqual(partitions[2], ('writable', 10240))
 
+    def test_make_disk_with_bare_parts(self):
+        # The second structure has a role:bare meaning it is not wrapped in a
+        # disk partition.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = MiB(10)
+            state.rootfs_size = MiB(1)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='assets',
+                role=None,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                type='bare',
+                )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=state.rootfs_size,
+                offset=MiB(5),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order.
+                structures=[part0, part1],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            root_img = os.path.join(state.images, 'root.img')
+            with open(root_img, 'wb') as fp:
+                fp.write(b'\4' * 14)
+            state.part_images = [part0_img, root_img]
+            # Create the disk.
+            next(state)
+            # Verify some parts of the disk.img's content.  First, that we've
+            # written the part offsets at the right place.y
+            with open(state.disk_img, 'rb') as fp:
+                fp.seek(0)
+                self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out non-mbr
+                # partition is at 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
+            # Verify the disk image's partition table.
+            proc = run('sfdisk --json {}'.format(state.disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'], part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            self.assertEqual(len(partitions), 1)
+            self.assertEqual(partitions[0], ('writable', 10240))
+
+    def test_make_disk_with_out_of_order_structures(self):
+        # Structures get partition numbers matching their appearance in the
+        # gadget.yaml, even if these are out of order with respect to their
+        # disk offsets.  LP: #1642999
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.image_size = MiB(10)
+            state.rootfs_size = MiB(1)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='aa',
+                role=None,
+                size=MiB(1),
+                offset=MiB(2),
+                offset_write=100,
+                )
+            part1 = SimpleNamespace(
+                name='beta',
+                type='bb',
+                role=None,
+                size=MiB(1),
+                offset=MiB(4),
+                offset_write=200,
+                )
+            part2 = SimpleNamespace(
+                name='gamma',
+                type='mbr',
+                role=StructureRole.mbr,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part3 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=state.rootfs_size,
+                offset=MiB(5),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order which does not match the disk
+                # offset order.  LP: #1642999
+                structures=[part1, part0, part2, part3],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            part1_img = os.path.join(state.images, 'part1.img')
+            with open(part1_img, 'wb') as fp:
+                fp.write(b'\2' * 12)
+            part2_img = os.path.join(state.images, 'part2.img')
+            with open(part2_img, 'wb') as fp:
+                fp.write(b'\3' * 13)
+            root_img = os.path.join(state.images, 'root.img')
+            with open(root_img, 'wb') as fp:
+                fp.write(b'\4' * 14)
+            state.part_images = [part1_img, part0_img, part2_img, root_img]
+            # Create the disk.
+            next(state)
+            # Verify some parts of the disk.img's content.  First, that we've
+            # written the part offsets at the right place.y
+            with open(state.disk_img, 'rb') as fp:
+                # Part 0's offset is written at position 100.
+                fp.seek(100)
+                # Read a 32-bit little-ending integer.  Remember
+                # struct.unpack() always returns tuples, and the values are
+                # written in sector units, which are hard-coded as 512 bytes.
+                offset = unpack('<I', fp.read(4))[0]
+                self.assertEqual(offset, MiB(2) / 512)
+                # Part 1's offset is written at position 200.
+                fp.seek(200)
+                offset = unpack('<I', fp.read(4))[0]
+                self.assertEqual(offset, MiB(4) / 512)
+                # Part 0's image lives at MiB(2).
+                fp.seek(MiB(2))
+                self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
+                # Part 1's image lives at MiB(4).
+                fp.seek(MiB(4))
+                self.assertEqual(fp.read(15), b'\2' * 12 + b'\0' * 3)
+                # Part 2's image is an MBR so it must live at offset 0.
+                fp.seek(0)
+                self.assertEqual(fp.read(15), b'\3' * 13 + b'\0' * 2)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out non-mbr
+                # partition is at 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
+            # Verify the disk image's partition table.
+            proc = run('sfdisk --json {}'.format(state.disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'], part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            # Partition number matches gadget.yaml order, i.e. part1, part0,
+            # rootfs (part2 is an mbr).
+            self.assertEqual(partitions[0], ('beta', 8192))
+            self.assertEqual(partitions[1], ('alpha', 4096))
+            self.assertEqual(partitions[2], ('writable', 10240))
+
     def test_make_disk_with_parts_system_boot(self):
         # For MBR-style volumes, a part with a role of 'system-boot'
         # gets the boot flag turned on in the partition table.
@@ -868,6 +1075,7 @@ class TestModelAssertionBuilder(TestCase):
             state.images = os.path.join(workdir, '.images')
             state.disk_img = os.path.join(workdir, 'disk.img')
             state.image_size = MiB(10)
+            state.rootfs_size = MiB(1)
             os.makedirs(state.images)
             # Craft a gadget schema.
             part0 = SimpleNamespace(
@@ -879,8 +1087,16 @@ class TestModelAssertionBuilder(TestCase):
                 offset=MiB(1),
                 offset_write=None,
                 )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=state.rootfs_size,
+                offset=MiB(2),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0],
+                structures=[part0, part1],
                 schema=VolumeSchema.mbr,
                 )
             state.gadget = SimpleNamespace(
@@ -892,11 +1108,10 @@ class TestModelAssertionBuilder(TestCase):
             part0_img = os.path.join(state.images, 'part0.img')
             with open(part0_img, 'wb') as fp:
                 fp.write(b'\1' * 11)
-            state.root_img = os.path.join(state.images, 'root.img')
-            state.rootfs_size = MiB(1)
-            with open(state.root_img, 'wb') as fp:
+            root_img = os.path.join(state.images, 'root.img')
+            with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.part_images = [part0_img]
+            state.part_images = [part0_img, root_img]
             # Create the disk.
             next(state)
             # Verify the disk image's partition table.
@@ -926,6 +1141,7 @@ class TestModelAssertionBuilder(TestCase):
             state.images = os.path.join(workdir, '.images')
             state.disk_img = os.path.join(workdir, 'disk.img')
             state.image_size = MiB(10)
+            state.rootfs_size = MiB(1)
             os.makedirs(state.images)
             # Craft a gadget schema.
             part0 = SimpleNamespace(
@@ -944,8 +1160,16 @@ class TestModelAssertionBuilder(TestCase):
                 offset=MiB(4),
                 offset_write=('alpha', 200),
                 )
+            part2 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=state.rootfs_size,
+                offset=MiB(5),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0, part1],
+                structures=[part0, part1, part2],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
@@ -960,11 +1184,10 @@ class TestModelAssertionBuilder(TestCase):
             part1_img = os.path.join(state.images, 'part1.img')
             with open(part1_img, 'wb') as fp:
                 fp.write(b'\2' * 12)
-            state.root_img = os.path.join(state.images, 'root.img')
-            state.rootfs_size = MiB(1)
-            with open(state.root_img, 'wb') as fp:
+            root_img = os.path.join(state.images, 'root.img')
+            with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.part_images = [part0_img, part1_img]
+            state.part_images = [part0_img, part1_img, root_img]
             # Create the disk.
             next(state)
             # Verify that beta's offset was written 200 bytes past the start
@@ -1179,6 +1402,95 @@ class TestModelAssertionBuilder(TestCase):
                 posargs[0],
                 'Ignoring --image-size=1M smaller '
                 'than minimum required size 2114560')
+
+    def test_image_size_too_small_with_out_of_order_structures(self):
+        # Here we have a bunch of structures which are not sorted by offset.
+        # In fact the last partition is at offset 0 with a size of 1MiB.  If
+        # the "--image-size fits" calculation is performed against just the
+        # last partition offset + its size, this will appear to be big
+        # enough.  In reality though it's not because an earlier partition
+        # (specifically part1) starts at 4MiB and has a size of 1MiB, so a
+        # disk image of 3MiB won't fit.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                given_image_size='3M',
+                image_size=MiB(3),
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            state.rootfs_size = MiB(1)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                role=None,
+                type='aa',
+                size=MiB(1),
+                offset=MiB(2),
+                offset_write=100,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='alpha',
+                )
+            part1 = SimpleNamespace(
+                name='beta',
+                role=None,
+                type='bb',
+                size=MiB(1),
+                offset=MiB(4),
+                offset_write=200,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='beta',
+                )
+            part2 = SimpleNamespace(
+                name='gamma',
+                role=StructureRole.mbr,
+                type='mbr',
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='gamma',
+                )
+            part3 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=state.rootfs_size,
+                offset=MiB(5),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order which does not match the disk
+                # offset order.  LP: #1642999
+                structures=[part1, part0, part2, part3],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Mock the run() call to prove that we never call dd.
+            resources.enter_context(patch('ubuntu_image.builder.run'))
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder._logger.warning'))
+            next(state)
+            # The actual image size is 6MiB + 17KiB.  The former value comes
+            # from the farthest out structure (part1 at offset 4MiB + 1MiB
+            # size) + the rootfs size of 1MiB.  The latter comes from the
+            # empirically derived 34 sector GPT backup space.
+            self.assertEqual(state.image_size, 6308864)
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'Ignoring --image-size=3M smaller '
+                'than minimum required size 6308864')
 
     def test_round_up_size_for_mbr_root_partitions(self):
         # LP: #1634557 - two rounding errors conspired to make mbr partitions

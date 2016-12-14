@@ -1,5 +1,17 @@
-ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.13+17.04ubuntu1) UNRELEASED; urgency=medium
 
+  * Refuse to write images to /tmp when running ubuntu-image as a snap,
+    since the snap's /tmp is not accessible to the user.  (LP: #1646968)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Thu, 01 Dec 2016 17:33:19 -0500
+
+ubuntu-image (0.12+17.04ubuntu1) zesty; urgency=medium
+
+  * Revert previous change which sorted structure volumes by their
+    offset.  Instead, we preserve gadget.yaml order for purposes of
+    partition numbering, but we still provide implicit offsets when they
+    are missing, and we still sanity check for partition overlap.
+    (LP: #1642999)
   * Provide human-readable error messages on gadget.yaml parser failures,
     not Python tracebacks (unless --debug is given).  (LP: #1617421)
   * Change the way we invoke the autopkgtests.
@@ -28,6 +40,13 @@ ubuntu-image (0.12+17.04ubuntu1) UNRELEASED; urgency=medium
     equivalent).  (LP: #1638926)
   * d/control: Add run-time dependencies which are missing from snapd but
     are required for `snap prepare-image`.  (LP: #1642427)
+  * Structures with type='mbr' are deprecated.  Use structure role
+    instead.  (LP: #1638660)
+  * mbr structures must start at offset 0.  (LP: #1630769)
+  * Fixed sanity checking of --image-size argument for out-of-offset-order
+    structure definitions.  (LP: #1643598)
+  * Prevent wrapping blobs in disk partitions by using the `type: bare`
+    structure key.  (LP: #1645750)
 
  -- Barry Warsaw <barry@ubuntu.com>  Tue, 08 Nov 2016 17:31:21 -0500
 

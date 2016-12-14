@@ -553,6 +553,103 @@ volumes:
              for key in gadget_spec.volumes}
             )
 
+    def test_volume_structure_type_none(self):
+        gadget_spec = parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: bare
+          size: 200
+""")
+        self.assertEqual(len(gadget_spec.volumes), 2)
+        self.assertEqual({
+            'first-image': 'EF',
+            'second-image': 'bare',
+            },
+            {key: gadget_spec.volumes[key].structures[0].type
+             for key in gadget_spec.volumes}
+             )
+
+    def test_volume_structure_type_role_conflict_1(self):
+        # type:none means there's no partition, so you can't have a role of
+        # system-{boot,data}.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: bare
+          size: 200
+          role: system-boot
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml: structure role/type conflict')
+
+    def test_volume_structure_type_role_conflict_2(self):
+        # type:none means there's no partition, so you can't have a role of
+        # system-{boot,data}.
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: ef
+          size: 100
+          role: mbr
+  second-image:
+    structure:
+        - type: bare
+          size: 200
+          role: system-data
+""")
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid gadget.yaml: structure role/type conflict')
+
+    def test_volume_structure_type_role_redundant(self):
+        # type:none means there's no partition.  It's valid, but redundant to
+        # also give a role:mbr.
+        gadget_spec = parse("""
+volumes:
+  first-image:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+        - type: bare
+          size: 100
+          role: mbr
+        - type: 83,00000000-0000-0000-0000-0000feedface
+          role: system-data
+          size: 100M
+""")
+        self.assertEqual(len(gadget_spec.volumes), 1)
+        volume = gadget_spec.volumes['first-image']
+        self.assertEqual(len(volume.structures), 2)
+        structure = volume.structures[0]
+        self.assertEqual(structure.role, StructureRole.mbr)
+        self.assertEqual(structure.type, 'bare')
+
     def test_volume_structure_invalid_role(self):
         with ExitStack() as resources:
             cm = resources.enter_context(
@@ -1739,6 +1836,42 @@ volumes:
         self.assertEqual(str(cm.exception),
                          'Unsupported gadget.yaml format version: bogus')
 
+    def test_mbr_structure_not_at_offset_zero_explicit(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - role: mbr
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 446
+          offset: 10
+""")
+        self.assertEqual(str(cm.exception),
+                         'mbr structure must start at offset 0')
+
+    def test_mbr_structure_not_at_offset_zero_implicit(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+
+          size: 2M
+        - role: mbr
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 446
+""")
+        self.assertEqual(str(cm.exception),
+                         'mbr structure must start at offset 0')
+
     def test_implicit_system_data_partition(self):
         gadget_spec = parse("""\
 volumes:
@@ -1793,7 +1926,8 @@ volumes:
                 ])
 
     def test_explicit_offset_ordering(self):
-        # All of the structures have an offset, so they get ordered that way.
+        # All of the structures have an offset, specified in an order that
+        # does not match their partitioning order.
         gadget_spec = parse("""\
 volumes:
   first:
@@ -1817,10 +1951,10 @@ volumes:
         parts = gadget_spec.volumes['first'].structures
         self.assertEqual(
             [(part.type, part.offset) for part in parts], [
-                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
-                (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(200)),
                 (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
+                (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(200)),
                 (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(1200)),
+                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
                 ])
 
     def test_mixed_offset_ordering(self):
@@ -1848,8 +1982,8 @@ volumes:
         parts = gadget_spec.volumes['first'].structures
         self.assertEqual(
             [(part.type, part.offset) for part in parts], [
-                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
+                (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
                 (UUID('00000000-0000-0000-0000-cc00deadbeef'), MiB(200)),
                 (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(700)),
-                (UUID('00000000-0000-0000-0000-dd00deadbeef'), MiB(800)),
+                (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
                 ])
