@@ -15,7 +15,7 @@ from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
-    LogCapture, XXXModelAssertionBuilder)
+    LogCapture, XXXModelAssertionBuilder, envar)
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
@@ -24,21 +24,6 @@ from unittest.mock import call, patch
 # For forcing a test failure.
 def check_returncode(*args, **kws):
     raise CalledProcessError(1, 'failing command')
-
-
-@contextmanager
-def envar(key, value):
-    missing = object()
-    # Temporary set an environment variable.
-    old_value = os.environ.get(key, missing)
-    os.environ[key] = value
-    try:
-        yield
-    finally:
-        if old_value is missing:
-            del os.environ[key]
-        else:
-            os.environ[key] = old_value
 
 
 @contextmanager
