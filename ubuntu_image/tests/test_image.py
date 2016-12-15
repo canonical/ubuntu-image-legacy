@@ -169,8 +169,7 @@ class TestImage(TestCase):
                 'node': '{}2'.format(self.img),
                 'start': 3033,
                 'size': 1000,
-                'type':
-                'dd',
+                'type': 'dd',
                 }],
             })
 
