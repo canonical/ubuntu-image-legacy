@@ -13,6 +13,9 @@ from unittest import TestCase
 
 class TestImage(TestCase):
     def setUp(self):
+        # To reliably parse external command output we need to enforce a
+        # single known locale
+        os.environ['LC_ALL'] = 'C'
         actual_tmpdir = TemporaryDirectory()
         self.tmpdir = actual_tmpdir.name
         self.addCleanup(actual_tmpdir.cleanup)
