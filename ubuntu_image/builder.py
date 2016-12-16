@@ -5,6 +5,7 @@ import shutil
 import logging
 
 from math import ceil
+from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
@@ -202,8 +203,6 @@ class ModelAssertionBuilder(State):
         # At least one structure is required.
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            # XXX: Use file system label for the moment, until we get a proper
-            # way to identify the boot partition.
             if part.role is StructureRole.system_boot:
                 self.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
@@ -301,8 +300,7 @@ class ModelAssertionBuilder(State):
                     part.size = self.rootfs_size
                 # We defer creating the root file system image because we have
                 # to populate it at the same time. See mkfs.ext4(8) for details
-                with open(part_img,  'w'):
-                    pass
+                Path(part_img).touch()
                 os.truncate(part_img, self.rootfs_size)
             else:
                 run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(

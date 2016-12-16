@@ -1863,7 +1863,6 @@ volumes:
     bootloader: u-boot
     structure:
         - type: 00000000-0000-0000-0000-0000deadbeef
-
           size: 2M
         - role: mbr
           type: 00000000-0000-0000-0000-0000deadbeef
