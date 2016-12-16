@@ -431,14 +431,19 @@ def parse(stream_or_string):
             if structure_role is None:
                 if filesystem_label == 'system-boot':
                     structure_role = StructureRole.system_boot
-                elif filesystem_label == 'system-data':
-                    structure_role = StructureRole.system_data
-                if structure_role:
                     warn('volumes:<volume name>:structure:<N>:filesystem_label'
                          ' used for defining partition roles; use role '
                          'instead.', DeprecationWarning)
-            if structure_role is StructureRole.system_data:
+            elif structure_role is StructureRole.system_data:
                 rootfs_seen = True
+                # For images to work the system-data (rootfs) partition needs
+                # to have the 'writable' filesystem label set.
+                if filesystem_label and filesystem_label != 'writable':
+                    _logger.warning(
+                        'volumes:<volume name>:structure:<N>:filesystem_label'
+                        " for system-data partition needs to be 'writable'; "
+                        'Enforcing the label.')
+                filesystem_label = 'writable'
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
             # in a single structure, they must all be of type A or type B.  If
@@ -504,7 +509,7 @@ def parse(stream_or_string):
                     '83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
                 None, StructureRole.system_data,  # id, role
                 FileSystemType.ext4,              # file system type
-                'system-data',                    # file system name
+                'writable',                       # file system name
                 []))                              # contents
     if not bootloader_seen:
         raise GadgetSpecificationError('No bootloader structure named')

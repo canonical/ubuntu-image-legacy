@@ -553,6 +553,34 @@ volumes:
              for key in gadget_spec.volumes}
             )
 
+    def test_volume_structure_role_data_label(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          role: system-data
+          filesystem-label: foobar
+  second-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 200
+          role: system-data
+          filesystem-label: writable
+  third-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 300
+          role: system-data
+""")
+        self.assertEqual(len(gadget_spec.volumes), 3)
+        for key, volume in gadget_spec.volumes.items():
+            self.assertEqual(
+                volume.structures[0].filesystem_label,
+                'writable')
+
     def test_volume_structure_type_none(self):
         gadget_spec = parse("""
 volumes:
@@ -787,7 +815,7 @@ volumes:
             str(cm.exception),
             'mbr structures must not specify a file system')
 
-    def test_volume_special_label_system_boot_data(self):
+    def test_volume_special_label_system_boot(self):
         gadget_spec = parse("""\
 volumes:
   first-image:
@@ -796,20 +824,11 @@ volumes:
         - type: 00000000-0000-0000-0000-0000feedface
           size: 200
           filesystem-label: system-boot
-  second-image:
-    structure:
-        - type: 00000000-0000-0000-0000-0000deadbeef
-          size: 200
-          filesystem-label: system-data
 """)
         volume0 = gadget_spec.volumes['first-image']
         partition = volume0.structures[0]
         self.assertEqual(partition.filesystem_label, 'system-boot')
         self.assertEqual(partition.role, StructureRole.system_boot)
-        volume1 = gadget_spec.volumes['second-image']
-        partition = volume1.structures[0]
-        self.assertEqual(partition.filesystem_label, 'system-data')
-        self.assertEqual(partition.role, StructureRole.system_data)
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\
@@ -1887,8 +1906,9 @@ volumes:
         partition2 = volume0.structures[2]
         self.assertEqual(partition2.role, StructureRole.system_data)
         self.assertEqual(partition2.offset, MiB(501))
-        self.assertEqual(partition2.size, 0)
+        self.assertEqual(partition2.size, None)
         self.assertEqual(partition2.filesystem, FileSystemType.ext4)
+        self.assertEqual(partition2.filesystem_label, 'writable')
 
 
 class TestPartOrder(TestCase):
