@@ -371,7 +371,7 @@ def parse(stream_or_string):
             # which is exactly equivalent to the preferred role:mbr field,
             # however a deprecation warning is issued in the former case.
             if structure_type == 'mbr':
-                if structure_role:
+                if structure_role is not None:
                     raise GadgetSpecificationError(
                         'Type mbr and role fields assigned at the same time, '
                         'please use the mbr role instead')
@@ -427,8 +427,8 @@ def parse(stream_or_string):
                         'mbr structures must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
             # Support the legacy mode setting of partition roles through
-            # filesystem labels
-            if not structure_role:
+            # filesystem labels.
+            if structure_role is None:
                 if filesystem_label == 'system-boot':
                     structure_role = StructureRole.system_boot
                 elif filesystem_label == 'system-data':
@@ -474,12 +474,13 @@ def parse(stream_or_string):
             # We still need to handle the case of unspecified system-data
             # partition where we simply attach the rootfs at the end of the
             # partition list.
+            #
             # Since so far we have no knowledge of the rootfs contents, the
             # size is set to 0, knowing that the builder code will resize it
             # to fit all the contents.
             warn('No role: system-data partition found, a implicit rootfs '
                  'partition will be appended at the end of the partition '
-                 'list. An explicit system-data partition is now required.',
+                 'list.  An explicit system-data partition is now required.',
                  DeprecationWarning)
             structures.append(StructureSpec(
                 None, farthest_offset, None, 0,

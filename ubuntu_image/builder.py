@@ -72,7 +72,6 @@ class ModelAssertionBuilder(State):
         state = super().__getstate__()
         state.update(
             args=self.args,
-            part_images=self.part_images,
             bootfs=self.bootfs,
             bootfs_sizes=self.bootfs_sizes,
             cloud_init=self.cloud_init,
@@ -82,6 +81,7 @@ class ModelAssertionBuilder(State):
             image_size=self.image_size,
             images=self.images,
             output=self.output,
+            part_images=self.part_images,
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
             unpackdir=self.unpackdir,
@@ -91,7 +91,6 @@ class ModelAssertionBuilder(State):
     def __setstate__(self, state):
         super().__setstate__(state)
         self.args = state['args']
-        self.part_images = state['part_images']
         self.bootfs = state['bootfs']
         self.bootfs_sizes = state['bootfs_sizes']
         self.cloud_init = state['cloud_init']
@@ -101,6 +100,7 @@ class ModelAssertionBuilder(State):
         self.image_size = state['image_size']
         self.images = state['images']
         self.output = state['output']
+        self.part_images = state['part_images']
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
         self.unpackdir = state['unpackdir']
@@ -299,7 +299,8 @@ class ModelAssertionBuilder(State):
                                     self.rootfs_size, part.size)
                     part.size = self.rootfs_size
                 # We defer creating the root file system image because we have
-                # to populate it at the same time. See mkfs.ext4(8) for details
+                # to populate it at the same time.  See mkfs.ext4(8) for
+                # details.
                 Path(part_img).touch()
                 os.truncate(part_img, self.rootfs_size)
             else:
@@ -312,13 +313,13 @@ class ModelAssertionBuilder(State):
                         # but this needs verification.
                         if part.filesystem_label
                         else '')
-                    # XXX: hard-coding of sector size
+                    # XXX: hard-coding of sector size.
                     run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                         label_option, part_img))
             self.part_images.append(part_img)
-            farthest_offset = max(
-                farthest_offset, (part.offset + part.size))
+            farthest_offset = max(farthest_offset, (part.offset + part.size))
         # Calculate or check the final image size.
+        #
         # XXX: Hard-codes last 34 512-byte sectors for backup GPT,
         # empirically derived from sgdisk behavior.
         calculated = ceil(farthest_offset / 1024 + 17) * 1024
@@ -409,8 +410,7 @@ class ModelAssertionBuilder(State):
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
-            if (part.role is StructureRole.mbr or
-                    part.type == 'bare'):
+            if part.role is StructureRole.mbr or part.type == 'bare':
                 continue
             # sgdisk takes either a sector or a KiB/MiB argument; assume
             # that the offset and size are always multiples of 1MiB.
