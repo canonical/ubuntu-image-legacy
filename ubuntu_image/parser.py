@@ -470,24 +470,6 @@ def parse(stream_or_string):
                 structure_type, structure_id, structure_role,
                 filesystem, filesystem_label,
                 content_specs))
-        if not rootfs_seen:
-            # We still need to handle the case of unspecified system-data
-            # partition where we simply attach the rootfs at the end of the
-            # partition list.
-            #
-            # Since so far we have no knowledge of the rootfs contents, the
-            # size is set to 0, knowing that the builder code will resize it
-            # to fit all the contents.
-            warn('No role: system-data partition found, a implicit rootfs '
-                 'partition will be appended at the end of the partition '
-                 'list.  An explicit system-data partition is now required.',
-                 DeprecationWarning)
-            structures.append(StructureSpec(
-                None, farthest_offset, None, 0,
-                ('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
-                None, StructureRole.system_data,
-                FileSystemType.ext4, 'system-data',
-                []))
         # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(
             schema, bootloader, image_id, structures)
@@ -502,6 +484,28 @@ def parse(stream_or_string):
                         part.type if part.name is None else part.name,
                         part.offset, last_end))
             last_end = part.offset + part.size
+        if not rootfs_seen:
+            # We still need to handle the case of unspecified system-data
+            # partition where we simply attach the rootfs at the end of the
+            # partition list.
+            #
+            # Since so far we have no knowledge of the rootfs contents, the
+            # size is set to 0, knowing that the builder code will resize it
+            # to fit all the contents.
+            warn('No role: system-data partition found, a implicit rootfs '
+                 'partition will be appended at the end of the partition '
+                 'list.  An explicit system-data partition is now required.',
+                 DeprecationWarning)
+            structures.append(StructureSpec(
+                None,                             # name
+                farthest_offset, None,            # offset, offset_write
+                None,                             # size; None == calculate
+                (                                 # type; hybrid mbr/gpt
+                    '83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                None, StructureRole.system_data,  # id, role
+                FileSystemType.ext4,              # file system type
+                'system-data',                    # file system name
+                []))                              # contents
     if not bootloader_seen:
         raise GadgetSpecificationError('No bootloader structure named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs,

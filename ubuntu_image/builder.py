@@ -293,10 +293,12 @@ class ModelAssertionBuilder(State):
             part_img = os.path.join(self.images, 'part{}.img'.format(partnum))
             if part.role is StructureRole.system_data:
                 # The image for the root partition.
-                if part.size < self.rootfs_size:
-                    _logger.warning('Rootfs partition size ({}) smaller than '
-                                    'actual rootfs contents {}.',
-                                    self.rootfs_size, part.size)
+                if part.size is None:
+                    part.size = self.rootfs_size
+                elif part.size < self.rootfs_size:
+                    _logger.warning('rootfs partition size ({}) smaller than '
+                                    'actual rootfs contents {}'.format(
+                                        self.rootfs_size, part.size))
                     part.size = self.rootfs_size
                 # We defer creating the root file system image because we have
                 # to populate it at the same time.  See mkfs.ext4(8) for

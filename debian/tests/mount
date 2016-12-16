@@ -65,7 +65,7 @@ for model_file in os.listdir(DIR):
         proc = run(['kpartx', '-avs', disk_img],
                    universal_newlines=True,
                    stdout=PIPE)
-        resources.callback(run, ['kpartx', '-sdv', disk_img])
+        resources.callback(run, ['kpartx', '-dvs', disk_img])
         # Parse the kpartx output to figure out what the device names are.
         # E.g. here is the current output of kpartx -avs as an example.  It's
         # the third column we care about.
