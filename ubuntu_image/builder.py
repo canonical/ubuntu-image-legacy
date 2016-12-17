@@ -298,7 +298,7 @@ class ModelAssertionBuilder(State):
                 elif part.size < self.rootfs_size:
                     _logger.warning('rootfs partition size ({}) smaller than '
                                     'actual rootfs contents {}'.format(
-                                        self.rootfs_size, part.size))
+                                        part.size, self.rootfs_size))
                     part.size = self.rootfs_size
                 # We defer creating the root file system image because we have
                 # to populate it at the same time.  See mkfs.ext4(8) for

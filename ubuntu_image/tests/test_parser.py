@@ -553,8 +553,11 @@ volumes:
              for key in gadget_spec.volumes}
             )
 
-    def test_volume_structure_role_data_label(self):
-        gadget_spec = parse("""\
+    def test_volume_structure_role_system_data_bad_label(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -563,23 +566,11 @@ volumes:
           size: 200
           role: system-data
           filesystem-label: foobar
-  second-image:
-    structure:
-        - type: 00000000-0000-0000-0000-0000deafbead
-          size: 200
-          role: system-data
-          filesystem-label: writable
-  third-image:
-    structure:
-        - type: 00000000-0000-0000-0000-0000deafbead
-          size: 300
-          role: system-data
 """)
-        self.assertEqual(len(gadget_spec.volumes), 3)
-        for key, volume in gadget_spec.volumes.items():
-            self.assertEqual(
-                volume.structures[0].filesystem_label,
-                'writable')
+        self.assertEqual(
+            str(cm.exception),
+            ('`role: system-data` structure must have an implicit label, '
+             "or 'writable': foobar"))
 
     def test_volume_structure_type_none(self):
         gadget_spec = parse("""

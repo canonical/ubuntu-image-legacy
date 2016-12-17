@@ -1292,8 +1292,6 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            # Mock the run() call to prove that we never call dd.
-            resources.enter_context(patch('ubuntu_image.builder.run'))
             next(state)
             self.assertEqual(state.image_size, 2114560)
 
@@ -1340,8 +1338,6 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            # Mock the run() call to prove that we never call dd.
-            resources.enter_context(patch('ubuntu_image.builder.run'))
             next(state)
             self.assertEqual(state.image_size, MiB(5))
 
@@ -1390,8 +1386,6 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            # Mock the run() call to prove that we never call dd.
-            resources.enter_context(patch('ubuntu_image.builder.run'))
             mock = resources.enter_context(
                 patch('ubuntu_image.builder._logger.warning'))
             next(state)
@@ -1475,8 +1469,6 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            # Mock the run() call to prove that we never call dd.
-            resources.enter_context(patch('ubuntu_image.builder.run'))
             mock = resources.enter_context(
                 patch('ubuntu_image.builder._logger.warning'))
             next(state)
@@ -1572,6 +1564,60 @@ class TestModelAssertionBuilder(TestCase):
             # sfdisk returns size in sectors.  947980 bytes rounded up to 512
             # byte sectors.
             self.assertGreaterEqual(partition1['size'], 1852)
+
+    def test_explicit_rootfs_too_small(self):
+        # The root file system (i.e. 'system-data' label) is explicitly given
+        # as a structure in the gadget.yaml, but the given size is too small.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                given_image_size='1M',
+                image_size=MiB(1),
+                output=None,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='da',
+                role=None,
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size - 1111,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder._logger.warning'))
+            next(state)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'rootfs partition size (1047465) smaller than '
+                'actual rootfs contents 1048576')
 
     def test_snap_command_fails(self):
         # LP: #1621445 - If the snap(1) command fails, don't print the full

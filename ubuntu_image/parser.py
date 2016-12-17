@@ -438,12 +438,10 @@ def parse(stream_or_string):
                 rootfs_seen = True
                 # For images to work the system-data (rootfs) partition needs
                 # to have the 'writable' filesystem label set.
-                if filesystem_label and filesystem_label != 'writable':
-                    _logger.warning(
-                        'volumes:<volume name>:structure:<N>:filesystem_label'
-                        " for system-data partition needs to be 'writable'; "
-                        'Enforcing the label.')
-                filesystem_label = 'writable'
+                if filesystem_label not in (None, 'writable'):
+                    raise GadgetSpecificationError(
+                        '`role: system-data` structure must have an implicit '
+                        "label, or 'writable': {}".format(filesystem_label))
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
             # in a single structure, they must all be of type A or type B.  If
