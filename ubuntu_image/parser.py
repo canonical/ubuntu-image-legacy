@@ -509,7 +509,7 @@ def parse(stream_or_string):
                     '83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
                 None, StructureRole.system_data,  # id, role
                 FileSystemType.ext4,              # file system type
-                'writable',                       # file system name
+                'writable',                       # file system label
                 []))                              # contents
     if not bootloader_seen:
         raise GadgetSpecificationError('No bootloader structure named')

@@ -79,6 +79,12 @@ for model_file in os.listdir(DIR):
         # add map loop5p7 (252:7): 0 2048 linear 7:5 16384
         # add map loop5p8 (252:8): 0 262144 linear 7:5 18432
         # add map loop5p9 (252:9): 0 1051446 linear 7:5 280576
+        #
+        # In order to produce a bootable image, the root file system partition
+        # *must* be labeled 'writable'.  While we're looping through the
+        # kpartx output, keep track of the last partition we see.  That'll be
+        # the root file system.
+        root_fs = None
         for i, line in enumerate(proc.stdout.splitlines()):
             if not mountable[i]:
                 continue
@@ -87,6 +93,7 @@ for model_file in os.listdir(DIR):
             device = parts[2]
             src = '/dev/mapper/{}'.format(device)
             dst = os.path.join(TMP, '{}.mnt{}'.format(base, i))
+            root_fs = src
             os.mkdir(dst)
             resources.callback(os.rmdir, dst)
             proc = run(['mount', src, dst],
@@ -99,6 +106,13 @@ for model_file in os.listdir(DIR):
             else:
                 # Failed.
                 model_status[device] = (False, proc.stdout, proc.stderr)
+        # Now ensure the file system label for root.
+        proc = run(['/sbin/e2label', src],
+                   universal_newlines=True,
+                   stdout=PIPE, stderr=PIPE)
+        if proc.stdout.strip() != 'writable':
+            model_status['rootfs label != writable'] = (
+                False, proc.stdout, proc.stderr)
 
 
 # Collate results.
