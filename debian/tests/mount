@@ -17,7 +17,7 @@ import sys
 
 from contextlib import ExitStack
 from subprocess import PIPE, run
-from ubuntu_image.parser import FileSystemType, parse
+from ubuntu_image.parser import FileSystemType, StructureRole, parse
 
 
 TMP = os.environ['AUTOPKGTEST_TMP']
@@ -50,7 +50,7 @@ for model_file in os.listdir(DIR):
         # kpartx output; 2) there is a magical last partition not defined in
         # the gadget.yaml which is the writable partition and is always
         # mountable.
-        if part.type == 'mbr':
+        if part.role is StructureRole.mbr:
             continue
         mountable.append(
             # True if the partition is mountable, False otherwise.
@@ -65,7 +65,7 @@ for model_file in os.listdir(DIR):
         proc = run(['kpartx', '-avs', disk_img],
                    universal_newlines=True,
                    stdout=PIPE)
-        resources.callback(run, ['kpartx', '-sdv', disk_img])
+        resources.callback(run, ['kpartx', '-dvs', disk_img])
         # Parse the kpartx output to figure out what the device names are.
         # E.g. here is the current output of kpartx -avs as an example.  It's
         # the third column we care about.
@@ -79,6 +79,12 @@ for model_file in os.listdir(DIR):
         # add map loop5p7 (252:7): 0 2048 linear 7:5 16384
         # add map loop5p8 (252:8): 0 262144 linear 7:5 18432
         # add map loop5p9 (252:9): 0 1051446 linear 7:5 280576
+        #
+        # In order to produce a bootable image, the root file system partition
+        # *must* be labeled 'writable'.  While we're looping through the
+        # kpartx output, keep track of the last partition we see.  That'll be
+        # the root file system.
+        root_fs = None
         for i, line in enumerate(proc.stdout.splitlines()):
             if not mountable[i]:
                 continue
@@ -87,6 +93,7 @@ for model_file in os.listdir(DIR):
             device = parts[2]
             src = '/dev/mapper/{}'.format(device)
             dst = os.path.join(TMP, '{}.mnt{}'.format(base, i))
+            root_fs = src
             os.mkdir(dst)
             resources.callback(os.rmdir, dst)
             proc = run(['mount', src, dst],
@@ -99,6 +106,13 @@ for model_file in os.listdir(DIR):
             else:
                 # Failed.
                 model_status[device] = (False, proc.stdout, proc.stderr)
+        # Now ensure the file system label for root.
+        proc = run(['/sbin/e2label', src],
+                   universal_newlines=True,
+                   stdout=PIPE, stderr=PIPE)
+        if proc.stdout.strip() != 'writable':
+            model_status['rootfs label != writable'] = (
+                False, proc.stdout, proc.stderr)
 
 
 # Collate results.
