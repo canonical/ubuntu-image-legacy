@@ -1,4 +1,4 @@
-ubuntu-image (0.13+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.13+17.04ubuntu1) zesty; urgency=medium
 
   * Refuse to write images to /tmp when running ubuntu-image as a snap,
     since the snap's /tmp is not accessible to the user.  (LP: #1646968)
@@ -9,7 +9,7 @@ ubuntu-image (0.13+17.04ubuntu1) UNRELEASED; urgency=medium
   * d/tests/mount: Switch to the stable channel for snaps.
   * Make the test suite immune to the locale.  (LP: #1638570)
 
- -- Barry Warsaw <barry@ubuntu.com>  Thu, 01 Dec 2016 17:33:19 -0500
+ -- Barry Warsaw <barry@ubuntu.com>  Mon, 09 Jan 2017 15:38:40 -0500
 
 ubuntu-image (0.12+17.04ubuntu1) zesty; urgency=medium
 
