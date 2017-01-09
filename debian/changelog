@@ -1,3 +1,16 @@
+ubuntu-image (0.13+16.10ubuntu1) yakkety; urgency=medium
+
+  * Refuse to write images to /tmp when running ubuntu-image as a snap,
+    since the snap's /tmp is not accessible to the user.  (LP: #1646968)
+  * When sparse copying the resulting disk image, don't try to preserve
+    mode,ownership,timestamps.  Over remote file systems (e.g. afp, hgfs)
+    this can fail.  Over local file systems, they'll be preserved anyway.
+    (LP: #1637554)
+  * d/tests/mount: Switch to the stable channel for snaps.
+  * Make the test suite immune to the locale.  (LP: #1638570)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Thu, 01 Dec 2016 17:33:19 -0500
+
 ubuntu-image (0.12+16.10ubuntu1) yakkety; urgency=medium
 
   * SRU tracking bug LP: #1646608
