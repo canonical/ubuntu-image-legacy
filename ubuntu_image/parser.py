@@ -326,6 +326,8 @@ def parse(stream_or_string):
         image_id = image_spec.get('id')
         structures = []
         last_offset = 0
+        farthest_offset = 0
+        rootfs_seen = False
         for structure in image_spec['structure']:
             name = structure.get('name')
             offset = structure.get('offset')
@@ -369,7 +371,7 @@ def parse(stream_or_string):
             # which is exactly equivalent to the preferred role:mbr field,
             # however a deprecation warning is issued in the former case.
             if structure_type == 'mbr':
-                if structure_role:
+                if structure_role is not None:
                     raise GadgetSpecificationError(
                         'Type mbr and role fields assigned at the same time, '
                         'please use the mbr role instead')
@@ -398,12 +400,15 @@ def parse(stream_or_string):
                     'GUID structure type with non-GPT schema')
             # Check for implicit vs. explicit partition offset.
             if offset is None:
+                # XXX: Ensure the special case of the mbr role doesn't
+                # extend beyond the confines of the mbr.
                 if (structure_role is not StructureRole.mbr and
                         last_offset < MiB(1)):
                     offset = MiB(1)
                 else:
                     offset = last_offset
             last_offset = offset + size
+            farthest_offset = max(farthest_offset, last_offset)
             # Extract the rest of the structure data.
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
@@ -421,6 +426,22 @@ def parse(stream_or_string):
                     raise GadgetSpecificationError(
                         'mbr structures must not specify a file system')
             filesystem_label = structure.get('filesystem-label', name)
+            # Support the legacy mode setting of partition roles through
+            # filesystem labels.
+            if structure_role is None:
+                if filesystem_label == 'system-boot':
+                    structure_role = StructureRole.system_boot
+                    warn('volumes:<volume name>:structure:<N>:filesystem_label'
+                         ' used for defining partition roles; use role '
+                         'instead.', DeprecationWarning)
+            elif structure_role is StructureRole.system_data:
+                rootfs_seen = True
+                # For images to work the system-data (rootfs) partition needs
+                # to have the 'writable' filesystem label set.
+                if filesystem_label not in (None, 'writable'):
+                    raise GadgetSpecificationError(
+                        '`role: system-data` structure must have an implicit '
+                        "label, or 'writable': {}".format(filesystem_label))
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
             # in a single structure, they must all be of type A or type B.  If
@@ -466,6 +487,28 @@ def parse(stream_or_string):
                         part.type if part.name is None else part.name,
                         part.offset, last_end))
             last_end = part.offset + part.size
+        if not rootfs_seen:
+            # We still need to handle the case of unspecified system-data
+            # partition where we simply attach the rootfs at the end of the
+            # partition list.
+            #
+            # Since so far we have no knowledge of the rootfs contents, the
+            # size is set to 0, knowing that the builder code will resize it
+            # to fit all the contents.
+            warn('No role: system-data partition found, a implicit rootfs '
+                 'partition will be appended at the end of the partition '
+                 'list.  An explicit system-data partition is now required.',
+                 DeprecationWarning)
+            structures.append(StructureSpec(
+                None,                             # name
+                farthest_offset, None,            # offset, offset_write
+                None,                             # size; None == calculate
+                (                                 # type; hybrid mbr/gpt
+                    '83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                None, StructureRole.system_data,  # id, role
+                FileSystemType.ext4,              # file system type
+                'writable',                       # file system label
+                []))                              # contents
     if not bootloader_seen:
         raise GadgetSpecificationError('No bootloader structure named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs,

@@ -4,7 +4,7 @@ import os
 import shutil
 import logging
 
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from pkg_resources import resource_filename
 from ubuntu_image.builder import ModelAssertionBuilder
 from unittest.mock import patch
@@ -87,3 +87,18 @@ class LogCapture:
         self._resources.close()
         # Don't suppress any exceptions.
         return False
+
+
+@contextmanager
+def envar(key, value):
+    missing = object()
+    # Temporarily set an environment variable.
+    old_value = os.environ.get(key, missing)
+    os.environ[key] = value
+    try:
+        yield
+    finally:
+        if old_value is missing:
+            del os.environ[key]
+        else:
+            os.environ[key] = old_value

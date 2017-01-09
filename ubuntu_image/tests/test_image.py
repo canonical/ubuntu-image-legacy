@@ -124,11 +124,23 @@ class TestImage(TestCase):
         self.assertFalse(image.initialized)
         image.partition(1, new='33:3000', activate=True, typecode='83')
         self.assertTrue(image.initialized)
-        proc = run('sfdisk --list {}'.format(self.img))
-        info = proc.stdout.splitlines()[-1].split()
-        device = self.img + '1'
-        self.assertEqual(
-            info, [device, '*', '33', '3032', '3000', '1.5M', '83', 'Linux'])
+        proc = run('sfdisk --json {}'.format(self.img))
+        disk_info = load_json(proc.stdout)
+        partitions = disk_info['partitiontable']
+        # The device id is unpredictable.
+        partitions.pop('id')
+        self.assertEqual(partitions, {
+            'device': self.img,
+            'label': 'dos',
+            'unit': 'sectors',
+            'partitions': [{
+                'bootable': True,
+                'node': '{}1'.format(self.img),
+                'size': 3000,
+                'start': 33,
+                'type': '83',
+                }]
+            })
 
     def test_mbr_image_partition_append(self):
         image = MBRImage(self.img, MiB(2))
@@ -138,12 +150,28 @@ class TestImage(TestCase):
         self.assertTrue(image.initialized)
         # Append the next one.
         image.partition(2, new='3032:1000', typecode='dd')
-        proc = run('sfdisk --list {}'.format(self.img))
-        info = proc.stdout.splitlines()[-1].split()
-        device = self.img + '2'
-        self.assertEqual(
-            # No boot-flag star.
-            info, [device, '3033', '4032', '1000', '500K', 'dd', 'unknown'])
+        proc = run('sfdisk --json {}'.format(self.img))
+        disk_info = load_json(proc.stdout)
+        partitions = disk_info['partitiontable']
+        # The device id is unpredictable.
+        partitions.pop('id')
+        self.assertEqual(partitions, {
+            'label': 'dos',
+            'device': self.img,
+            'unit': 'sectors',
+            'partitions': [{
+                'node': '{}1'.format(self.img),
+                'start': 33,
+                'size': 3000,
+                'type': '83',
+                'bootable': True,
+                }, {
+                'node': '{}2'.format(self.img),
+                'start': 3033,
+                'size': 1000,
+                'type': 'dd',
+                }],
+            })
 
     def test_mbr_image_partition_tuple_typecode(self):
         # See the spec; type codes can by hybrid mbr/gpt style.
@@ -153,11 +181,23 @@ class TestImage(TestCase):
             1, new='33:3000', activate=True,
             typecode=('83', '00000000-0000-0000-0000-0000deadbeef'))
         self.assertTrue(image.initialized)
-        proc = run('sfdisk --list {}'.format(self.img))
-        info = proc.stdout.splitlines()[-1].split()
-        device = self.img + '1'
-        self.assertEqual(
-            info, [device, '*', '33', '3032', '3000', '1.5M', '83', 'Linux'])
+        proc = run('sfdisk --json {}'.format(self.img))
+        disk_info = load_json(proc.stdout)
+        partitions = disk_info['partitiontable']
+        # The device id is unpredictable.
+        partitions.pop('id')
+        self.assertEqual(partitions, {
+            'device': self.img,
+            'label': 'dos',
+            'unit': 'sectors',
+            'partitions': [{
+                'bootable': True,
+                'node': '{}1'.format(self.img),
+                'size': 3000,
+                'start': 33,
+                'type': '83',
+                }]
+            })
 
     def test_mbr_image_partition_bad_keyword(self):
         image = MBRImage(self.img, MiB(2))
@@ -173,7 +213,7 @@ class TestImage(TestCase):
         image.partition(1, new='33:3000', activate=True, typecode='83',
                         change_name='first')
         self.assertTrue(image.initialized)
-        proc = run('sfdisk --list {} --json'.format(self.img))
+        proc = run('sfdisk --json {}'.format(self.img))
         disk_info = load_json(proc.stdout)
         partitions = disk_info['partitiontable']
         # See?  No name.  However, the device id is unpredictable.

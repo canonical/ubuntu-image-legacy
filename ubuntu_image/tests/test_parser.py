@@ -18,6 +18,9 @@ volumes:
     structure:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 400M
+        - type: 83,00000000-0000-0000-0000-0000feedface
+          role: system-data
+          size: 100M
 """)
         self.assertEqual(gadget_spec.device_tree_origin, 'gadget')
         self.assertIsNone(gadget_spec.device_tree)
@@ -26,7 +29,7 @@ volumes:
         self.assertEqual(volume0.schema, VolumeSchema.gpt)
         self.assertEqual(volume0.bootloader, BootLoader.uboot)
         self.assertIsNone(volume0.id)
-        self.assertEqual(len(volume0.structures), 1)
+        self.assertEqual(len(volume0.structures), 2)
         structure0 = volume0.structures[0]
         self.assertIsNone(structure0.name)
         self.assertEqual(structure0.offset, MiB(1))
@@ -550,6 +553,25 @@ volumes:
              for key in gadget_spec.volumes}
             )
 
+    def test_volume_structure_role_system_data_bad_label(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          role: system-data
+          filesystem-label: foobar
+""")
+        self.assertEqual(
+            str(cm.exception),
+            ('`role: system-data` structure must have an implicit label, '
+             "or 'writable': foobar"))
+
     def test_volume_structure_type_none(self):
         gadget_spec = parse("""
 volumes:
@@ -636,10 +658,13 @@ volumes:
         - type: bare
           size: 100
           role: mbr
+        - type: 83,00000000-0000-0000-0000-0000feedface
+          role: system-data
+          size: 100M
 """)
         self.assertEqual(len(gadget_spec.volumes), 1)
         volume = gadget_spec.volumes['first-image']
-        self.assertEqual(len(volume.structures), 1)
+        self.assertEqual(len(volume.structures), 2)
         structure = volume.structures[0]
         self.assertEqual(structure.role, StructureRole.mbr)
         self.assertEqual(structure.type, 'bare')
@@ -780,6 +805,21 @@ volumes:
         self.assertEqual(
             str(cm.exception),
             'mbr structures must not specify a file system')
+
+    def test_volume_special_label_system_boot(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          filesystem-label: system-boot
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition = volume0.structures[0]
+        self.assertEqual(partition.filesystem_label, 'system-boot')
+        self.assertEqual(partition.role, StructureRole.system_boot)
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\
@@ -1841,6 +1881,26 @@ volumes:
         self.assertEqual(str(cm.exception),
                          'mbr structure must start at offset 0')
 
+    def test_implicit_system_data_partition(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 100M
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(len(volume0.structures), 3)
+        partition2 = volume0.structures[2]
+        self.assertEqual(partition2.role, StructureRole.system_data)
+        self.assertEqual(partition2.offset, MiB(501))
+        self.assertEqual(partition2.size, None)
+        self.assertEqual(partition2.filesystem, FileSystemType.ext4)
+        self.assertEqual(partition2.filesystem_label, 'writable')
+
 
 class TestPartOrder(TestCase):
     # LP: #1631423
@@ -1859,6 +1919,7 @@ volumes:
         - type: 00000000-0000-0000-0000-dd00deadbeef
           size: 400M
         - type: 00000000-0000-0000-0000-cc00deadbeef
+          role: system-data
           size: 500M
         - type: 00000000-0000-0000-0000-bb00deadbeef
           size: 100M
@@ -1887,6 +1948,7 @@ volumes:
           size: 400M
           offset: 800M
         - type: 00000000-0000-0000-0000-cc00deadbeef
+          role: system-data
           size: 500M
           offset: 200M
         - type: 00000000-0000-0000-0000-bb00deadbeef
@@ -1918,6 +1980,7 @@ volumes:
           size: 400M
           offset: 800M
         - type: 00000000-0000-0000-0000-cc00deadbeef
+          role: system-data
           size: 500M
           offset: 200M
         - type: 00000000-0000-0000-0000-bb00deadbeef
@@ -1934,3 +1997,28 @@ volumes:
                 (UUID('00000000-0000-0000-0000-bb00deadbeef'), MiB(700)),
                 (UUID('00000000-0000-0000-0000-aa00deadbeef'), MiB(1)),
                 ])
+
+    def test_mixed_offset_ordering_implicit_rootfs(self):
+        gadget_spec = parse("""\
+volumes:
+  first:
+    schema: gpt
+    bootloader: grub
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          size: 400M
+          offset: 800M
+        - type: 00000000-0000-0000-0000-cc00deadbeef
+          size: 500M
+          offset: 200M
+        - type: 00000000-0000-0000-0000-bb00deadbeef
+          size: 100M
+        - type: 00000000-0000-0000-0000-aa00deadbeef
+          size: 100M
+          offset: 1M
+""")
+        volume0 = gadget_spec.volumes['first']
+        self.assertEqual(len(volume0.structures), 5)
+        partition4 = volume0.structures[4]
+        self.assertEqual(partition4.role, StructureRole.system_data)
+        self.assertEqual(partition4.offset, MiB(1200))
