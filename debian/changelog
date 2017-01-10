@@ -1,3 +1,10 @@
+ubuntu-image (0.13+17.04ubuntu2) zesty; urgency=medium
+
+  * d/tests/mount: Fix a typo and handle a case where the root file system
+    isn't found.
+
+ -- Barry Warsaw <barry@ubuntu.com>  Tue, 10 Jan 2017 17:33:58 -0500
+
 ubuntu-image (0.13+17.04ubuntu1) zesty; urgency=medium
 
   * Refuse to write images to /tmp when running ubuntu-image as a snap,
