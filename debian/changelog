@@ -1,3 +1,10 @@
+ubuntu-image (0.13+16.04ubuntu2) xenial; urgency=medium
+
+  * d/tests/mount: Fix a typo and handle a case where the root file system
+    isn't found.
+
+ -- Barry Warsaw <barry@ubuntu.com>  Tue, 10 Jan 2017 17:33:58 -0500
+
 ubuntu-image (0.13+16.04ubuntu1) xenial; urgency=medium
 
   * SRU tracking bug LP: #1655133
@@ -10,7 +17,7 @@ ubuntu-image (0.13+16.04ubuntu1) xenial; urgency=medium
   * d/tests/mount: Switch to the stable channel for snaps.
   * Make the test suite immune to the locale.  (LP:1638570)
 
- -- Barry Warsaw <barry@ubuntu.com>  Thu, 01 Dec 2016 17:33:19 -0500
+ -- Barry Warsaw <barry@ubuntu.com>  Mon, 09 Jan 2017 15:38:40 -0500
 
 ubuntu-image (0.12+16.04ubuntu1) xenial; urgency=medium
 
