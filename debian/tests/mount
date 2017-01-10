@@ -107,12 +107,15 @@ for model_file in os.listdir(DIR):
                 # Failed.
                 model_status[device] = (False, proc.stdout, proc.stderr)
         # Now ensure the file system label for root.
-        proc = run(['/sbin/e2label', src],
-                   universal_newlines=True,
-                   stdout=PIPE, stderr=PIPE)
-        if proc.stdout.strip() != 'writable':
-            model_status['rootfs label != writable'] = (
-                False, proc.stdout, proc.stderr)
+        if root_fs is None:
+            model_status['no rootfs found!'] = (False, '', '')
+        else:
+            proc = run(['/sbin/e2label', root_fs],
+                       universal_newlines=True,
+                       stdout=PIPE, stderr=PIPE)
+            if proc.stdout.strip() != 'writable':
+                model_status['rootfs label != writable'] = (
+                    False, proc.stdout, proc.stderr)
 
 
 # Collate results.
