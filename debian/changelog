@@ -1,3 +1,9 @@
+ubuntu-image (0.14+17.04ubuntu1) UNRELEASED; urgency=medium
+
+  * Add CI for Python 3.6.  (LP: #1650402)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Wed, 11 Jan 2017 17:48:45 -0500
+
 ubuntu-image (0.13+17.04ubuntu2) zesty; urgency=medium
 
   * d/tests/mount: Fix a typo and handle a case where the root file system
