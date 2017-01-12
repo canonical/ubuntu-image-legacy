@@ -20,7 +20,8 @@ ubuntu-image (0.13+17.04ubuntu1) zesty; urgency=medium
     this can fail.  Over local file systems, they'll be preserved anyway.
     (LP: #1637554)
   * Use the `role` attribute of the gadget.yaml when creating images,
-    especially for `role:mbr` and `role:system-data` (LP: #1642914)
+    especially for `role:mbr` and `role:system-data` (LP: #1642914 and
+    LP: #1643086)
   * d/tests/mount: Switch to the stable channel for snaps.
   * Make the test suite immune to the locale.  (LP: #1638570)
 
