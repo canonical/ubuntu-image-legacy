@@ -1,6 +1,12 @@
 ubuntu-image (0.14+17.04ubuntu1) UNRELEASED; urgency=medium
 
   * Add CI for Python 3.6.  (LP: #1650402)
+  * Fix the test suite for sparse files on ZFS.  (LP: #1656371)
+  * d/t/control: Add Restriction: isolation-machine for the mount test
+    since devmapper is not namespaced and thus can interfere with other
+    containers.  This will prevent the test from running in schroot and
+    lxd/lxc backends, but will continue to run in qemu backends.
+    (LP: #1656391)
 
  -- Barry Warsaw <barry@ubuntu.com>  Wed, 11 Jan 2017 17:48:45 -0500
 
