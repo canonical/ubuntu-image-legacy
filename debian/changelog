@@ -1,4 +1,4 @@
-ubuntu-image (0.14+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.14+17.04ubuntu1) zesty; urgency=medium
 
   * Add CI for Python 3.6.  (LP: #1650402)
   * Fix the test suite for sparse files on ZFS.  (LP: #1656371)
@@ -8,7 +8,7 @@ ubuntu-image (0.14+17.04ubuntu1) UNRELEASED; urgency=medium
     lxd/lxc backends, but will continue to run in qemu backends.
     (LP: #1656391)
 
- -- Barry Warsaw <barry@ubuntu.com>  Wed, 11 Jan 2017 17:48:45 -0500
+ -- Barry Warsaw <barry@ubuntu.com>  Fri, 13 Jan 2017 18:20:39 -0500
 
 ubuntu-image (0.13+17.04ubuntu2) zesty; urgency=medium
 
