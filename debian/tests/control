@@ -27,5 +27,5 @@ Tests: coverage.sh
 Depends: @builddeps@, git, lsb-release
 
 Tests: mount
-Restrictions: needs-root, allow-stderr
+Restrictions: needs-root, allow-stderr, isolation-machine
 Depends: @, kpartx
