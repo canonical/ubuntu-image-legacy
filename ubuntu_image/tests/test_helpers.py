@@ -1,6 +1,7 @@
 """Test the helpers."""
 
 import os
+import errno
 import logging
 
 from contextlib import ExitStack
@@ -32,6 +33,29 @@ class FakeProcNoOutput:
 
     def check_returncode(self):
         pass
+
+
+def is_sparse(path):
+    # LP: #1656371 - Looking at stat().st_blocks won't work on ZFS file
+    # systems, since that seems to return 1, whereas on EXT4 it returns 0.
+    # Rather than hard code the value based on file system type (which could
+    # be different even on other file systems), a more reliable way seems to
+    # be to use SEEK_DATA with an offset of 0 to find the first block of data
+    # after position 0.  If there is no data, an ENXIO will get raised, at
+    # least on any modern Linux kernels we care about.  See lseek(2) for
+    # details.
+    with open(path, 'r') as fp:
+        try:
+            os.lseek(fp.fileno(), 0, os.SEEK_DATA)
+        except OSError as error:
+            # There is no OSError subclass for ENXIO.
+            if error.errno != errno.ENXIO:
+                raise
+            # The expected exception occurred, meaning, there is no data in
+            # the file, so it's entirely sparse.
+            return True
+    # The expected exception did not occur, so there is data in the file.
+    return False
 
 
 class MountMocker:
@@ -140,10 +164,10 @@ class TestHelpers(TestCase):
             fp = resources.enter_context(open(sparse_file, 'w'))
             os.truncate(fp.fileno(), 1000000)
             # This file is sparse.
-            self.assertEqual(os.stat(sparse_file).st_blocks, 0)
+            self.assertTrue(is_sparse(sparse_file))
             copied_file = os.path.join(tmpdir, 'copied.dat')
             sparse_copy(sparse_file, copied_file)
-            self.assertEqual(os.stat(copied_file).st_blocks, 0)
+            self.assertTrue(is_sparse(copied_file))
 
     def test_copy_symlink(self):
         with ExitStack() as resources:
@@ -152,7 +176,7 @@ class TestHelpers(TestCase):
             fp = resources.enter_context(open(sparse_file, 'w'))
             os.truncate(fp.fileno(), 1000000)
             # This file is sparse.
-            self.assertEqual(os.stat(sparse_file).st_blocks, 0)
+            self.assertTrue(is_sparse(sparse_file))
             # Create a symlink to the sparse file.
             linked_file = os.path.join(tmpdir, 'linked.dat')
             os.symlink(sparse_file, linked_file)
