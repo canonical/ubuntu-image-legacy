@@ -1,3 +1,15 @@
+ubuntu-image (0.14+16.04ubuntu1) xenial; urgency=medium
+
+  * Add CI for Python 3.6.  (LP: #1650402)
+  * Fix the test suite for sparse files on ZFS.  (LP: #1656371)
+  * d/t/control: Add Restriction: isolation-machine for the mount test
+    since devmapper is not namespaced and thus can interfere with other
+    containers.  This will prevent the test from running in schroot and
+    lxd/lxc backends, but will continue to run in qemu backends.
+    (LP: #1656391)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Fri, 13 Jan 2017 18:20:39 -0500
+
 ubuntu-image (0.13+16.04ubuntu2) xenial; urgency=medium
 
   * d/tests/mount: Fix a typo and handle a case where the root file system
@@ -15,7 +27,12 @@ ubuntu-image (0.13+16.04ubuntu1) xenial; urgency=medium
     this can fail.  Over local file systems, they'll be preserved anyway.
     (LP:1637554)
   * Use the `role` attribute of the gadget.yaml when creating images,
+<<<<<<< HEAD
     especially for `role:mbr` and `role:system-data` (LP:1642914)
+=======
+    especially for `role:mbr` and `role:system-data` (LP: #1642914 and
+    LP: #1643086)
+>>>>>>> master
   * d/tests/mount: Switch to the stable channel for snaps.
   * Make the test suite immune to the locale.  (LP:1638570)
 

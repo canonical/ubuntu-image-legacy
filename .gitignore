@@ -9,3 +9,5 @@ parts
 prime
 stage
 *.snap
+coverage.xml
+diffcov.html
