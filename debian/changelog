@@ -1,12 +1,13 @@
 ubuntu-image (0.14+16.10ubuntu1) yakkety; urgency=medium
 
-  * Add CI for Python 3.6.  (LP: #1650402)
-  * Fix the test suite for sparse files on ZFS.  (LP: #1656371)
+  * SRU tracking bug LP: #1655133
+  * Add CI for Python 3.6.  (LP:1650402)
+  * Fix the test suite for sparse files on ZFS.  (LP:1656371)
   * d/t/control: Add Restriction: isolation-machine for the mount test
     since devmapper is not namespaced and thus can interfere with other
     containers.  This will prevent the test from running in schroot and
     lxd/lxc backends, but will continue to run in qemu backends.
-    (LP: #1656391)
+    (LP:1656391)
 
  -- Barry Warsaw <barry@ubuntu.com>  Fri, 13 Jan 2017 18:20:39 -0500
 
@@ -19,7 +20,6 @@ ubuntu-image (0.13+16.10ubuntu2) yakkety; urgency=medium
 
 ubuntu-image (0.13+16.10ubuntu1) yakkety; urgency=medium
 
-  * SRU tracking bug LP: #1655133
   * Refuse to write images to /tmp when running ubuntu-image as a snap,
     since the snap's /tmp is not accessible to the user.  (LP:1646968)
   * When sparse copying the resulting disk image, don't try to preserve
