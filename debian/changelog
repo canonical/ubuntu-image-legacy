@@ -1,6 +1,12 @@
-ubuntu-image (0.14+16.04ubuntu1) xenial; urgency=medium
+ubuntu-image (0.14+16.04ubuntu2) xenial; urgency=medium
 
   * SRU tracking bug LP: #1655133
+  * d/changelog: Clean up bug tags so as not to confuse SRU linkage.
+
+ -- Barry Warsaw <barry@ubuntu.com>  Fri, 20 Jan 2017 09:59:20 -0500
+
+ubuntu-image (0.14+16.04ubuntu1) xenial; urgency=medium
+
   * Add CI for Python 3.6.  (LP:1650402)
   * Fix the test suite for sparse files on ZFS.  (LP:1656371)
   * d/t/control: Add Restriction: isolation-machine for the mount test
@@ -27,8 +33,8 @@ ubuntu-image (0.13+16.04ubuntu1) xenial; urgency=medium
     this can fail.  Over local file systems, they'll be preserved anyway.
     (LP:1637554)
   * Use the `role` attribute of the gadget.yaml when creating images,
-    especially for `role:mbr` and `role:system-data` (LP: #1642914 and
-    LP: #1643086)
+    especially for `role:mbr` and `role:system-data` (LP:1642914 and
+    LP:1643086)
   * d/tests/mount: Switch to the stable channel for snaps.
   * Make the test suite immune to the locale.  (LP:1638570)
 
