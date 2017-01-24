@@ -17,7 +17,7 @@ from ubuntu_image.testing.helpers import (
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
     LogCapture, XXXModelAssertionBuilder, envar)
 from ubuntu_image.testing.nose import NosePlugin
-from unittest import TestCase, skipIf
+from unittest import TestCase, skipIf, skip
 from unittest.mock import call, patch
 
 
@@ -186,6 +186,29 @@ class TestMainWithModel(TestCase):
         main(('--output', imgfile, self.model_assertion))
         self.assertTrue(os.path.exists(imgfile))
 
+    def test_output_directory(self):
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        outputdir = os.path.join(tmpdir, 'images')
+        main(('--output-dir', outputdir, self.model_assertion))
+        self.assertTrue(os.path.exists(os.path.join(outputdir, 'pc.img')))
+
+    @skip('Multiple volumes are not yet supported')
+    def test_output_directory_multiple_images(self):
+        class Builder(DoNothingBuilder):
+            gadget_yaml = 'gadget-multi.yaml'
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            Builder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        outputdir = os.path.join(tmpdir, 'images')
+        main(('-O', outputdir, self.model_assertion))
+        for name in ('first', 'second', 'third', 'fourth'):
+            image_path = os.path.join(outputdir, '{}.img'.format(name))
+            self.assertTrue(os.path.exists(image_path))
+
     def test_output_to_snaps_tmp(self):
         # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
         # a snap you cannot use `-o /tmp/something`.
@@ -201,6 +224,20 @@ class TestMainWithModel(TestCase):
         imgfile = os.path.join(tmpdir, 'my-disk.img')
         self.assertFalse(os.path.exists(imgfile))
         code = main(('--output', '/tmp/my.img', self.model_assertion))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            self._stderr.getvalue(),
+            'ubuntu-image snap cannot write images to /tmp\n')
+
+    def test_output_dir_to_snaps_tmp(self):
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        self.assertFalse(os.path.exists(imgfile))
+        code = main(('--output-dir', '/tmp/images', self.model_assertion))
         self.assertEqual(code, 1)
         self.assertEqual(
             self._stderr.getvalue(),

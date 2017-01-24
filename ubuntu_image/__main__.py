@@ -59,6 +59,14 @@ def parseargs(argv=None):
         be put in a file called disk.img in the working directory (in which
         case, you probably want to specify -w)."""))
     common_group.add_argument(
+        '-O', '--output-dir',
+        default=None, metavar='DIRECTORY',
+        help=_("""The directory in which to put generated disk image files.
+        The disk image files themselves will be named <volume>.img inside this
+        directory, where <volume> is the volume name taken from the
+        gadget.yaml file.  This can be overridden on an individual volume
+        basis by using the extended -o/--output syntax."""))
+    common_group.add_argument(
         '--image-size',
         default=None, action=SizeAction, metavar='SIZE',
         help=_("""The size of the generated disk image file (see

@@ -7,9 +7,9 @@ Generate a bootable disk image
 ------------------------------
 
 :Author: Barry Warsaw <barry@ubuntu.com>
-:Date: 2016-11-01
-:Copyright: 2016 Canonical Ltd.
-:Version: 0.11
+:Date: 2017-01-24
+:Copyright: 2016-2017 Canonical Ltd.
+:Version: 0.15
 :Manual section: 1
 
 
@@ -67,8 +67,16 @@ model_assertion
 
 -o FILENAME, --output FILENAME
     The generated disk image file.  If not given, the image will be put in a
-    file called ``disk.img`` in the working directory (in which case, you
-    probably want to specify ``--workdir``).
+    file called ``disk.img`` in the working directory, in which case, you
+    probably want to specify ``--workdir``.  If ``--workdir`` is not given,
+    the image will be written to the current working directory.  **NOTE** when
+    run as a snap, ``ubuntu-image`` refuses to write to ``/tmp`` since this
+    directory is not accessible outside of the snap environment.
+
+-O DIRECTORY, --output-dir DIRECTORY
+    Write generated disk image files to this directory.  The files will be
+    named after the ``gadget.yaml`` volume name, with ``.img`` suffix
+    appended.  **NOTE** when run as a snap, this directory cannot be ``/tmp``.
 
 --image-size SIZE
     The size of the generated disk image file (see ``--output``).  If this
