@@ -210,22 +210,21 @@ class TestMainWithModel(TestCase):
             image_path = os.path.join(outputdir, '{}.img'.format(name))
             self.assertTrue(os.path.exists(image_path))
 
-    @skipIf(str(Path.cwd().parents[0]) == '/tmp',
-            'There is no safe directory for this test')
     def test_output_for_snaps(self):
         # The good path.
         self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        # This cannot live in /tmp, but this test also should not try to create
-        # this directory.
-        tmpdir = self._resources.enter_context(
-            TemporaryDirectory(dir=os.getcwd()))
-        images = os.path.join(tmpdir, 'images')
+        output_dir = '/this/does/not/live/in/tmp'
+        self._resources.enter_context(patch(
+            'ubuntu_image.builder.os.getcwd', return_value=output_dir))
         # This directory should not get created.
-        main(('-O', images, '-u', 'load_gadget_yaml', self.model_assertion))
-        self.assertFalse(os.path.exists(images))
+        main(('-O', output_dir,
+              # Do not run the full state machine.
+              '-u', 'load_gadget_yaml',
+              self.model_assertion))
+        self.assertFalse(os.path.exists(output_dir))
 
     def test_output_to_snaps_tmp(self):
         # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
