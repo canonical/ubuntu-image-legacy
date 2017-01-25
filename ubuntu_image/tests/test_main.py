@@ -17,7 +17,7 @@ from ubuntu_image.testing.helpers import (
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
     LogCapture, XXXModelAssertionBuilder, envar)
 from ubuntu_image.testing.nose import NosePlugin
-from unittest import TestCase, skipIf, skip
+from unittest import TestCase, skip, skipIf
 from unittest.mock import call, patch
 
 
