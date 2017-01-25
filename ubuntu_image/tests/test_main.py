@@ -5,7 +5,6 @@ import logging
 
 from contextlib import ExitStack, contextmanager
 from io import StringIO
-from pathlib import Path
 from pickle import load
 from pkg_resources import resource_filename
 from subprocess import CalledProcessError
