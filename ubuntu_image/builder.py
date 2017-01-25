@@ -46,16 +46,21 @@ class ModelAssertionBuilder(State):
         # When run as a snap, /tmp is not writable.
         if any(key.startswith('SNAP') for key in os.environ):
             # The output directories, in order of precedence.
-            for path in (args.output, args.output_dir, os.getcwd()):
+            check_paths = (args.output, args.output_dir, os.getcwd())
+            # This loop will never exit normally because either we'll hit a
+            # /tmp directory, or we won't.  In the former case we'll always
+            # exit by raising the exception, and in the latter case, we'll hit
+            # the break.  Therefore, tell coverage not to check partial
+            # branches for this loop.
+            for path in check_paths:                # pragma: no branch
                 if path is None:
                     continue
                 path = os.sep.join(path.split(os.sep)[:2])
                 if path == '/tmp':
                     raise TMPNotReadableFromOutsideSnap
-                else:
-                    # This path is okay and since it'll take precedence, we're
-                    # done checking.
-                    break
+                # This path is okay and since it'll take precedence, we're
+                # done checking.
+                break
         self.output_dir = args.output_dir
         self.output = args.output
         # Information passed between states.

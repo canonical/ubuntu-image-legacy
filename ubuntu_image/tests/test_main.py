@@ -5,6 +5,7 @@ import logging
 
 from contextlib import ExitStack, contextmanager
 from io import StringIO
+from pathlib import Path
 from pickle import load
 from pkg_resources import resource_filename
 from subprocess import CalledProcessError
@@ -208,6 +209,23 @@ class TestMainWithModel(TestCase):
         for name in ('first', 'second', 'third', 'fourth'):
             image_path = os.path.join(outputdir, '{}.img'.format(name))
             self.assertTrue(os.path.exists(image_path))
+
+    @skipIf(str(Path.cwd().parents[0]) == '/tmp',
+            'There is no safe directory for this test')
+    def test_output_for_snaps(self):
+        # The good path.
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        # This cannot live in /tmp, but this test also should not try to create
+        # this directory.
+        tmpdir = self._resources.enter_context(
+            TemporaryDirectory(dir=os.getcwd()))
+        images = os.path.join(tmpdir, 'images')
+        # This directory should not get created.
+        main(('-O', images, '-u', 'load_gadget_yaml', self.model_assertion))
+        self.assertFalse(os.path.exists(images))
 
     def test_output_to_snaps_tmp(self):
         # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
