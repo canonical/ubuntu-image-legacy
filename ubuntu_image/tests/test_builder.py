@@ -63,6 +63,7 @@ class TestModelAssertionBuilder(TestCase):
             extra_snaps=None,
             model_assertion=self.model_assertion,
             output=output.name,
+            output_dir=None,
             workdir=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
@@ -126,6 +127,7 @@ class TestModelAssertionBuilder(TestCase):
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
+                output_dir=None,
                 workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -162,6 +164,7 @@ class TestModelAssertionBuilder(TestCase):
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
+                output_dir=None,
                 workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -197,6 +200,7 @@ class TestModelAssertionBuilder(TestCase):
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
+                output_dir=None,
                 workdir=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -241,6 +245,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -296,6 +301,7 @@ class TestModelAssertionBuilder(TestCase):
                 cloud_init=None,
                 debug=False,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -338,6 +344,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -411,6 +418,7 @@ class TestModelAssertionBuilder(TestCase):
                 cloud_init=None,
                 debug=False,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -457,6 +465,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -487,6 +496,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -573,6 +583,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -636,6 +647,7 @@ class TestModelAssertionBuilder(TestCase):
                 cloud_init=None,
                 debug=False,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -691,6 +703,7 @@ class TestModelAssertionBuilder(TestCase):
                 cloud_init=None,
                 debug=False,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -734,6 +747,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -856,6 +870,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -938,6 +953,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -1063,6 +1079,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -1129,6 +1146,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -1205,6 +1223,7 @@ class TestModelAssertionBuilder(TestCase):
                 cloud_init=None,
                 image_size=None,
                 output=None,
+                output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
                 )
@@ -1258,6 +1277,7 @@ class TestModelAssertionBuilder(TestCase):
                 cloud_init=None,
                 image_size=None,
                 output=None,
+                output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
                 )
@@ -1304,6 +1324,7 @@ class TestModelAssertionBuilder(TestCase):
                 cloud_init=None,
                 image_size=MiB(5),
                 output=None,
+                output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
                 )
@@ -1352,6 +1373,7 @@ class TestModelAssertionBuilder(TestCase):
                 given_image_size='1M',
                 image_size=MiB(1),
                 output=None,
+                output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
                 )
@@ -1413,6 +1435,7 @@ class TestModelAssertionBuilder(TestCase):
                 given_image_size='3M',
                 image_size=MiB(3),
                 output=None,
+                output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
                 )
@@ -1499,6 +1522,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
+                output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -1576,6 +1600,7 @@ class TestModelAssertionBuilder(TestCase):
                 given_image_size='1M',
                 image_size=MiB(1),
                 output=None,
+                output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
                 )
@@ -1639,6 +1664,7 @@ class TestModelAssertionBuilder(TestCase):
                 extra_snaps=[],
                 model_assertion=self.model_assertion,
                 output=None,
+                output_dir=None,
                 workdir=workdir,
                 )
             # Jump right to the method under test.
@@ -1686,6 +1712,7 @@ class TestModelAssertionBuilder(TestCase):
                 extra_snaps=[],
                 model_assertion=self.model_assertion,
                 output=None,
+                output_dir=None,
                 workdir=workdir,
                 )
             # Jump right to the method under test.

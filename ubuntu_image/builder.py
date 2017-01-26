@@ -8,7 +8,7 @@ from math import ceil
 from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap, sparse_copy
+from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap
 from ubuntu_image.image import Image, MBRImage
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema,
@@ -43,14 +43,26 @@ class ModelAssertionBuilder(State):
         # Where the disk.img file ends up.  /tmp to a snap is not the same
         # /tmp outside of the snap.  When running as a snap, don't allow the
         # user to output a disk image to a location that won't exist for them.
-        self.output = (
-            os.path.join(self.workdir, 'disk.img')
-            if args.output is None
-            else args.output)
-        in_snap = any(key.startswith('SNAP') for key in os.environ)
-        path = os.sep.join(self.output.split(os.sep)[:2])
-        if in_snap and path == '/tmp':
-            raise TMPNotReadableFromOutsideSnap
+        # When run as a snap, /tmp is not writable.
+        if any(key.startswith('SNAP') for key in os.environ):
+            # The output directories, in order of precedence.
+            check_paths = (args.output, args.output_dir, os.getcwd())
+            # This loop will never exit normally because either we'll hit a
+            # /tmp directory, or we won't.  In the former case we'll always
+            # exit by raising the exception, and in the latter case, we'll hit
+            # the break.  Therefore, tell coverage not to check partial
+            # branches for this loop.
+            for path in check_paths:                # pragma: no branch
+                if path is None:
+                    continue
+                path = os.sep.join(path.split(os.sep)[:2])
+                if path == '/tmp':
+                    raise TMPNotReadableFromOutsideSnap
+                # This path is okay and since it'll take precedence, we're
+                # done checking.
+                break
+        self.output_dir = args.output_dir
+        self.output = args.output
         # Information passed between states.
         self.rootfs = None
         self.rootfs_size = 0
@@ -81,6 +93,7 @@ class ModelAssertionBuilder(State):
             image_size=self.image_size,
             images=self.images,
             output=self.output,
+            output_dir=self.output_dir,
             part_images=self.part_images,
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
@@ -100,6 +113,7 @@ class ModelAssertionBuilder(State):
         self.image_size = state['image_size']
         self.images = state['images']
         self.output = state['output']
+        self.output_dir = state['output_dir']
         self.part_images = state['part_images']
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
@@ -138,6 +152,26 @@ class ModelAssertionBuilder(State):
         shutil.copy(yaml_file, self.workdir)
         with open(yaml_file, 'r', encoding='utf-8') as fp:
             self.gadget = parse_yaml(fp)
+        # Based on the -o/--output and -O/--output-dir options, and the volumes
+        # in the gadget.yaml file, we can now calculate where the generated
+        # disk images should go.  We'll write them directly to the final
+        # destination so they don't have to be moved later.  Here is the
+        # option precedence:
+        #
+        # * The location specified by -o/--output;
+        # * <output_dir>/<volume_name>.img
+        # * <work_dir>/disk.img
+        if self.output is not None:
+            self.disk_img = self.output
+        elif self.output_dir is not None:
+            os.makedirs(self.output_dir, exist_ok=True)
+            volumes = self.gadget.volumes.keys()
+            assert len(volumes) == 1, 'For now, only one volume is allowed'
+            volume = list(volumes)[0]
+            self.disk_img = os.path.join(
+                self.output_dir, '{}.img'.format(volume))
+        else:
+            self.disk_img = os.path.join(self.workdir, 'disk.img')
         self._next.append(self.populate_rootfs_contents)
 
     def populate_rootfs_contents(self):
@@ -383,7 +417,6 @@ class ModelAssertionBuilder(State):
         self._next.append(self.make_disk)
 
     def make_disk(self):
-        self.disk_img = os.path.join(self.images, 'disk.img')
         part_id = 1
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
@@ -443,7 +476,4 @@ class ModelAssertionBuilder(State):
         self._next.append(self.finish)
 
     def finish(self):
-        # Move the completed disk image to destination location, since the
-        # temporary scratch directory is about to get removed.
-        shutil.move(self.disk_img, self.output, copy_function=sparse_copy)
         self._next.append(self.close)
