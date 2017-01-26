@@ -53,20 +53,6 @@ def parseargs(argv=None):
         default=False, action='store_true',
         help=_('Enable debugging output'))
     common_group.add_argument(
-        '-o', '--output',
-        default=None, metavar='FILENAME',
-        help=_("""The generated disk image file.  If not given, the image will
-        be put in a file called disk.img in the working directory (in which
-        case, you probably want to specify -w)."""))
-    common_group.add_argument(
-        '-O', '--output-dir',
-        default=None, metavar='DIRECTORY',
-        help=_("""The directory in which to put generated disk image files.
-        The disk image files themselves will be named <volume>.img inside this
-        directory, where <volume> is the volume name taken from the
-        gadget.yaml file.  This can be overridden on an individual volume
-        basis by using the extended -o/--output syntax."""))
-    common_group.add_argument(
         '--image-size',
         default=None, action=SizeAction, metavar='SIZE',
         help=_("""The size of the generated disk image file (see
@@ -74,6 +60,22 @@ def parseargs(argv=None):
         size of the image a warning will be issued and --image-size will be
         ignored.  The value is the size in bytes, with allowable suffixes 'M'
         for MiB and 'G' for GiB."""))
+    output_group = common_group.add_mutually_exclusive_group()
+    output_group.add_argument(
+        '-O', '--output-dir',
+        default=None, metavar='DIRECTORY',
+        help=_("""The directory in which to put generated disk image files.
+        The disk image files themselves will be named <volume>.img inside this
+        directory, where <volume> is the volume name taken from the
+        gadget.yaml file.  Use this option instead of the deprecated
+        -o/--output option."""))
+    output_group.add_argument(
+        '-o', '--output',
+        default=None, metavar='FILENAME',
+        help=_("""DEPRECATED (use -O/--output-dir instead).  The generated
+        disk image file.  If not given, the image will be put in a file called
+        disk.img in the working directory (in which case, you probably want to
+        specify -w)."""))
     # Snap-based image options.
     snap_group = parser.add_argument_group(
         _('Image contents options'),
@@ -141,6 +143,10 @@ def parseargs(argv=None):
         args.thru = int(args.thru)
     with suppress(ValueError, TypeError):
         args.until = int(args.until)
+    # -o/--output is deprecated and mutually exclusive with -O/--output-dir
+    if args.output is not None:
+        print('-o/--output is deprecated; use -O/--output-dir instead',
+              file=sys.stderr)
     return args
 
 

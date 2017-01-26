@@ -65,6 +65,22 @@ class TestParseArgs(TestCase):
                               parseargs,
                               ['--image-size', 'BIG', 'model.assertion'])
 
+    def test_output_dir_mutually_exclusive_with_output(self):
+        # You can't use -O/--output-dir and -o/--output at the same time.
+        with patch('argparse._sys.stderr'):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['-o', '/tmp/disk.img', '-O', '/tmp'])
+
+    def test_output_is_deprecated(self):
+        # -o/--output is deprecated.
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            parseargs(['-o', '/tmp/disk.img', 'model.assertion'])
+        self.assertEqual(
+            stderr.getvalue(),
+            '-o/--output is deprecated; use -O/--output-dir instead\n')
+
 
 class TestMain(TestCase):
     def setUp(self):
@@ -243,6 +259,7 @@ class TestMainWithModel(TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(
             self._stderr.getvalue(),
+            '-o/--output is deprecated; use -O/--output-dir instead\n'
             'ubuntu-image snap cannot write images to /tmp\n')
 
     def test_output_dir_to_snaps_tmp(self):
