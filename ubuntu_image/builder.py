@@ -25,6 +25,23 @@ class TMPNotReadableFromOutsideSnap(Exception):
     """ubuntu-image snap cannot write images to /tmp"""
 
 
+# attr support for __attrs_post_init__() wasn't added until 16.3.0, which is
+# only in Zesty.  Here's a little workaround for earlier series.  We have to
+# use a subclass in this case because cls.__dict__ is a mappingproxy which
+# doesn't support item assignment.  The decorator must be used *above* the
+# @attr.s decorator.
+
+def add_post_init(cls):
+    if tuple(int(digit) for digit in attr.__version__.split('.')) >= (16, 3):
+        return cls
+    class CheatingBuilder(cls):                     # noqa
+        def __init__(self, *args, **kws):
+            super().__init__(*args, **kws)
+            self.__attrs_post_init__()
+    return CheatingBuilder
+
+
+@add_post_init
 @attr.s
 class ModelAssertionBuilder(State):
     args = attr.ib()
