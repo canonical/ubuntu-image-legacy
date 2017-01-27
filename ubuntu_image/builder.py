@@ -1,6 +1,7 @@
 """Flow for building a disk image."""
 
 import os
+import attr
 import shutil
 import logging
 
@@ -24,9 +25,43 @@ class TMPNotReadableFromOutsideSnap(Exception):
     """ubuntu-image snap cannot write images to /tmp"""
 
 
+@attr.s
 class ModelAssertionBuilder(State):
-    def __init__(self, args):
+    args = attr.ib()
+    bootfs = attr.ib(default=None)
+    bootfs_sizes = attr.ib(default=None)
+    cloud_init = attr.ib(default=None)
+    disk_img = attr.ib(default=None)
+    exitcode = attr.ib(default=0)
+    gadget = attr.ib(default=None)
+    image_size = attr.ib(default=0)
+    images = attr.ib(default=None)
+    output = attr.ib(default=None)
+    output_dir = attr.ib(default=None)
+    part_images = attr.ib(default=None)
+    rootfs = attr.ib(default=None)
+    rootfs_size = attr.ib(default=0)
+    unpackdir = attr.ib(default=None)
+
+    def __getstate__(self):
+        pickle = super().__getstate__()
+        # Don't recurse when getting a pickle-able dictionary because at least
+        # one of our attributes (self.gadget) is also an @attr.s and we want
+        # to retain it's object nature, not turn it into a dictionary which
+        # can't be unpickled correctly.
+        pickle.update(attr.asdict(self, recurse=False))
+        return pickle
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        for field in attr.fields(self.__class__):
+            setattr(self, field.name, state.get(field.name, field.default))
+
+    def __attrs_post_init__(self):
         super().__init__()
+        self.output_dir = self.args.output_dir
+        self.output = self.args.output
+        self.cloud_init = self.args.cloud_init
         # The working directory will contain several bits as we stitch
         # everything together.  It will contain the final disk image file
         # (unless output is given).  It will contain an unpack/ directory
@@ -38,15 +73,15 @@ class ModelAssertionBuilder(State):
         # files.
         self.workdir = (
             self.resources.enter_context(TemporaryDirectory())
-            if args.workdir is None
-            else args.workdir)
+            if self.args.workdir is None
+            else self.args.workdir)
         # Where the disk.img file ends up.  /tmp to a snap is not the same
         # /tmp outside of the snap.  When running as a snap, don't allow the
         # user to output a disk image to a location that won't exist for them.
         # When run as a snap, /tmp is not writable.
         if any(key.startswith('SNAP') for key in os.environ):
             # The output directories, in order of precedence.
-            check_paths = (args.output, args.output_dir, os.getcwd())
+            check_paths = (self.output, self.output_dir, os.getcwd())
             # This loop will never exit normally because either we'll hit a
             # /tmp directory, or we won't.  In the former case we'll always
             # exit by raising the exception, and in the latter case, we'll hit
@@ -61,63 +96,7 @@ class ModelAssertionBuilder(State):
                 # This path is okay and since it'll take precedence, we're
                 # done checking.
                 break
-        self.output_dir = args.output_dir
-        self.output = args.output
-        # Information passed between states.
-        self.rootfs = None
-        self.rootfs_size = 0
-        self.part_images = None
-        self.image_size = 0
-        self.bootfs = None
-        self.bootfs_sizes = None
-        self.images = None
-        self.entry = None
-        self.disk_img = None
-        self.gadget = None
-        self.args = args
-        self.unpackdir = None
-        self.cloud_init = args.cloud_init
-        self.exitcode = 0
         self._next.append(self.make_temporary_directories)
-
-    def __getstate__(self):
-        state = super().__getstate__()
-        state.update(
-            args=self.args,
-            bootfs=self.bootfs,
-            bootfs_sizes=self.bootfs_sizes,
-            cloud_init=self.cloud_init,
-            disk_img=self.disk_img,
-            exitcode=self.exitcode,
-            gadget=self.gadget,
-            image_size=self.image_size,
-            images=self.images,
-            output=self.output,
-            output_dir=self.output_dir,
-            part_images=self.part_images,
-            rootfs=self.rootfs,
-            rootfs_size=self.rootfs_size,
-            unpackdir=self.unpackdir,
-            )
-        return state
-
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        self.args = state['args']
-        self.bootfs = state['bootfs']
-        self.bootfs_sizes = state['bootfs_sizes']
-        self.cloud_init = state['cloud_init']
-        self.disk_img = state['disk_img']
-        self.exitcode = state['exitcode']
-        self.gadget = state['gadget']
-        self.image_size = state['image_size']
-        self.images = state['images']
-        self.output = state['output']
-        self.output_dir = state['output_dir']
-        self.part_images = state['part_images']
-        self.rootfs = state['rootfs']
-        self.rootfs_size = state['rootfs_size']
-        self.unpackdir = state['unpackdir']
 
     def _log_exception(self, name):
         # Only log the exception if we're in debug mode.
