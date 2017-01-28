@@ -35,6 +35,17 @@ def check_returncode(*args, **kws):
     raise CalledProcessError(1, 'failing command')
 
 
+def prep_state(state, workdir, part_images=None):
+    # For tests which don't run the full state machine, we need to reproduce
+    # enough of the state for the individual test.
+    state.volumedir = os.path.join(workdir, 'volumes')
+    for name, volume in state.gadget.volumes.items():
+        basedir = os.path.join(state.volumedir, name)
+        volume.basedir = basedir
+        os.makedirs(basedir)
+        volume.part_images = [] if part_images is None else part_images
+
+
 class TestModelAssertionBuilder(TestCase):
     # XXX These tests relies on external resources, namely that the gadget and
     # kernel snaps in this model assertion can actually be downloaded from the
@@ -252,6 +263,9 @@ class TestModelAssertionBuilder(TestCase):
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
             state._next.append(state.populate_bootfs_contents)
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
             # Now we have to craft enough of gadget definition to drive the
             # method under test.
             part = SimpleNamespace(
@@ -266,14 +280,13 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
-            # Since we're not running make_temporary_directories(), just set
-            # up some additional expected state.
-            state.unpackdir = unpackdir
+            prep_state(state, workdir)
             # Run the method, the testable effects of which copy all the files
             # in the boot directory (i.e. <unpackdir>/image/boot/uboot) into
             # the 'ubuntu' directory (i.e. <workdir>/part0).  So put some
             # contents into the source directory.
-            src = os.path.join(unpackdir, 'image', 'boot', 'uboot')
+            volume1_dir = os.path.join(state.volumedir, 'volume1')
+            src = os.path.join(volume1_dir, 'image', 'boot', 'uboot')
             os.makedirs(src)
             with open(os.path.join(src, '1.dat'), 'wb') as fp:
                 fp.write(b'01234')
@@ -281,9 +294,9 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'56789')
             next(state)
             # Did the boot data get copied?
-            with open(os.path.join(workdir, 'part0', '1.dat'), 'rb') as fp:
+            with open(os.path.join(volume1_dir, 'part0', '1.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'01234')
-            with open(os.path.join(workdir, 'part0', '2.dat'), 'rb') as fp:
+            with open(os.path.join(volume1_dir, 'part0', '2.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'56789')
 
     def test_bootloader_options_invalid(self):
@@ -322,6 +335,7 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             # Don't blat to stderr.
             resources.enter_context(patch('ubuntu_image.state.log'))
             with self.assertRaises(ValueError) as cm:
@@ -378,6 +392,7 @@ class TestModelAssertionBuilder(TestCase):
             # Since we're not running make_temporary_directories(), just set
             # up some additional expected state.
             state.unpackdir = unpackdir
+            prep_state(state, workdir)
             # Run the method, the testable effects of which copy all the files
             # in the source directory (i.e. <unpackdir>/gadget/<source>) into
             # the target directory (i.e. <workdir>/part0).  So put some
@@ -449,43 +464,13 @@ class TestModelAssertionBuilder(TestCase):
             # Since we're not running make_temporary_directories(), just set
             # up some additional expected state.
             state.unpackdir = unpackdir
+            prep_state(state, workdir)
             # Run the state machine.  Don't blat to stderr.
             resources.enter_context(patch('ubuntu_image.state.log'))
             with self.assertRaises(ValueError) as cm:
                 next(state)
             self.assertEqual(
                 str(cm.exception), 'target must end in a slash: bt')
-
-    def test_calculate_bootfs_size_no_filesystem(self):
-        # When a part has no file system type, we can't calculate its size.
-        with ExitStack() as resources:
-            workdir = resources.enter_context(TemporaryDirectory())
-            unpackdir = resources.enter_context(TemporaryDirectory())
-            # Fast forward a state machine to the method under test.
-            args = SimpleNamespace(
-                cloud_init=None,
-                output=None,
-                output_dir=None,
-                unpackdir=unpackdir,
-                workdir=workdir,
-                )
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state._next.pop()
-            state._next.append(state.calculate_bootfs_size)
-            # Craft a gadget specification.
-            part = SimpleNamespace(
-                role=None,
-                filesystem=FileSystemType.none,
-                )
-            volume = SimpleNamespace(
-                structures=[part],
-                )
-            state.gadget = SimpleNamespace(
-                volumes=dict(volume1=volume),
-                )
-            # Calculate the size.
-            next(state)
-            self.assertEqual(len(state.bootfs_sizes), 0)
 
     def test_populate_filesystems_none_type(self):
         # We do a bit-wise copy when the file system has no type.
@@ -870,7 +855,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
-                output_dir=None,
+                output_dir=workdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -919,12 +904,13 @@ class TestModelAssertionBuilder(TestCase):
             root_img = os.path.join(state.images, 'root.img')
             with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.part_images = [part0_img, root_img]
+            prep_state(state, workdir, [part0_img, root_img])
             # Create the disk.
             next(state)
             # Verify some parts of the disk.img's content.  First, that we've
             # written the part offsets at the right place.y
-            with open(state.disk_img, 'rb') as fp:
+            img_file = os.path.join(workdir, 'volume1.img')
+            with open(img_file, 'rb') as fp:
                 fp.seek(0)
                 self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
                 # The root file system lives at the end, which in this case is
@@ -933,7 +919,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.seek(MiB(5))
                 self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
             # Verify the disk image's partition table.
-            proc = run('sfdisk --json {}'.format(state.disk_img))
+            proc = run('sfdisk --json {}'.format(img_file))
             layout = json.loads(proc.stdout)
             partitions = [
                 (part['name'], part['start'])
@@ -1258,6 +1244,7 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             # Mock the run() call to prove that we never call dd.
             mock = resources.enter_context(patch('ubuntu_image.builder.run'))
             next(state)
@@ -1312,8 +1299,10 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             next(state)
-            self.assertEqual(state.image_size, 2114560)
+            self.assertEqual(
+                state.gadget.volumes['volume1'].image_size, 2114560)
 
     def test_image_size_explicit(self):
         # --image-size=5M overrides the implicit disk image size.
@@ -1359,8 +1348,10 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             next(state)
-            self.assertEqual(state.image_size, MiB(5))
+            self.assertEqual(
+                state.gadget.volumes['volume1'].image_size, MiB(5))
 
     def test_image_size_too_small(self):
         # --image-size=1M but the calculated size is larger, so the command
@@ -1408,10 +1399,12 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             mock = resources.enter_context(
                 patch('ubuntu_image.builder._logger.warning'))
             next(state)
-            self.assertEqual(state.image_size, 2114560)
+            self.assertEqual(state.gadget.volumes['volume1'].image_size,
+                             2114560)
             self.assertEqual(len(mock.call_args_list), 1)
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(
@@ -1492,6 +1485,7 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             mock = resources.enter_context(
                 patch('ubuntu_image.builder._logger.warning'))
             next(state)
@@ -1499,7 +1493,8 @@ class TestModelAssertionBuilder(TestCase):
             # from the farthest out structure (part1 at offset 4MiB + 1MiB
             # size) + the rootfs size of 1MiB.  The latter comes from the
             # empirically derived 34 sector GPT backup space.
-            self.assertEqual(state.image_size, 6308864)
+            self.assertEqual(
+                state.gadget.volumes['volume1'].image_size, 6308864)
             self.assertEqual(len(mock.call_args_list), 1)
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(
@@ -1635,6 +1630,7 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             mock = resources.enter_context(
                 patch('ubuntu_image.builder._logger.warning'))
             next(state)

@@ -68,9 +68,9 @@ model_assertion
 -O DIRECTORY, --output-dir DIRECTORY
     Write generated disk image files to this directory.  The files will be
     named after the ``gadget.yaml`` volume names, with ``.img`` suffix
-    appended.  **NOTE** when run as a snap, this directory cannot be
-    ``/tmp``.  This option replaces, and cannot be used with the deprecated
-    ``--output`` option.
+    appended.  If not given, the current working directory is used.  **NOTE**
+    when run as a snap, this directory cannot be ``/tmp``.  This option
+    replaces, and cannot be used with the deprecated ``--output`` option.
 
 -o FILENAME, --output FILENAME
     **DEPRECATED** (Use ``--output-dir`` instead.)  The generated disk image
