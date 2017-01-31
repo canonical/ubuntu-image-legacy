@@ -42,7 +42,7 @@ def prep_state(state, workdir, part_images=None):
     for name, volume in state.gadget.volumes.items():
         basedir = os.path.join(state.volumedir, name)
         volume.basedir = basedir
-        os.makedirs(basedir)
+        os.makedirs(basedir, exist_ok=True)
         volume.part_images = [] if part_images is None else part_images
 
 
@@ -78,7 +78,7 @@ class TestModelAssertionBuilder(TestCase):
             workdir=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
-        state.run_thru('calculate_bootfs_size')
+        state.run_thru('populate_bootfs_contents')
         # How does the root and boot file systems look?
         files = [
             '{boot}/EFI/boot/bootx64.efi',
@@ -90,7 +90,7 @@ class TestModelAssertionBuilder(TestCase):
         for filename in files:
             path = filename.format(
                 root=state.rootfs,
-                boot=state.bootfs,
+                boot=state.gadget.volumes['pc'].bootfs,
                 )
             self.assertTrue(os.path.exists(path), path)
         # 2016-08-01 barry@ubuntu.com: Since these tests currently use real
@@ -285,8 +285,7 @@ class TestModelAssertionBuilder(TestCase):
             # in the boot directory (i.e. <unpackdir>/image/boot/uboot) into
             # the 'ubuntu' directory (i.e. <workdir>/part0).  So put some
             # contents into the source directory.
-            volume1_dir = os.path.join(state.volumedir, 'volume1')
-            src = os.path.join(volume1_dir, 'image', 'boot', 'uboot')
+            src = os.path.join(unpackdir, 'image', 'boot', 'uboot')
             os.makedirs(src)
             with open(os.path.join(src, '1.dat'), 'wb') as fp:
                 fp.write(b'01234')
@@ -294,6 +293,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'56789')
             next(state)
             # Did the boot data get copied?
+            volume1_dir = os.path.join(state.volumedir, 'volume1')
             with open(os.path.join(volume1_dir, 'part0', '1.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'01234')
             with open(os.path.join(volume1_dir, 'part0', '2.dat'), 'rb') as fp:
@@ -528,6 +528,7 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             # The source image.
             gadget_dir = os.path.join(unpackdir, 'gadget')
             os.makedirs(gadget_dir)
@@ -601,6 +602,7 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             # The source image.
             gadget_dir = os.path.join(unpackdir, 'gadget')
             os.makedirs(gadget_dir)
@@ -665,6 +667,7 @@ class TestModelAssertionBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            prep_state(state, workdir)
             # The source image.
             gadget_dir = os.path.join(unpackdir, 'gadget')
             os.makedirs(gadget_dir)
@@ -683,12 +686,13 @@ class TestModelAssertionBuilder(TestCase):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             unpackdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
                 cloud_init=None,
                 debug=False,
                 output=None,
-                output_dir=None,
+                output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -699,17 +703,18 @@ class TestModelAssertionBuilder(TestCase):
             # Set up expected state.
             state.unpackdir = unpackdir
             state.images = os.path.join(workdir, '.images')
-            state.disk_img = os.path.join(workdir, 'disk.img')
-            state.image_size = 4001
             os.makedirs(state.images)
             # Craft a gadget specification.  It doesn't need much because
             # we're going to short-circuit out of make_disk().
             volume = SimpleNamespace(
                 schema=VolumeSchema.mbr,
+                image_size=4001
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            # Prepare the state machine for the steps we don't execute.
+            prep_state(state, workdir)
             # Set up the short-circuit.
             mock = resources.enter_context(
                 patch('ubuntu_image.builder.MBRImage',
@@ -721,7 +726,9 @@ class TestModelAssertionBuilder(TestCase):
             # Check that the MBRImage mock got called as expected.
             self.assertEqual(len(mock.call_args_list), 1)
             posargs, kwargs = mock.call_args_list[0]
-            self.assertEqual(posargs, (state.disk_img, state.image_size))
+            self.assertEqual(
+                posargs,
+                (os.path.join(outputdir, 'volume1.img'), 4001))
 
     def test_make_disk_with_parts(self):
         # Write all the parts to the disk at the proper offset.
@@ -803,7 +810,8 @@ class TestModelAssertionBuilder(TestCase):
             root_img = os.path.join(state.images, 'part3.img')
             with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.part_images = [part2_img, part0_img, part1_img, root_img]
+            prep_state(state, workdir,
+                       [part2_img, part0_img, part1_img, root_img])
             # Create the disk.
             next(state)
             # Verify some parts of the disk.img's content.  First, that we've
@@ -851,11 +859,12 @@ class TestModelAssertionBuilder(TestCase):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             unpackdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
-                output_dir=workdir,
+                output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -863,13 +872,7 @@ class TestModelAssertionBuilder(TestCase):
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
             state._next.append(state.make_disk)
-            # Set up expected state.
-            state.unpackdir = unpackdir
-            state.images = os.path.join(workdir, '.images')
-            state.disk_img = os.path.join(workdir, 'disk.img')
-            state.image_size = MiB(10)
             state.rootfs_size = MiB(1)
-            os.makedirs(state.images)
             # Craft a gadget schema.
             part0 = SimpleNamespace(
                 name='assets',
@@ -891,25 +894,30 @@ class TestModelAssertionBuilder(TestCase):
                 # gadget.yaml appearance order.
                 structures=[part0, part1],
                 schema=VolumeSchema.gpt,
+                image_size=MiB(10),
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            state.images = os.path.join(workdir, '.image')
             # Set up images for the targeted test.  These represent the image
             # files that would have already been crafted to write to the disk
             # in early (untested here) stages of the state machine.
-            part0_img = os.path.join(state.images, 'part0.img')
+            volumedir = os.path.join(workdir, 'volumes', 'volume1')
+            os.makedirs(volumedir)
+            part0_img = os.path.join(volumedir, 'part0.img')
             with open(part0_img, 'wb') as fp:
                 fp.write(b'\1' * 11)
-            root_img = os.path.join(state.images, 'root.img')
+            root_img = os.path.join(volumedir, 'root.img')
             with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
             prep_state(state, workdir, [part0_img, root_img])
+            os.makedirs(state.images)
             # Create the disk.
             next(state)
             # Verify some parts of the disk.img's content.  First, that we've
-            # written the part offsets at the right place.y
-            img_file = os.path.join(workdir, 'volume1.img')
+            # written the part offsets at the right place.
+            img_file = os.path.join(outputdir, 'volume1.img')
             with open(img_file, 'rb') as fp:
                 fp.seek(0)
                 self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
@@ -935,11 +943,12 @@ class TestModelAssertionBuilder(TestCase):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             unpackdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
                 cloud_init=None,
                 output=None,
-                output_dir=None,
+                output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
                 )
@@ -950,8 +959,6 @@ class TestModelAssertionBuilder(TestCase):
             # Set up expected state.
             state.unpackdir = unpackdir
             state.images = os.path.join(workdir, '.images')
-            state.disk_img = os.path.join(workdir, 'disk.img')
-            state.image_size = MiB(10)
             state.rootfs_size = MiB(1)
             os.makedirs(state.images)
             # Craft a gadget schema.
@@ -992,6 +999,7 @@ class TestModelAssertionBuilder(TestCase):
                 # offset order.  LP: #1642999
                 structures=[part1, part0, part2, part3],
                 schema=VolumeSchema.gpt,
+                image_size=MiB(10)
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
@@ -1011,12 +1019,14 @@ class TestModelAssertionBuilder(TestCase):
             root_img = os.path.join(state.images, 'root.img')
             with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.part_images = [part1_img, part0_img, part2_img, root_img]
+            prep_state(state, workdir,
+                       [part1_img, part0_img, part2_img, root_img])
             # Create the disk.
             next(state)
             # Verify some parts of the disk.img's content.  First, that we've
             # written the part offsets at the right place.y
-            with open(state.disk_img, 'rb') as fp:
+            disk_img = os.path.join(outputdir, 'volume1.img')
+            with open(disk_img, 'rb') as fp:
                 # Part 0's offset is written at position 100.
                 fp.seek(100)
                 # Read a 32-bit little-ending integer.  Remember
@@ -1043,7 +1053,7 @@ class TestModelAssertionBuilder(TestCase):
                 fp.seek(MiB(5))
                 self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
             # Verify the disk image's partition table.
-            proc = run('sfdisk --json {}'.format(state.disk_img))
+            proc = run('sfdisk --json {}'.format(disk_img))
             layout = json.loads(proc.stdout)
             partitions = [
                 (part['name'], part['start'])
@@ -1114,7 +1124,7 @@ class TestModelAssertionBuilder(TestCase):
             root_img = os.path.join(state.images, 'root.img')
             with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.part_images = [part0_img, root_img]
+            prep_state(state, workdir, [part0_img, root_img])
             # Create the disk.
             next(state)
             # Verify the disk image's partition table.
@@ -1191,7 +1201,7 @@ class TestModelAssertionBuilder(TestCase):
             root_img = os.path.join(state.images, 'root.img')
             with open(root_img, 'wb') as fp:
                 fp.write(b'\4' * 14)
-            state.part_images = [part0_img, part1_img, root_img]
+            prep_state(state, workdir, [part0_img, part1_img, root_img])
             # Create the disk.
             next(state)
             # Verify that beta's offset was written 200 bytes past the start
@@ -1573,7 +1583,7 @@ class TestModelAssertionBuilder(TestCase):
             root_img = os.path.join(state.images, 'part1.img')
             with open(root_img, 'wb') as fp:
                 fp.write(b'\2' * state.rootfs_size)
-            state.part_images = [part0_img, root_img]
+            prep_state(state, workdir, [part0_img, root_img])
             # Create the disk.
             next(state)
             # The root file system must be at least 947980 bytes.

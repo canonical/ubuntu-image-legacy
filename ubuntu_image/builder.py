@@ -203,7 +203,7 @@ class ModelAssertionBuilder(State):
         for name, volume in self.gadget.volumes.items():
             for partnum, part in enumerate(volume.structures):
                 target_dir = os.path.join(
-                    volume.basedir, name, 'part{}'.format(partnum))
+                    volume.basedir, 'part{}'.format(partnum))
                 os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
@@ -214,11 +214,11 @@ class ModelAssertionBuilder(State):
                 volume.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
                     boot = os.path.join(
-                        volume.basedir, 'image', 'boot', 'uboot')
+                        self.unpackdir, 'image', 'boot', 'uboot')
                     ubuntu = target_dir
                 elif volume.bootloader is BootLoader.grub:
                     boot = os.path.join(
-                        volume.basedir, 'image', 'boot', 'grub')
+                        self.unpackdir, 'image', 'boot', 'grub')
                     # XXX: Bad special-casing.  `snap prepare-image` currently
                     # installs to /boot/grub, but we need to map this to
                     # /EFI/ubuntu.  This is because we are using a SecureBoot
@@ -234,7 +234,7 @@ class ModelAssertionBuilder(State):
                     src = os.path.join(boot, filename)
                     dst = os.path.join(ubuntu, filename)
                     shutil.move(src, dst)
-            gadget_dir = os.path.join(volume.basedir, 'gadget')
+            gadget_dir = os.path.join(self.unpackdir, 'gadget')
             if part.filesystem is not FileSystemType.none:
                 for content in part.content:
                     src = os.path.join(gadget_dir, content.source)
@@ -386,9 +386,9 @@ class ModelAssertionBuilder(State):
         # XXX: This ought to be a single constructor that figures out the
         # class for us when we pass in the schema.
         if volume.schema is VolumeSchema.mbr:
-            image = MBRImage(imgfile, self.image_size)
+            image = MBRImage(imgfile, volume.image_size)
         else:
-            image = Image(imgfile, self.image_size)
+            image = Image(imgfile, volume.image_size)
         offset_writes = []
         part_offsets = {}
         for i, part in enumerate(volume.structures):
@@ -449,10 +449,12 @@ class ModelAssertionBuilder(State):
             else:
                 disk_img = self.output
         # The argument parser ensures that these are mutually exclusive.
-        elif self.output_dir is None:
-            output_dir = os.getcwd()
-        else:
-            output_dir = self.output_dir
+        if disk_img is None:
+            if self.output_dir is None:
+                output_dir = os.getcwd()
+            else:
+                output_dir = self.output_dir
+            os.makedirs(output_dir, exist_ok=True)
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
         # partitions, the parser should have already rejected such as invalid.
@@ -461,9 +463,10 @@ class ModelAssertionBuilder(State):
         # part of checking for overlaps, so we should not need to sort them
         # here.
         for name, volume in self.gadget.volumes.items():
-            if disk_img is None:
-                disk_img = os.path.join(output_dir, '{}.img'.format(name))
-            self._make_one_disk(disk_img, name, volume)
+            image_path = (
+                disk_img if disk_img is not None
+                else os.path.join(output_dir, '{}.img'.format(name)))
+            self._make_one_disk(image_path, name, volume)
         self._next.append(self.finish)
 
     def finish(self):
