@@ -211,7 +211,6 @@ class TestMainWithModel(TestCase):
         main(('--output-dir', outputdir, self.model_assertion))
         self.assertTrue(os.path.exists(os.path.join(outputdir, 'pc.img')))
 
-    @skip('Multiple volumes are not yet supported')
     def test_output_directory_multiple_images(self):
         class Builder(DoNothingBuilder):
             gadget_yaml = 'gadget-multi.yaml'

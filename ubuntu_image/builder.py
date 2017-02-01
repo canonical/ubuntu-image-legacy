@@ -445,7 +445,7 @@ class ModelAssertionBuilder(State):
         disk_img = output_dir = None
         if self.output is not None:
             if len(self.gadget.volumes) > 1:
-                logging.warn('-o/--output ignored for multiple volumes')
+                _logger.warn('-o/--output ignored for multiple volumes')
             else:
                 disk_img = self.output
         # The argument parser ensures that these are mutually exclusive.

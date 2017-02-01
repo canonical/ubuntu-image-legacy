@@ -1750,3 +1750,68 @@ class TestModelAssertionBuilder(TestCase):
                 (logging.ERROR, 'Full debug traceback follows'),
                 ('IMAGINE THE TRACEBACK HERE'),
                 ])
+
+    def test_multivolume_dash_o(self):
+        # -o/--output is ignored when multiple volumes are specified in the
+        # gadget.yaml file.  When -O/--output-dir is also not given, then the
+        # current working directory is used.
+        with ExitStack() as resources:
+            outputdir = resources.enter_context(TemporaryDirectory())
+            disk_img = os.path.join(outputdir, 'disk.img')
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=disk_img,
+                output_dir=outputdir,
+                workdir=None,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            state.gadget = SimpleNamespace(
+                volumes={name: SimpleNamespace()
+                         for name in ('one', 'two', 'three')}
+                )
+            resources.enter_context(patch.object(state, '_make_one_disk'))
+            log_mock = resources.enter_context(
+                patch('ubuntu_image.builder._logger.warning'))
+            getcwd_mock = resources.enter_context(
+                patch('ubuntu_image.builder.os.getcwd'))
+            next(state)
+            posargs, kwargs = log_mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                '-o/--output ignored for multiple volumes')
+            self.assertEqual(len(getcwd_mock.call_args_list), 0)
+            self.assertFalse(os.path.exists(disk_img))
+
+    def test_multivolume_dash_o_cwd(self):
+        # -o/--output is ignored when multiple volumes are specified in the
+        # gadget.yaml file.  When -O/--output-dir is also not given, then the
+        # current working directory is used.
+        with ExitStack() as resources:
+            cwd = resources.enter_context(TemporaryDirectory())
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            state.gadget = SimpleNamespace(
+                volumes={name: SimpleNamespace()
+                         for name in ('one', 'two', 'three')}
+                )
+            resources.enter_context(patch.object(state, '_make_one_disk'))
+            getcwd_mock = resources.enter_context(
+                patch('ubuntu_image.builder.os.getcwd',
+                      return_value=cwd))
+            next(state)
+            self.assertEqual(len(getcwd_mock.call_args_list), 1)

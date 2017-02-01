@@ -22,7 +22,7 @@ volumes:
   third:
     structure:
         - type: 00000000-0000-0000-0000-0000deafbead
-          size: 300
+          size: 8M
           role: system-data
   fourth:
     structure:
