@@ -17,7 +17,7 @@ from ubuntu_image.testing.helpers import (
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
     LogCapture, XXXModelAssertionBuilder, envar)
 from ubuntu_image.testing.nose import NosePlugin
-from unittest import TestCase, skip, skipIf
+from unittest import TestCase, skipIf
 from unittest.mock import call, patch
 
 
@@ -80,6 +80,26 @@ class TestParseArgs(TestCase):
         self.assertEqual(
             stderr.getvalue(),
             '-o/--output is deprecated; use -O/--output-dir instead\n')
+
+    def test_multivolume_image_size(self):
+        args = parseargs(['-i', '0:4G,sdcard:2G,1:4G', 'model.assertion'])
+        self.assertEqual(args.image_size, {
+            0: GiB(4),
+            'sdcard': GiB(2),
+            1: GiB(4),
+            })
+
+    def test_multivolume_no_colon(self):
+        with patch('argparse._sys.stderr'):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['-i', '0:2G,4G,1:8G'])
+
+    def test_multivolume_bad_size(self):
+        with patch('argparse._sys.stderr'):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['-i', '0:2G,1:4BIG,2:8G'])
 
 
 class TestMain(TestCase):
