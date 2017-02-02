@@ -277,7 +277,7 @@ class ModelAssertionBuilder(State):
             self._populate_one_bootfs(name, volume)
         self._next.append(self.prepare_filesystems)
 
-    def _prepare_one_volume(self, name, volume):
+    def _prepare_one_volume(self, i, name, volume):
         volume.part_images = []
         farthest_offset = 0
         for partnum, part in enumerate(volume.structures):
@@ -319,20 +319,45 @@ class ModelAssertionBuilder(State):
         calculated = ceil(farthest_offset / 1024 + 17) * 1024
         if self.args.image_size is None:
             volume.image_size = calculated
-        else:
+        elif isinstance(self.args.image_size, int):
+            # One size to rule them all.
             if self.args.image_size < calculated:
-                _logger.warning('Ignoring --image-size={} smaller '
-                                'than minimum required size {}'.format(
-                                    self.args.given_image_size, calculated))
+                _logger.warning(
+                    'Ignoring image size smaller '
+                    'than minimum required size: vol[{}]:{} '
+                    '{} < {}'.format(
+                        i, name, self.args.given_image_size, calculated))
                 volume.image_size = calculated
             else:
                 volume.image_size = self.args.image_size
+        else:
+            # The --image-size arguments are a dictionary, so look up the
+            # one used for this volume.
+            size_by_index = self.args.image_size.get(i)
+            size_by_name = self.args.image_size.get(name)
+            if size_by_index is not None and size_by_name is not None:
+                _logger.warning(
+                    'Ignoring ambiguous volume size; index+name given')
+                volume.image_size = calculated
+            else:
+                image_size = (size_by_index
+                              if size_by_name is None
+                              else size_by_name)
+                if image_size < calculated:
+                    _logger.warning(
+                        'Ignoring image size smaller '
+                        'than minimum required size: vol[{}]:{} '
+                        '{} < {}'.format(
+                            i, name, self.args.given_image_size, calculated))
+                    volume.image_size = calculated
+                else:
+                    volume.image_size = image_size
 
     def prepare_filesystems(self):
         self.images = os.path.join(self.workdir, '.images')
         os.makedirs(self.images)
-        for name, volume in self.gadget.volumes.items():
-            self._prepare_one_volume(name, volume)
+        for i, (name, volume) in enumerate(self.gadget.volumes.items()):
+            self._prepare_one_volume(i, name, volume)
         self._next.append(self.populate_filesystems)
 
     def _populate_one_volume(self, name, volume):

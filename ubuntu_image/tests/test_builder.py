@@ -1365,6 +1365,55 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(
                 state.gadget.volumes['volume1'].image_size, MiB(5))
 
+    def test_multivolume_image_size_explicit(self):
+        # --image-size=volume1:5M overrides the implicit disk image size.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                image_size={'volume1': MiB(5)},
+                output=None,
+                output_dir=None,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='da',
+                role=None,
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir)
+            next(state)
+            self.assertEqual(
+                state.gadget.volumes['volume1'].image_size, MiB(5))
+
     def test_image_size_too_small(self):
         # --image-size=1M but the calculated size is larger, so the command
         # line option is ignored, with a warning.
@@ -1421,8 +1470,8 @@ class TestModelAssertionBuilder(TestCase):
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(
                 posargs[0],
-                'Ignoring --image-size=1M smaller '
-                'than minimum required size 2114560')
+                'Ignoring image size smaller than minimum required size: '
+                'vol[0]:volume1 1M < 2114560')
 
     def test_image_size_too_small_with_out_of_order_structures(self):
         # Here we have a bunch of structures which are not sorted by offset.
@@ -1511,8 +1560,123 @@ class TestModelAssertionBuilder(TestCase):
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(
                 posargs[0],
-                'Ignoring --image-size=3M smaller '
-                'than minimum required size 6308864')
+                'Ignoring image size smaller than minimum required size: '
+                'vol[0]:volume1 3M < 6308864')
+
+    def test_ambiguous_image_size(self):
+        # An --image-size is given, but with keys that lead to ambiguous
+        # selection.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                given_image_size='0:1M,volume1:2M',
+                image_size={0: MiB(1), 'volume1': MiB(2)},
+                output=None,
+                output_dir=None,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='da',
+                role=None,
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir)
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder._logger.warning'))
+            next(state)
+            self.assertEqual(state.gadget.volumes['volume1'].image_size,
+                             2114560)
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'Ignoring ambiguous volume size; index+name given')
+
+    def test_multivolume_image_size_too_small(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                given_image_size='0:1M',
+                image_size={0: MiB(1)},
+                output=None,
+                output_dir=None,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='da',
+                role=None,
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir)
+            mock = resources.enter_context(
+                patch('ubuntu_image.builder._logger.warning'))
+            next(state)
+            self.assertEqual(state.gadget.volumes['volume1'].image_size,
+                             2114560)
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'Ignoring image size smaller than minimum required size: '
+                'vol[0]:volume1 0:1M < 2114560')
 
     def test_round_up_size_for_mbr_root_partitions(self):
         # LP: #1634557 - two rounding errors conspired to make mbr partitions

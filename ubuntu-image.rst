@@ -82,10 +82,10 @@ model_assertion
     accessible outside of the snap environment.
 
 -i SIZE, --image-size SIZE
-    The size of the generated disk image file (see ``--output``).  If this
-    size is smaller than the minimum calculated size of the image, a warning
-    will be issued and ``--image-size`` will be ignored.  The value is the
-    size in bytes, with allowable suffixes 'M' for MiB and 'G' for GiB.
+    The size of the generated disk image files.  If this size is smaller than
+    the minimum calculated size of the volume, a warning will be issued and
+    ``--image-size`` will be ignored.  The value is the size in bytes, with
+    allowable suffixes 'M' for MiB and 'G' for GiB.
 
     An extended syntax is supported for gadget.yaml files which specify
     multiple volumes (i.e. disk images).  In that case, a single ``SIZE``
