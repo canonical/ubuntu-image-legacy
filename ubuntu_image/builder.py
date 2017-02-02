@@ -476,7 +476,8 @@ class ModelAssertionBuilder(State):
         # The argument parser ensures that these are mutually exclusive.
         if disk_img is None:
             if self.output_dir is None:
-                output_dir = os.getcwd()
+                output_dir = (os.getcwd() if self.args.workdir is None
+                              else self.args.workdir)
             else:
                 output_dir = self.output_dir
             os.makedirs(output_dir, exist_ok=True)

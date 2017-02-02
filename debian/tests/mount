@@ -35,7 +35,9 @@ for model_file in os.listdir(DIR):
     # Build the image.
     workdir = os.path.join(TMP, base)
     model_assertion = os.path.join(DIR, model_file)
-    run(['ubuntu-image', '-c', CHANNEL, '-w', workdir, model_assertion])
+    run(['ubuntu-image', '-c', CHANNEL, '-w', workdir,
+         '-o', os.path.join(workdir, 'disk.img'),
+         model_assertion])
     # Now try to mount every mountable partition in the resulting disk image.
     # First, we have to figure out which are the gadget-specified mountable
     # partitions.  These are any defined with `filesystem: ext4|vfat`.
@@ -89,7 +91,7 @@ for model_file in os.listdir(DIR):
             if not mountable[i]:
                 continue
             parts = line.split()
-            assert parts[:2] == ['add', 'map']
+            assert parts[:2] == ['add', 'map'], parts
             device = parts[2]
             src = '/dev/mapper/{}'.format(device)
             dst = os.path.join(TMP, '{}.mnt{}'.format(base, i))
