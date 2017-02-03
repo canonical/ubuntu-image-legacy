@@ -154,6 +154,10 @@ class ModelAssertionBuilder(State):
         for name, volume in self.gadget.volumes.items():
             volume.basedir = os.path.join(self.volumedir, name)
             os.makedirs(volume.basedir)
+        envar = os.environ.get('UBUNTU_IMAGE_PRESERVE_UNPACK')
+        if envar is not None:
+            preserve_dir = os.path.join(envar, 'unpack')
+            shutil.copytree(self.unpackdir, preserve_dir)
         self._next.append(self.populate_rootfs_contents)
 
     def populate_rootfs_contents(self):
