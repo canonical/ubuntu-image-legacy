@@ -5,6 +5,7 @@ ubuntu-image (0.15+17.04ubuntu1) UNRELEASED; urgency=medium
     the multi-volume case, no implicit root file system structure is added
     at all; the root file system partition must be defined in the
     gadget.yaml.  -o/--output is ignored in the multi-volume case.
+    (LP: #1641727)
   * Add -O/--output-dir command line options.  Disk image files are
     written here using the volume name and a .img suffix.  Deprecate
     -o/--output.  -O and -o are mutually exclusive.
