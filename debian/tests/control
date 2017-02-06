@@ -29,3 +29,7 @@ Depends: @builddeps@, git, lsb-release
 Tests: mount
 Restrictions: needs-root, allow-stderr, isolation-machine
 Depends: @, kpartx
+
+Tests: multivol
+Restrictions: needs-root, allow-stderr, isolation-machine
+Depends: @, kpartx

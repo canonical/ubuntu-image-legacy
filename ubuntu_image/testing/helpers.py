@@ -53,7 +53,7 @@ class DoNothingBuilder(XXXModelAssertionBuilder):
         self._next.append(self.calculate_rootfs_size)
 
     def populate_bootfs_contents(self):
-        self._next.append(self.calculate_bootfs_size)
+        self._next.append(self.prepare_filesystems)
 
 
 class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):

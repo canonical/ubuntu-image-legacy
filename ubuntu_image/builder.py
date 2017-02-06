@@ -67,15 +67,12 @@ class ModelAssertionBuilder(State):
         self.rootfs = None
         self.rootfs_size = 0
         self.part_images = None
-        self.image_size = 0
-        self.bootfs = None
-        self.bootfs_sizes = None
         self.images = None
         self.entry = None
-        self.disk_img = None
         self.gadget = None
         self.args = args
         self.unpackdir = None
+        self.volumedir = None
         self.cloud_init = args.cloud_init
         self.exitcode = 0
         self._next.append(self.make_temporary_directories)
@@ -84,13 +81,9 @@ class ModelAssertionBuilder(State):
         state = super().__getstate__()
         state.update(
             args=self.args,
-            bootfs=self.bootfs,
-            bootfs_sizes=self.bootfs_sizes,
             cloud_init=self.cloud_init,
-            disk_img=self.disk_img,
             exitcode=self.exitcode,
             gadget=self.gadget,
-            image_size=self.image_size,
             images=self.images,
             output=self.output,
             output_dir=self.output_dir,
@@ -98,19 +91,16 @@ class ModelAssertionBuilder(State):
             rootfs=self.rootfs,
             rootfs_size=self.rootfs_size,
             unpackdir=self.unpackdir,
+            volumedir=self.volumedir,
             )
         return state
 
     def __setstate__(self, state):
         super().__setstate__(state)
         self.args = state['args']
-        self.bootfs = state['bootfs']
-        self.bootfs_sizes = state['bootfs_sizes']
         self.cloud_init = state['cloud_init']
-        self.disk_img = state['disk_img']
         self.exitcode = state['exitcode']
         self.gadget = state['gadget']
-        self.image_size = state['image_size']
         self.images = state['images']
         self.output = state['output']
         self.output_dir = state['output_dir']
@@ -118,6 +108,7 @@ class ModelAssertionBuilder(State):
         self.rootfs = state['rootfs']
         self.rootfs_size = state['rootfs_size']
         self.unpackdir = state['unpackdir']
+        self.volumedir = state['volumedir']
 
     def _log_exception(self, name):
         # Only log the exception if we're in debug mode.
@@ -127,6 +118,7 @@ class ModelAssertionBuilder(State):
     def make_temporary_directories(self):
         self.rootfs = os.path.join(self.workdir, 'root')
         self.unpackdir = os.path.join(self.workdir, 'unpack')
+        self.volumedir = os.path.join(self.workdir, 'volumes')
         os.makedirs(self.rootfs)
         # Despite the documentation, `snap prepare-image` doesn't create the
         # gadget/ directory.
@@ -152,26 +144,20 @@ class ModelAssertionBuilder(State):
         shutil.copy(yaml_file, self.workdir)
         with open(yaml_file, 'r', encoding='utf-8') as fp:
             self.gadget = parse_yaml(fp)
-        # Based on the -o/--output and -O/--output-dir options, and the volumes
-        # in the gadget.yaml file, we can now calculate where the generated
-        # disk images should go.  We'll write them directly to the final
-        # destination so they don't have to be moved later.  Here is the
-        # option precedence:
+        # Make a working subdirectory for every volume we're going to create.
+        # We'll put the volume contents inside these directories, and then use
+        # the directories to create the disk images, one per volume.
         #
-        # * The location specified by -o/--output;
-        # * <output_dir>/<volume_name>.img
-        # * <work_dir>/disk.img
-        if self.output is not None:
-            self.disk_img = self.output
-        elif self.output_dir is not None:
-            os.makedirs(self.output_dir, exist_ok=True)
-            volumes = self.gadget.volumes.keys()
-            assert len(volumes) == 1, 'For now, only one volume is allowed'
-            volume = list(volumes)[0]
-            self.disk_img = os.path.join(
-                self.output_dir, '{}.img'.format(volume))
-        else:
-            self.disk_img = os.path.join(self.workdir, 'disk.img')
+        # Store some additional metadata on the VolumeSpec object.  This is
+        # convenient, if crufty, since we're poking data onto an object from
+        # the outside.
+        for name, volume in self.gadget.volumes.items():
+            volume.basedir = os.path.join(self.volumedir, name)
+            os.makedirs(volume.basedir)
+        envar = os.environ.get('UBUNTU_IMAGE_PRESERVE_UNPACK')
+        if envar is not None:
+            preserve_dir = os.path.join(envar, 'unpack')
+            shutil.copytree(self.unpackdir, preserve_dir)
         self._next.append(self.populate_rootfs_contents)
 
     def populate_rootfs_contents(self):
@@ -218,27 +204,18 @@ class ModelAssertionBuilder(State):
         self._next.append(self.pre_populate_bootfs_contents)
 
     def pre_populate_bootfs_contents(self):
-        volumes = self.gadget.volumes.values()
-        assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = list(volumes)[0]
-        for partnum, part in enumerate(volume.structures):
-            target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
-            os.makedirs(target_dir, exist_ok=True)
+        for name, volume in self.gadget.volumes.items():
+            for partnum, part in enumerate(volume.structures):
+                target_dir = os.path.join(
+                    volume.basedir, 'part{}'.format(partnum))
+                os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
-    def populate_bootfs_contents(self):
-        # XXX We currently support only one volume specification.
-        assert len(self.gadget.volumes) == 1, (
-            'For now, only one volume is allowed')
-        # The unpack directory has a boot/ directory inside it.  The contents
-        # of this directory (but not the parent <unpack>/boot directory
-        # itself) needs to be moved to the bootfs directory.
-        volume = list(self.gadget.volumes.values())[0]
-        # At least one structure is required.
+    def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
-            target_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
+            target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
             if part.role is StructureRole.system_boot:
-                self.bootfs = target_dir
+                volume.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
                     boot = os.path.join(
                         self.unpackdir, 'image', 'boot', 'uboot')
@@ -298,33 +275,18 @@ class ModelAssertionBuilder(State):
                         # a useful error message instead of a traceback.
                         os.makedirs(os.path.dirname(dst), exist_ok=True)
                         shutil.copy(src, dst)
-        self._next.append(self.calculate_bootfs_size)
 
-    def calculate_bootfs_size(self):
-        volumes = self.gadget.volumes.values()
-        assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = list(volumes)[0]
-        self.bootfs_sizes = {}
-        # At least one structure is required.
-        for i, part in enumerate(volume.structures):
-            if part.filesystem is FileSystemType.none:
-                continue
-            partnum = 'part{}'.format(i)
-            target_dir = os.path.join(self.workdir, partnum)
-            self.bootfs_sizes[partnum] = self._calculate_dirsize(target_dir)
+    def populate_bootfs_contents(self):
+        for name, volume in self.gadget.volumes.items():
+            self._populate_one_bootfs(name, volume)
         self._next.append(self.prepare_filesystems)
 
-    def prepare_filesystems(self):
-        self.images = os.path.join(self.workdir, '.images')
-        os.makedirs(self.images)
-        # The image for the boot partition.
-        self.part_images = []
-        volumes = self.gadget.volumes.values()
-        assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = list(volumes)[0]
+    def _prepare_one_volume(self, i, name, volume):
+        volume.part_images = []
         farthest_offset = 0
         for partnum, part in enumerate(volume.structures):
-            part_img = os.path.join(self.images, 'part{}.img'.format(partnum))
+            part_img = os.path.join(
+                volume.basedir, 'part{}.img'.format(partnum))
             if part.role is StructureRole.system_data:
                 # The image for the root partition.
                 if part.size is None:
@@ -352,7 +314,7 @@ class ModelAssertionBuilder(State):
                     # XXX: hard-coding of sector size.
                     run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                         label_option, part_img))
-            self.part_images.append(part_img)
+            volume.part_images.append(part_img)
             farthest_offset = max(farthest_offset, (part.offset + part.size))
         # Calculate or check the final image size.
         #
@@ -360,24 +322,52 @@ class ModelAssertionBuilder(State):
         # empirically derived from sgdisk behavior.
         calculated = ceil(farthest_offset / 1024 + 17) * 1024
         if self.args.image_size is None:
-            self.image_size = calculated
-        else:
+            volume.image_size = calculated
+        elif isinstance(self.args.image_size, int):
+            # One size to rule them all.
             if self.args.image_size < calculated:
-                _logger.warning('Ignoring --image-size={} smaller '
-                                'than minimum required size {}'.format(
-                                    self.args.given_image_size, calculated))
-                self.image_size = calculated
+                _logger.warning(
+                    'Ignoring image size smaller '
+                    'than minimum required size: vol[{}]:{} '
+                    '{} < {}'.format(
+                        i, name, self.args.given_image_size, calculated))
+                volume.image_size = calculated
             else:
-                self.image_size = self.args.image_size
+                volume.image_size = self.args.image_size
+        else:
+            # The --image-size arguments are a dictionary, so look up the
+            # one used for this volume.
+            size_by_index = self.args.image_size.get(i)
+            size_by_name = self.args.image_size.get(name)
+            if size_by_index is not None and size_by_name is not None:
+                _logger.warning(
+                    'Ignoring ambiguous volume size; index+name given')
+                volume.image_size = calculated
+            else:
+                image_size = (size_by_index
+                              if size_by_name is None
+                              else size_by_name)
+                if image_size < calculated:
+                    _logger.warning(
+                        'Ignoring image size smaller '
+                        'than minimum required size: vol[{}]:{} '
+                        '{} < {}'.format(
+                            i, name, self.args.given_image_size, calculated))
+                    volume.image_size = calculated
+                else:
+                    volume.image_size = image_size
+
+    def prepare_filesystems(self):
+        self.images = os.path.join(self.workdir, '.images')
+        os.makedirs(self.images)
+        for i, (name, volume) in enumerate(self.gadget.volumes.items()):
+            self._prepare_one_volume(i, name, volume)
         self._next.append(self.populate_filesystems)
 
-    def populate_filesystems(self):
-        volumes = self.gadget.volumes.values()
-        assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = list(volumes)[0]
+    def _populate_one_volume(self, name, volume):
         for partnum, part in enumerate(volume.structures):
-            part_img = self.part_images[partnum]
-            part_dir = os.path.join(self.workdir, 'part{}'.format(partnum))
+            part_img = volume.part_images[partnum]
+            part_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
             if part.role is StructureRole.system_data:
                 # The root partition needs to be ext4, which may or may not be
                 # populated at creation time, depending on the version of
@@ -414,26 +404,20 @@ class ModelAssertionBuilder(State):
             else:
                 raise AssertionError('Invalid part filesystem type: {}'.format(
                     part.filesystem))
+
+    def populate_filesystems(self):
+        for name, volume in self.gadget.volumes.items():
+            self._populate_one_volume(name, volume)
         self._next.append(self.make_disk)
 
-    def make_disk(self):
+    def _make_one_disk(self, imgfile, name, volume):
         part_id = 1
-        # Walk through all partitions and write them to the disk image at the
-        # lowest permissible offset.  We should not have any overlapping
-        # partitions, the parser should have already rejected such as invalid.
-        #
-        # XXX: The parser should sort these partitions for us in disk order as
-        # part of checking for overlaps, so we should not need to sort them
-        # here.
-        volumes = self.gadget.volumes.values()
-        assert len(volumes) == 1, 'For now, only one volume is allowed'
-        volume = list(volumes)[0]
         # XXX: This ought to be a single constructor that figures out the
         # class for us when we pass in the schema.
         if volume.schema is VolumeSchema.mbr:
-            image = MBRImage(self.disk_img, self.image_size)
+            image = MBRImage(imgfile, volume.image_size)
         else:
-            image = Image(self.disk_img, self.image_size)
+            image = Image(imgfile, volume.image_size)
         offset_writes = []
         part_offsets = {}
         for i, part in enumerate(volume.structures):
@@ -441,7 +425,7 @@ class ModelAssertionBuilder(State):
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
-            image.copy_blob(self.part_images[i],
+            image.copy_blob(volume.part_images[i],
                             bs='1M', seek=part.offset // MiB(1),
                             count=ceil(part.size / MiB(1)),
                             conv='notrunc')
@@ -473,6 +457,46 @@ class ModelAssertionBuilder(State):
                 dest = part_offsets[dest[0]] + dest[1]
             # XXX: Hard-coding of 512-byte sectors.
             image.write_value_at_offset(value // 512, dest)
+
+    def make_disk(self):
+        # Based on the -o/--output and -O/--output-dir options, and the volumes
+        # in the gadget.yaml file, we can now calculate where the generated
+        # disk images should go.  We'll write them directly to the final
+        # destination so they don't have to be moved later.  Here is the
+        # option precedence:
+        #
+        # * The location specified by -o/--output;
+        # * <output_dir>/<volume_name>.img
+        # * <work_dir>/disk.img
+        #
+        # If -o was given and there are multiple volumes, we ignore it and
+        # act as if -O is in use.
+        disk_img = output_dir = None
+        if self.output is not None:
+            if len(self.gadget.volumes) > 1:
+                _logger.warn('-o/--output ignored for multiple volumes')
+            else:
+                disk_img = self.output
+        # The argument parser ensures that these are mutually exclusive.
+        if disk_img is None:
+            if self.output_dir is None:
+                output_dir = (os.getcwd() if self.args.workdir is None
+                              else self.args.workdir)
+            else:
+                output_dir = self.output_dir
+            os.makedirs(output_dir, exist_ok=True)
+        # Walk through all partitions and write them to the disk image at the
+        # lowest permissible offset.  We should not have any overlapping
+        # partitions, the parser should have already rejected such as invalid.
+        #
+        # XXX: The parser should sort these partitions for us in disk order as
+        # part of checking for overlaps, so we should not need to sort them
+        # here.
+        for name, volume in self.gadget.volumes.items():
+            image_path = (
+                disk_img if disk_img is not None
+                else os.path.join(output_dir, '{}.img'.format(name)))
+            self._make_one_disk(image_path, name, volume)
         self._next.append(self.finish)
 
     def finish(self):
