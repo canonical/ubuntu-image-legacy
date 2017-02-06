@@ -15,7 +15,8 @@ from types import SimpleNamespace
 from ubuntu_image.helpers import MiB, run
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema)
-from ubuntu_image.testing.helpers import LogCapture, XXXModelAssertionBuilder
+from ubuntu_image.testing.helpers import (
+    LogCapture, XXXModelAssertionBuilder, envar)
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import patch
@@ -1979,3 +1980,52 @@ class TestModelAssertionBuilder(TestCase):
                       return_value=cwd))
             next(state)
             self.assertEqual(len(getcwd_mock.call_args_list), 1)
+
+    def test_debug_unpack_contents(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=workdir,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            state._next.pop()
+            state._next.append(state.load_gadget_yaml)
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.
+            part = SimpleNamespace(
+                role=StructureRole.system_boot,
+                filesystem_label='system-boot',
+                filesystem=FileSystemType.none,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.uboot,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir)
+            # Test this debugging helper.
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            resources.enter_context(
+                envar('UBUNTU_IMAGE_PRESERVE_UNPACK', unpackdir))
+            next(state)
+            # Check the contents of the preserved unpack copy.  Remove the
+            # unpredictable prefix.
+            prefix_len = len(unpackdir) + 1
+            files = []
+            for dirpath, dirnames, filenames, in os.walk(unpackdir):
+                files.extend(os.path.join(dirpath, filename)[prefix_len:]
+                             for filename in filenames)
+            self.assertEqual(sorted(files), [
+                'unpack/gadget/grubx64.efi',
+                'unpack/gadget/meta/gadget.yaml',
+                'unpack/gadget/shim.efi.signed',
+                ])

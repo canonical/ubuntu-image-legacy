@@ -26,7 +26,12 @@ STATUS = {}
 CHANNEL = 'stable'
 
 
-for model_file in os.listdir(DIR):
+model_assertions = set(os.listdir(DIR))
+# We handle this one elsewhere.
+model_assertions.remove('multivol.assertion')
+
+
+for model_file in sorted(model_assertions):
     model_status = STATUS.setdefault(model_file, {})
     print('==========>', model_file, flush=True)
     base, suffix = os.path.splitext(model_file)
