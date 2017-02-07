@@ -1153,6 +1153,33 @@ volumes:
             gadget_spec.defaults['mfq0tsAY']['other-key'],
             '42')
 
+    def test_defaults_with_dot(self):
+        gadget_spec = parse("""\
+defaults:
+  mfq0tsAY:
+    some-key.disable: true
+volumes:
+  first-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 100
+  second-image:
+    schema: gpt
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+  third-image:
+    schema: gpt
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 300
+""")
+        self.assertEqual(len(gadget_spec.defaults), 1)
+        self.assertEqual(len(gadget_spec.defaults['mfq0tsAY']), 1)
+        self.assertTrue(gadget_spec.defaults['mfq0tsAY']['some-key.disable'])
+
     def test_parser_format_version(self):
         gadget_spec = parse("""\
 format: 0

@@ -167,8 +167,8 @@ def YAMLFormat(v):
 
 GadgetYAML = Schema({
     Optional('defaults'): {
-        Match('^[a-zA-Z0-9]+$'): {
-            Match('^[-a-zA-Z0-9]+$'): object
+        str: {
+            str: object
         }
     },
     Optional('device-tree-origin', default='gadget'): str,

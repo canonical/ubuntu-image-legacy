@@ -9,8 +9,10 @@ ubuntu-image (0.15+17.04ubuntu1) UNRELEASED; urgency=medium
   * Add -O/--output-dir command line options.  Disk image files are
     written here using the volume name and a .img suffix.  Deprecate
     -o/--output.  -O and -o are mutually exclusive.
+  * Allow and ignore any string values in the ``defaults`` section.
+    (LP: #1661515)
 
- -- Barry Warsaw <barry@ubuntu.com>  Tue, 24 Jan 2017 18:01:23 -0500
+ -- Barry Warsaw <barry@ubuntu.com>  Mon, 06 Feb 2017 18:36:02 -0500
 
 ubuntu-image (0.14+17.04ubuntu1) zesty; urgency=medium
 
