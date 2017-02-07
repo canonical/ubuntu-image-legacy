@@ -8,4 +8,6 @@ version.txt
 parts
 prime
 stage
-*.snap
+coverage.xml
+diffcov.html
+demo/model.assertion

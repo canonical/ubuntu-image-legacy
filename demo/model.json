@@ -1,0 +1,11 @@
+{
+    "type": "model",
+    "series": "16",
+    "model": "pc-amd64",
+    "architecture": "amd64",
+    "gadget": "pc-multivolume",
+    "kernel": "pc-kernel",
+    "authority-id": "hWCrqrKoEozibhyDo0kNEN25oEYR6QVI",
+    "brand-id": "hWCrqrKoEozibhyDo0kNEN25oEYR6QVI",
+    "timestamp": "2017-02-03T22:23:45+00:00"
+}

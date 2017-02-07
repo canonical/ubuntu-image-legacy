@@ -1,0 +1,77 @@
+#!/usr/bin/python3
+
+"""Test multi-volume gadget support.
+
+See demo/README.rst from the source package's top level directory.
+"""
+
+import os
+import sys
+
+from contextlib import ExitStack
+from subprocess import PIPE, run
+
+
+model_assertion = os.path.abspath(
+    os.path.join('debian', 'tests', 'models', 'multivol.assertion'))
+gadget_snap = os.path.abspath(
+    os.path.join('debian', 'tests', 'snaps',
+                 'pc-multivolume_16.04-0.8_amd64.snap'))
+
+tmp = os.environ['AUTOPKGTEST_TMP']
+imgdir = os.path.join(tmp, 'images')
+os.mkdir(imgdir)
+
+run(['ubuntu-image', '-c', 'stable', '-w', tmp, '-d',
+     '--extra-snaps', gadget_snap, '-O', imgdir,
+     model_assertion])
+
+# We now have three .img files in our output directory.
+imgfiles = set(os.listdir(imgdir))
+assert imgfiles == {'hello.img', 'world.img', 'pc.img'}, imgfiles
+
+# The fun ones are hello.img and world.img.  Let's mount those and verify they
+# contain some of the expected contents.
+
+def mount(filename):
+    with ExitStack() as resources:
+        img_file = os.path.join(imgdir, filename)
+        proc = run(['kpartx', '-avs', img_file],
+                    universal_newlines=True,
+                    stdout=PIPE)
+        resources.callback(run, ['kpartx', '-dvs', img_file])
+        mnt_dir = os.path.join(imgdir, 'mnt')
+        os.mkdir(mnt_dir)
+        resources.callback(os.rmdir, mnt_dir)
+        # Find the /dev/mapper resource to mount.
+        srcs = []
+        for i, line in enumerate(proc.stdout.splitlines()):
+            parts = line.split()
+            assert parts[:2] == ['add', 'map'], parts
+            device = parts[2]
+            srcs.append('/dev/mapper/{}'.format(device))
+        assert len(srcs) == 1, srcs
+        src = srcs[0]
+        proc = run(['mount', src, mnt_dir],
+                   universal_newlines=True,
+                   stdout=PIPE, stderr=PIPE)
+        if proc.returncode == 0:
+            # Passed.
+            resources.callback(run, ['umount', mnt_dir])
+        else:
+            sys.stdout.write(proc.stdout)
+            sys.stderr.write(proc.stderr)
+            sys.exit(1)
+        # Return the contents of any .txt file in the mount root.
+        for txt_file in sorted(set(filename for filename in os.listdir(mnt_dir)
+                                   if filename.endswith('.txt'))):
+            path = os.path.join(mnt_dir, txt_file)
+            with open(path, 'r', encoding='utf-8') as fp:
+                yield txt_file, fp.read()
+
+
+hello = list(mount('hello.img'))
+assert hello == [('hello.txt', 'HELLO!\n')], hello
+
+world = list(mount('world.img'))
+assert world == [('world.txt', 'WORLD!\n')], world

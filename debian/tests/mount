@@ -26,7 +26,12 @@ STATUS = {}
 CHANNEL = 'stable'
 
 
-for model_file in os.listdir(DIR):
+model_assertions = set(os.listdir(DIR))
+# We handle this one elsewhere.
+model_assertions.remove('multivol.assertion')
+
+
+for model_file in sorted(model_assertions):
     model_status = STATUS.setdefault(model_file, {})
     print('==========>', model_file, flush=True)
     base, suffix = os.path.splitext(model_file)
@@ -35,7 +40,9 @@ for model_file in os.listdir(DIR):
     # Build the image.
     workdir = os.path.join(TMP, base)
     model_assertion = os.path.join(DIR, model_file)
-    run(['ubuntu-image', '-c', CHANNEL, '-w', workdir, model_assertion])
+    run(['ubuntu-image', '-c', CHANNEL, '-w', workdir,
+         '-o', os.path.join(workdir, 'disk.img'),
+         model_assertion])
     # Now try to mount every mountable partition in the resulting disk image.
     # First, we have to figure out which are the gadget-specified mountable
     # partitions.  These are any defined with `filesystem: ext4|vfat`.
@@ -89,7 +96,7 @@ for model_file in os.listdir(DIR):
             if not mountable[i]:
                 continue
             parts = line.split()
-            assert parts[:2] == ['add', 'map']
+            assert parts[:2] == ['add', 'map'], parts
             device = parts[2]
             src = '/dev/mapper/{}'.format(device)
             dst = os.path.join(TMP, '{}.mnt{}'.format(base, i))
@@ -107,12 +114,15 @@ for model_file in os.listdir(DIR):
                 # Failed.
                 model_status[device] = (False, proc.stdout, proc.stderr)
         # Now ensure the file system label for root.
-        proc = run(['/sbin/e2label', src],
-                   universal_newlines=True,
-                   stdout=PIPE, stderr=PIPE)
-        if proc.stdout.strip() != 'writable':
-            model_status['rootfs label != writable'] = (
-                False, proc.stdout, proc.stderr)
+        if root_fs is None:
+            model_status['no rootfs found!'] = (False, '', '')
+        else:
+            proc = run(['/sbin/e2label', root_fs],
+                       universal_newlines=True,
+                       stdout=PIPE, stderr=PIPE)
+            if proc.stdout.strip() != 'writable':
+                model_status['rootfs label != writable'] = (
+                    False, proc.stdout, proc.stderr)
 
 
 # Collate results.

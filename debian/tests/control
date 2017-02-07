@@ -15,7 +15,7 @@ Features: test-name=manpage
 
 # Something in the tox/pip/setuptools stack requires git.
 
-Test-Command: tox -e py35
+Test-Command: tox -e py35-nocov,py36-nocov
 Depends: @builddeps@, git
 Features: test-name=unittests
 
@@ -27,5 +27,9 @@ Tests: coverage.sh
 Depends: @builddeps@, git, lsb-release
 
 Tests: mount
-Restrictions: needs-root, allow-stderr
+Restrictions: needs-root, allow-stderr, isolation-machine
+Depends: @, kpartx
+
+Tests: multivol
+Restrictions: needs-root, allow-stderr, isolation-machine
 Depends: @, kpartx

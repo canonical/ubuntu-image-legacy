@@ -167,8 +167,8 @@ def YAMLFormat(v):
 
 GadgetYAML = Schema({
     Optional('defaults'): {
-        Match('^[a-zA-Z0-9]+$'): {
-            Match('^[-a-zA-Z0-9]+$'): object
+        str: {
+            str: object
         }
     },
     Optional('device-tree-origin', default='gadget'): str,
@@ -316,6 +316,12 @@ def parse(stream_or_string):
     format = validated.get('format')
     volume_specs = {}
     bootloader_seen = False
+    # These two variables only exist to support backwards compatibility in the
+    # single-volume, implicit-root-fs case, and are ignored when multiple
+    # volumes are defined.  We have no b/c considerations for implicit-root-fs
+    # in the multi-volume case.
+    rootfs_seen = False
+    farthest_offset = 0
     # This item is a dictionary so it can't possibly have duplicate keys.
     # That's okay because our StrictLoader above will already raise an
     # exception if it sees a duplicate key.
@@ -326,8 +332,6 @@ def parse(stream_or_string):
         image_id = image_spec.get('id')
         structures = []
         last_offset = 0
-        farthest_offset = 0
-        rootfs_seen = False
         for structure in image_spec['structure']:
             name = structure.get('name')
             offset = structure.get('offset')
@@ -487,28 +491,28 @@ def parse(stream_or_string):
                         part.type if part.name is None else part.name,
                         part.offset, last_end))
             last_end = part.offset + part.size
-        if not rootfs_seen:
-            # We still need to handle the case of unspecified system-data
-            # partition where we simply attach the rootfs at the end of the
-            # partition list.
-            #
-            # Since so far we have no knowledge of the rootfs contents, the
-            # size is set to 0, knowing that the builder code will resize it
-            # to fit all the contents.
-            warn('No role: system-data partition found, a implicit rootfs '
-                 'partition will be appended at the end of the partition '
-                 'list.  An explicit system-data partition is now required.',
-                 DeprecationWarning)
-            structures.append(StructureSpec(
-                None,                             # name
-                farthest_offset, None,            # offset, offset_write
-                None,                             # size; None == calculate
-                (                                 # type; hybrid mbr/gpt
-                    '83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
-                None, StructureRole.system_data,  # id, role
-                FileSystemType.ext4,              # file system type
-                'writable',                       # file system label
-                []))                              # contents
+    if not rootfs_seen and len(volume_specs) == 1:
+        # We still need to handle the case of unspecified system-data
+        # partition where we simply attach the rootfs at the end of the
+        # partition list.
+        #
+        # Since so far we have no knowledge of the rootfs contents, the
+        # size is set to 0, knowing that the builder code will resize it
+        # to fit all the contents.
+        warn('No role: system-data partition found, a implicit rootfs '
+             'partition will be appended at the end of the partition '
+             'list.  An explicit system-data partition is now required.',
+             DeprecationWarning)
+        structures.append(StructureSpec(
+            None,                             # name
+            farthest_offset, None,            # offset, offset_write
+            None,                             # size; None == calculate
+            (                                 # type; hybrid mbr/gpt
+                '83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+            None, StructureRole.system_data,  # id, role
+            FileSystemType.ext4,              # file system type
+            'writable',                       # file system label
+            []))                              # contents
     if not bootloader_seen:
         raise GadgetSpecificationError('No bootloader structure named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs,

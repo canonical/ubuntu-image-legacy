@@ -7,9 +7,9 @@ Generate a bootable disk image
 ------------------------------
 
 :Author: Barry Warsaw <barry@ubuntu.com>
-:Date: 2016-11-01
-:Copyright: 2016 Canonical Ltd.
-:Version: 0.11
+:Date: 2017-01-24
+:Copyright: 2016-2017 Canonical Ltd.
+:Version: 0.15
 :Manual section: 1
 
 
@@ -65,16 +65,46 @@ model_assertion
 -d, --debug
     Enable debugging output.
 
--o FILENAME, --output FILENAME
-    The generated disk image file.  If not given, the image will be put in a
-    file called ``disk.img`` in the working directory (in which case, you
-    probably want to specify ``--workdir``).
+-O DIRECTORY, --output-dir DIRECTORY
+    Write generated disk image files to this directory.  The files will be
+    named after the ``gadget.yaml`` volume names, with ``.img`` suffix
+    appended.  If not given, the current working directory is used.  **NOTE**
+    when run as a snap, this directory cannot be ``/tmp``.  This option
+    replaces, and cannot be used with the deprecated ``--output`` option.
 
---image-size SIZE
-    The size of the generated disk image file (see ``--output``).  If this
-    size is smaller than the minimum calculated size of the image, a warning
-    will be issued and ``--image-size`` will be ignored.  The value is the
-    size in bytes, with allowable suffixes 'M' for MiB and 'G' for GiB.
+-o FILENAME, --output FILENAME
+    **DEPRECATED** (Use ``--output-dir`` instead.)  The generated disk image
+    file.  If not given, the image will be put in a file called ``disk.img``
+    in the working directory, in which case, you probably want to specify
+    ``--workdir``.  If ``--workdir`` is not given, the image will be written
+    to the current working directory.  **NOTE** when run as a snap,
+    ``ubuntu-image`` refuses to write to ``/tmp`` since this directory is not
+    accessible outside of the snap environment.
+
+-i SIZE, --image-size SIZE
+    The size of the generated disk image files.  If this size is smaller than
+    the minimum calculated size of the volume, a warning will be issued and
+    ``--image-size`` will be ignored.  The value is the size in bytes, with
+    allowable suffixes 'M' for MiB and 'G' for GiB.
+
+    An extended syntax is supported for gadget.yaml files which specify
+    multiple volumes (i.e. disk images).  In that case, a single ``SIZE``
+    argument will be used for all the defined volumes, with the same rules for
+    ignoring a too small value.  You can specify the image size for a single
+    volume using an indexing prefix on the ``SIZE`` parameter, where the index
+    is either a volume name or an integer index starting at zero.  For
+    example, to set the image size only on the second volume, which might be
+    called ``sdcard`` in the gadget.yaml, you could use: ``--image-size 1:8G``
+    since the 1-th index names the second volume (volumes are 0-indexed).  Or
+    you could use ``--image-size sdcard:8G``.
+
+    You can also specify multiple volume sizes by separating them with commas,
+    and you can mix and match integer indexes and volume name indexes.  Thus,
+    if the gadget.yaml named three volumes, and you wanted to set all three to
+    different sizes, you could use ``--image-size 0:2G,sdcard:8G,eMMC:4G``.
+
+    In the case of ambiguities, the size hint is ignored and the calculated
+    size for the volume will be used instead.
 
 
 Image content options

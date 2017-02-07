@@ -1,4 +1,39 @@
-ubuntu-image (0.13+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.15+17.04ubuntu1) UNRELEASED; urgency=medium
+
+  * ubuntu-image now supports gadget.yaml files with multiple volume
+    specifications.  Each volume describes a different disk image.  For
+    the multi-volume case, no implicit root file system structure is added
+    at all; the root file system partition must be defined in the
+    gadget.yaml.  -o/--output is ignored in the multi-volume case.
+    (LP: #1641727)
+  * Add -O/--output-dir command line options.  Disk image files are
+    written here using the volume name and a .img suffix.  Deprecate
+    -o/--output.  -O and -o are mutually exclusive.
+  * Allow and ignore any string values in the ``defaults`` section.
+    (LP: #1661515)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Mon, 06 Feb 2017 18:36:02 -0500
+
+ubuntu-image (0.14+17.04ubuntu1) zesty; urgency=medium
+
+  * Add CI for Python 3.6.  (LP: #1650402)
+  * Fix the test suite for sparse files on ZFS.  (LP: #1656371)
+  * d/t/control: Add Restriction: isolation-machine for the mount test
+    since devmapper is not namespaced and thus can interfere with other
+    containers.  This will prevent the test from running in schroot and
+    lxd/lxc backends, but will continue to run in qemu backends.
+    (LP: #1656391)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Fri, 13 Jan 2017 18:20:39 -0500
+
+ubuntu-image (0.13+17.04ubuntu2) zesty; urgency=medium
+
+  * d/tests/mount: Fix a typo and handle a case where the root file system
+    isn't found.
+
+ -- Barry Warsaw <barry@ubuntu.com>  Tue, 10 Jan 2017 17:33:58 -0500
+
+ubuntu-image (0.13+17.04ubuntu1) zesty; urgency=medium
 
   * Refuse to write images to /tmp when running ubuntu-image as a snap,
     since the snap's /tmp is not accessible to the user.  (LP: #1646968)
@@ -6,10 +41,13 @@ ubuntu-image (0.13+17.04ubuntu1) UNRELEASED; urgency=medium
     mode,ownership,timestamps.  Over remote file systems (e.g. afp, hgfs)
     this can fail.  Over local file systems, they'll be preserved anyway.
     (LP: #1637554)
+  * Use the `role` attribute of the gadget.yaml when creating images,
+    especially for `role:mbr` and `role:system-data` (LP: #1642914 and
+    LP: #1643086)
   * d/tests/mount: Switch to the stable channel for snaps.
   * Make the test suite immune to the locale.  (LP: #1638570)
 
- -- Barry Warsaw <barry@ubuntu.com>  Thu, 01 Dec 2016 17:33:19 -0500
+ -- Barry Warsaw <barry@ubuntu.com>  Mon, 09 Jan 2017 15:38:40 -0500
 
 ubuntu-image (0.12+17.04ubuntu1) zesty; urgency=medium
 

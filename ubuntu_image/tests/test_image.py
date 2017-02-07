@@ -114,7 +114,6 @@ class TestImage(TestCase):
         # The partition uuids as well.
         [p.pop('uuid') for p in partitions['partitions']]
         self.maxDiff = None
-        print(partitions)
         self.assertEqual(partitions, {
             'label': 'gpt',
             'device': self.img,
