@@ -4,6 +4,7 @@ import os
 import parted
 
 from enum import Enum
+from json import loads as load_json
 from math import ceil
 from struct import pack
 from ubuntu_image.helpers import run
@@ -155,20 +156,18 @@ class Image:
         run(['sfdisk', '--part-type', self.path,
              str(partnum), str(typecode)])
 
-    def diagnostics(self, which):
+    def diagnostics(self):
         """Return diagnostics string.
 
-        :param which: An enum value describing which diagnostic to
-            return.  Must be either Diagnostics.mbr or Diagnostics.gpt
-        :type which: Diagnostics enum item.
-        :return: Printed output from the chosen ``sgdisk`` command.
-        :rtype: str
+        :return: Dictionary with disk parition information
+        :rtype: dict
         """
-        status = run(['sgdisk', which.value, self.path])
+        status = run(['sfdisk', '--json', self.path])
+        disk_info = load_json(status.stdout)
         # TBD:
         # - check status
         # - log stderr
-        return status.stdout
+        return disk_info
 
     def write_value_at_offset(self, value, offset):
         """Write the given value to the specified absolute offset.

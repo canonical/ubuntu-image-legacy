@@ -4,10 +4,9 @@ import os
 
 from _ped import IOException
 from contextlib import suppress
-from json import loads as load_json
 from struct import unpack
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB, MiB, run
+from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.image import Image
 from ubuntu_image.parser import VolumeSchema
 from unittest import TestCase
@@ -108,8 +107,7 @@ class TestImage(TestCase):
         image.set_parition_type(2, '0FC63DAF-8483-4772-8E79-3D69D8477DE4')
         # Use an external tool for checking the partition table to be sure
         # that it's indeed correct as suspected.
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        disk_info = image.diagnostics()
         partitions = disk_info['partitiontable']
         # The device id is unpredictable.
         partitions.pop('id')
@@ -180,8 +178,7 @@ class TestImage(TestCase):
         self.assertEqual(len(image.disk.partitions), 2)
         image.set_parition_type(1, '83')
         image.set_parition_type(2, 'dd')
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        disk_info = image.diagnostics()
         partitions = disk_info['partitiontable']
         # The device id is unpredictable.
         partitions.pop('id')
@@ -208,13 +205,11 @@ class TestImage(TestCase):
         image.partition(offset=MiB(1), size=MiB(1))
         self.assertEqual(len(image.disk.partitions), 1)
         image.set_parition_type(1, '21686148-6449-6E6F-744E-656564454649')
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        disk_info = image.diagnostics()
         self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
                          '21686148-6449-6E6F-744E-656564454649')
         image.set_parition_type(1, '00000000-0000-0000-0000-0000DEADBEEF')
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        disk_info = image.diagnostics()
         self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
                          '00000000-0000-0000-0000-0000DEADBEEF')
 
@@ -223,13 +218,11 @@ class TestImage(TestCase):
         image.partition(offset=MiB(1), size=MiB(1))
         self.assertEqual(len(image.disk.partitions), 1)
         image.set_parition_type(1, '83')
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        disk_info = image.diagnostics()
         self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
                          '83')
         image.set_parition_type(1, 'da')
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        disk_info = image.diagnostics()
         self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
                          'da')
 
@@ -239,14 +232,12 @@ class TestImage(TestCase):
         self.assertEqual(len(image.disk.partitions), 1)
         image.set_parition_type(
             1, ('83', '00000000-0000-0000-0000-0000DEADBEEF'))
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        disk_info = image.diagnostics()
         self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
                          '83')
         image.set_parition_type(
             1, ('da', '00000000-0000-0000-0000-0000DEADBEEF'))
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        disk_info = image.diagnostics()
         self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
                          'da')
 
