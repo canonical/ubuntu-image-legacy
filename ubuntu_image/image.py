@@ -55,6 +55,9 @@ class Image:
         # partition table.
         if schema is None:
             self.sector_size = 512
+            self.device = None
+            self.disk = None
+            self.schema = None
         else:
             self.device = parted.Device(self.path)
             label = 'msdos' if schema is VolumeSchema.mbr else 'gpt'
@@ -111,6 +114,8 @@ class Image:
         # parted.sizeToSectors() function as it actually rounds down the sizes
         # instead of rounding up, which means you might end up not having
         # enough sectors for a partition's contents (LP: #1661298).
+        if self.device is None:
+            raise TypeError('No schema for device partition')
         geometry = parted.Geometry(
             device=self.device,
             start=ceil(offset / self.sector_size),

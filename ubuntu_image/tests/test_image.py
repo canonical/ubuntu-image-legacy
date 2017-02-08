@@ -248,3 +248,24 @@ class TestImage(TestCase):
         # returned by pyparted.
         image = Image(self.img, MiB(5), VolumeSchema.mbr)
         self.assertEqual(image.sector(10), 10 * image.device.sectorSize)
+
+    def test_device_schema_required(self):
+        # With no schema, the device cannot be partitioned.
+        image = Image(self.img, MiB(1))
+        self.assertRaises(TypeError, image.partition, 256, 512)
+
+    def test_small_partition_size_and_offset(self):
+        # LP: #1630709 - structure parts with size and offset < 1MB.
+        image = Image(self.img, MiB(2), VolumeSchema.mbr)
+        image.partition(offset=256, size=512)
+        disk_info = image.diagnostics()
+        # Even though the offset and size are set at 256 bytes and 512 bytes
+        # respectively, the minimum granularity is one sector (i.e. 512
+        # bytes).  The start and size returned by diagnostics() are in sector
+        # units.
+        self.assertEqual(
+            disk_info['partitiontable']['partitions'][0]['start'],
+            1)
+        self.assertEqual(
+            disk_info['partitiontable']['partitions'][0]['size'],
+            1)
