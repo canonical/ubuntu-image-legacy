@@ -2,8 +2,8 @@
 
 import os
 
-from _ped import IOException
 from contextlib import suppress
+from parted import IOException
 from struct import unpack
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import GiB, MiB

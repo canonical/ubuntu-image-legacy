@@ -417,7 +417,7 @@ class ModelAssertionBuilder(State):
         offset_writes = []
         part_offsets = {}
         # We first create all the partitions.
-        for i, part in enumerate(volume.structures):
+        for part in volume.structures:
             if part.name is not None:
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:
@@ -452,7 +452,6 @@ class ModelAssertionBuilder(State):
             # Decipher non-numeric offset_write values.
             if isinstance(dest, tuple):
                 dest = part_offsets[dest[0]] + dest[1]
-            # XXX: Hard-coding of 512-byte sectors.
             image.write_value_at_offset(value // image.sector_size, dest)
 
     def make_disk(self):

@@ -53,14 +53,14 @@ class Image:
         # Prepare the device and disk objects for parted to be used for all
         # future partition() calls.  Only do it if we actually care about the
         # partition table.
-        if schema:
+        if schema is None:
+            self.sector_size = 512
+        else:
             self.device = parted.Device(self.path)
             label = 'msdos' if schema is VolumeSchema.mbr else 'gpt'
             self.schema = schema
             self.disk = parted.freshDisk(self.device, label)
             self.sector_size = self.device.sectorSize
-        else:
-            self.sector_size = 512
 
     def copy_blob(self, blob_path, **dd_args):
         """Copy a blob to the image file.
@@ -93,10 +93,9 @@ class Image:
         by pyparted.  Please note that libparted has no means of changing the
         partition type GUID directly (this can only be done by setting
         partition flags) so this has to be done separately after *all*
-        partitions have been added.
-        Also, the commit() operation also clobbers the hybrid MBR in GPT labels
-        so be sure to first perform partitioning and only afterwards attempting
-        copy operations.
+        partitions have been added. The commit() operation also clobbers the
+        hybrid MBR in GPT labels so be sure to first perform partitioning and
+        only afterwards attempting copy operations.
 
         :param offset: Offset (start position) of the partition in bytes.
         :type offset: int
@@ -122,15 +121,14 @@ class Image:
             geometry=geometry)
         # Force an exact geometry constraint as otherwise libparted tries to be
         # too smart and changes our geometry itself.
-        constraint = parted.Constraint(
-            exactGeom=geometry)
+        constraint = parted.Constraint(exactGeom=geometry)
         self.disk.addPartition(partition, constraint)
-        # Sadly the current pyparted bindings do not export a setter for the
-        # name of a partition (LP: #1661297).  To work-around this we need to
+        # XXX: Sadly the current pyparted bindings do not export a setter for
+        # the partition name (LP: #1661297).  To work-around this we need to
         # reach out to the internal PedPartition object of the partition to
-        # call the set_name() function.
-        # We also follow the same guideline as before - for mbr labels we just
-        # ignore the name as it's not supported.
+        # call the set_name() function. We also follow the same guideline as
+        # before - for mbr labels we just ignore the name as it's not
+        # supported.
         if name and self.schema is not VolumeSchema.mbr:
             partition._Partition__partition.set_name(name)
         if is_bootable:
