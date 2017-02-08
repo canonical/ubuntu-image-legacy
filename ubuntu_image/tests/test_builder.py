@@ -524,6 +524,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             volume = SimpleNamespace(
                 structures=[part],
+                schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
@@ -680,8 +681,7 @@ class TestModelAssertionBuilder(TestCase):
                 str(cm.exception), 'Invalid part filesystem type: 801')
 
     def test_make_disk(self):
-        # make_disk() will use the MBRImage subclass when the volume schema is
-        # mbr instead of gpt.
+        # make_disk() will use Image with the msdos label with the mbr schema.
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             unpackdir = resources.enter_context(TemporaryDirectory())
@@ -716,18 +716,18 @@ class TestModelAssertionBuilder(TestCase):
             prep_state(state, workdir)
             # Set up the short-circuit.
             mock = resources.enter_context(
-                patch('ubuntu_image.builder.MBRImage',
+                patch('ubuntu_image.builder.Image',
                       side_effect=RuntimeError))
             # Don't blat to stderr.
             resources.enter_context(patch('ubuntu_image.state.log'))
             with self.assertRaises(RuntimeError):
                 next(state)
-            # Check that the MBRImage mock got called as expected.
+            # Check that the Image mock got called as expected.
             self.assertEqual(len(mock.call_args_list), 1)
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(
                 posargs,
-                (os.path.join(outputdir, 'volume1.img'), 4001))
+                (os.path.join(outputdir, 'volume1.img'), 4001, volume.schema))
 
     def test_make_disk_with_parts(self):
         # Write all the parts to the disk at the proper offset.
@@ -756,7 +756,7 @@ class TestModelAssertionBuilder(TestCase):
             # Craft a gadget schema.
             part0 = SimpleNamespace(
                 name='alpha',
-                type='da',
+                type='21686148-6449-6E6f-744E-656564454649',
                 role=None,
                 size=MiB(1),
                 offset=MiB(2),
@@ -764,7 +764,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             part1 = SimpleNamespace(
                 name='beta',
-                type='ef',
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
                 role=None,
                 size=MiB(1),
                 offset=MiB(4),
@@ -847,7 +847,7 @@ class TestModelAssertionBuilder(TestCase):
             proc = run('sfdisk --json {}'.format(disk_img))
             layout = json.loads(proc.stdout)
             partitions = [
-                (part['name'], part['start'])
+                (part['name'] if 'name' in part else None, part['start'])
                 for part in layout['partitiontable']['partitions']
                 ]
             self.assertEqual(partitions[0], ('alpha', 4096))
@@ -931,7 +931,7 @@ class TestModelAssertionBuilder(TestCase):
             proc = run('sfdisk --json {}'.format(img_file))
             layout = json.loads(proc.stdout)
             partitions = [
-                (part['name'], part['start'])
+                (part['name'] if 'name' in part else None, part['start'])
                 for part in layout['partitiontable']['partitions']
                 ]
             self.assertEqual(len(partitions), 1)
@@ -965,7 +965,7 @@ class TestModelAssertionBuilder(TestCase):
             # Craft a gadget schema.
             part0 = SimpleNamespace(
                 name='alpha',
-                type='aa',
+                type='21686148-6449-6E6f-744E-656564454649',
                 role=None,
                 size=MiB(1),
                 offset=MiB(2),
@@ -973,7 +973,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             part1 = SimpleNamespace(
                 name='beta',
-                type='bb',
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
                 role=None,
                 size=MiB(1),
                 offset=MiB(4),
@@ -1057,7 +1057,7 @@ class TestModelAssertionBuilder(TestCase):
             proc = run('sfdisk --json {}'.format(disk_img))
             layout = json.loads(proc.stdout)
             partitions = [
-                (part['name'], part['start'])
+                (part['name'] if 'name' in part else None, part['start'])
                 for part in layout['partitiontable']['partitions']
                 ]
             # Partition number matches gadget.yaml order, i.e. part1, part0,
@@ -1161,7 +1161,7 @@ class TestModelAssertionBuilder(TestCase):
             # Craft a gadget schema.
             part0 = SimpleNamespace(
                 name='alpha',
-                type='da',
+                type='21686148-6449-6E6f-744E-656564454649',
                 role=None,
                 size=MiB(1),
                 offset=MiB(2),
@@ -1169,7 +1169,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             part1 = SimpleNamespace(
                 name='beta',
-                type='ef',
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
                 role=None,
                 size=MiB(1),
                 offset=MiB(4),
@@ -1234,7 +1234,7 @@ class TestModelAssertionBuilder(TestCase):
             state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
-                type='da',
+                type='21686148-6449-6E6f-744E-656564454649',
                 role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),
@@ -1289,7 +1289,7 @@ class TestModelAssertionBuilder(TestCase):
             state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
-                type='da',
+                type='21686148-6449-6E6f-744E-656564454649',
                 role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),
@@ -1387,7 +1387,7 @@ class TestModelAssertionBuilder(TestCase):
             state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
-                type='da',
+                type='21686148-6449-6E6f-744E-656564454649',
                 role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),
@@ -1438,7 +1438,7 @@ class TestModelAssertionBuilder(TestCase):
             state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
-                type='da',
+                type='21686148-6449-6E6f-744E-656564454649',
                 role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),
@@ -1503,7 +1503,7 @@ class TestModelAssertionBuilder(TestCase):
             part0 = SimpleNamespace(
                 name='alpha',
                 role=None,
-                type='aa',
+                type='21686148-6449-6E6f-744E-656564454649',
                 size=MiB(1),
                 offset=MiB(2),
                 offset_write=100,
@@ -1513,7 +1513,7 @@ class TestModelAssertionBuilder(TestCase):
             part1 = SimpleNamespace(
                 name='beta',
                 role=None,
-                type='bb',
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
                 size=MiB(1),
                 offset=MiB(4),
                 offset_write=200,
@@ -1785,7 +1785,7 @@ class TestModelAssertionBuilder(TestCase):
             state.rootfs_size = MiB(1)
             part0 = SimpleNamespace(
                 name='alpha',
-                type='da',
+                type='21686148-6449-6E6f-744E-656564454649',
                 role=None,
                 filesystem=FileSystemType.none,
                 size=MiB(1),

@@ -9,7 +9,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap
-from ubuntu_image.image import Image, MBRImage
+from ubuntu_image.image import Image
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema,
     parse as parse_yaml)
@@ -412,51 +412,47 @@ class ModelAssertionBuilder(State):
 
     def _make_one_disk(self, imgfile, name, volume):
         part_id = 1
-        # XXX: This ought to be a single constructor that figures out the
-        # class for us when we pass in the schema.
-        if volume.schema is VolumeSchema.mbr:
-            image = MBRImage(imgfile, volume.image_size)
-        else:
-            image = Image(imgfile, volume.image_size)
+        # Create the image object for the selected volume schema
+        image = Image(imgfile, volume.image_size, volume.schema)
         offset_writes = []
         part_offsets = {}
-        for i, part in enumerate(volume.structures):
+        # We first create all the partitions.
+        for part in volume.structures:
             if part.name is not None:
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
+            if part.role is StructureRole.mbr or part.type == 'bare':
+                continue
+            activate = False
+            if (volume.schema is VolumeSchema.mbr and
+                    part.role is StructureRole.system_boot):
+                activate = True
+            elif (volume.schema is VolumeSchema.gpt and
+                    part.role is StructureRole.system_data and
+                    part.name is None):
+                part.name = 'writable'
+            image.partition(part.offset, part.size, part.name, activate)
+        # Now since we're done, we need to do a second pass to copy the data
+        # and set all the partition types.  This needs to be done like this as
+        # libparted's commit() operation resets type GUIDs to defaults and
+        # clobbers things like hybrid MBR partitions.
+        part_id = 1
+        for i, part in enumerate(volume.structures):
             image.copy_blob(volume.part_images[i],
-                            bs='1M', seek=part.offset // MiB(1),
-                            count=ceil(part.size / MiB(1)),
+                            bs=image.sector_size,
+                            seek=part.offset // image.sector_size,
+                            count=ceil(part.size / image.sector_size),
                             conv='notrunc')
             if part.role is StructureRole.mbr or part.type == 'bare':
                 continue
-            # sgdisk takes either a sector or a KiB/MiB argument; assume
-            # that the offset and size are always multiples of 1MiB.
-            #
-            # XXX Size must not be zero, which will happen if part.size < 1MiB
-            partition_args = dict(
-                new='{}M:+{}K'.format(
-                    part.offset // MiB(1), ceil(part.size / 1024)),
-                typecode=part.type,
-                )
-            # XXX: special-casing.
-            if (volume.schema is VolumeSchema.mbr and
-                    part.role is StructureRole.system_boot):
-                partition_args['activate'] = True
-            elif (volume.schema is VolumeSchema.gpt and
-                    part.role is StructureRole.system_data):
-                partition_args['change_name'] = 'writable'
-            if part.name is not None:
-                partition_args['change_name'] = part.name
-            image.partition(part_id, **partition_args)
+            image.set_parition_type(part_id, part.type)
             part_id += 1
         for value, dest in offset_writes:
             # Decipher non-numeric offset_write values.
             if isinstance(dest, tuple):
                 dest = part_offsets[dest[0]] + dest[1]
-            # XXX: Hard-coding of 512-byte sectors.
-            image.write_value_at_offset(value // 512, dest)
+            image.write_value_at_offset(value // image.sector_size, dest)
 
     def make_disk(self):
         # Based on the -o/--output and -O/--output-dir options, and the volumes

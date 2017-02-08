@@ -3,11 +3,12 @@
 import os
 
 from contextlib import suppress
-from json import loads as load_json
+from parted import IOException
 from struct import unpack
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import GiB, MiB, run
-from ubuntu_image.image import Diagnostics, Image, MBRImage
+from ubuntu_image.helpers import GiB, MiB
+from ubuntu_image.image import Image
+from ubuntu_image.parser import VolumeSchema
 from unittest import TestCase
 
 
@@ -30,6 +31,30 @@ class TestImage(TestCase):
         self.assertTrue(os.path.exists(image.path))
         # MiB == 1024**2; 4.5MiB == 4718592 bytes.
         self.assertEqual(os.stat(image.path).st_size, 4718592)
+
+    def test_initialize_partition_table_gpt(self):
+        image = Image(self.img, MiB(10), VolumeSchema.gpt)
+        self.assertTrue(os.path.exists(image.path))
+        self.assertEqual(os.stat(image.path).st_size, 10485760)
+        self.assertEqual(image.disk.type, 'gpt')
+        self.assertEqual(image.schema, VolumeSchema.gpt)
+
+    def test_initialize_partition_table_mbr(self):
+        image = Image(self.img, MiB(10), VolumeSchema.mbr)
+        self.assertTrue(os.path.exists(image.path))
+        self.assertEqual(os.stat(image.path).st_size, 10485760)
+        self.assertEqual(image.disk.type, 'msdos')
+        self.assertEqual(image.schema, VolumeSchema.mbr)
+
+    def test_initialize_partition_table_mbr_too_small(self):
+        # Creating a super small image should fail as there's no place for
+        # a partition table.
+        self.assertRaises(IOException,
+                          Image, self.img, 25, VolumeSchema.gpt)
+        # ...but we can create an Image object without the partition table.
+        image = Image(self.img, 25, None)
+        self.assertTrue(os.path.exists(image.path))
+        self.assertEqual(os.stat(image.path).st_size, 25)
 
     def test_copy_blob_install_grub_to_mbr(self):
         # Install GRUB to MBR
@@ -72,22 +97,42 @@ class TestImage(TestCase):
             self.assertEqual(fp.read(100), b'x' * 100)
             self.assertEqual(fp.read(25), b'\0' * 25)
 
-    def test_partition(self):
-        # Create BIOS boot partition.
-        #
-        # The partition is 1MiB in size, as recommended by various
-        # partitioning guides.  The actual required size is much, much
-        # smaller.
-        image = Image(self.img, MiB(10))
-        image.partition(1, new='4MiB:+1MiB')
-        image.partition(1, typecode='21686148-6449-6E6F-744E-656564454649')
-        image.partition(1, change_name='grub')
-        mbr = image.diagnostics(Diagnostics.mbr)
-        # We should see that the disk size is 10MiB.
-        self.assertRegex(mbr, '10.0 MiB')
-        gpt = image.diagnostics(Diagnostics.gpt)
-        # We should see that there is 1 partition named grub.
-        self.assertRegex(gpt, 'grub')
+    def test_gpt_image_partitions(self):
+        image = Image(self.img, MiB(10), VolumeSchema.gpt)
+        image.partition(offset=MiB(4), size=MiB(1), name='grub')
+        self.assertEqual(len(image.disk.partitions), 1)
+        image.partition(offset=MiB(5), size=MiB(4))
+        self.assertEqual(len(image.disk.partitions), 2)
+        image.set_parition_type(1, '21686148-6449-6E6F-744E-656564454649')
+        image.set_parition_type(2, '0FC63DAF-8483-4772-8E79-3D69D8477DE4')
+        # Use an external tool for checking the partition table to be sure
+        # that it's indeed correct as suspected.
+        disk_info = image.diagnostics()
+        partitions = disk_info['partitiontable']
+        # The device id is unpredictable.
+        partitions.pop('id')
+        # The partition uuids as well.
+        [p.pop('uuid') for p in partitions['partitions']]
+        self.maxDiff = None
+        self.assertEqual(partitions, {
+            'label': 'gpt',
+            'device': self.img,
+            'unit': 'sectors',
+            'firstlba': 34,
+            'lastlba': 20446,
+            'partitions': [{
+                'node': '{}1'.format(self.img),
+                'start': 8192,
+                'size': 2048,
+                'type': '21686148-6449-6E6F-744E-656564454649',
+                'name': 'grub',
+                }, {
+                'node': '{}2'.format(self.img),
+                'start': 10240,
+                'size': 8192,
+                'type': '0FC63DAF-8483-4772-8E79-3D69D8477DE4',
+                }],
+            })
 
     def test_write_value_at_offset(self):
         image = Image(self.img, MiB(2))
@@ -119,39 +164,20 @@ class TestImage(TestCase):
                 results.add(pos)
         self.assertEqual(results, {9995, 9996})
 
-    def test_mbr_image_partition(self):
-        image = MBRImage(self.img, MiB(2))
-        self.assertFalse(image.initialized)
-        image.partition(1, new='33:3000', activate=True, typecode='83')
-        self.assertTrue(image.initialized)
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
-        partitions = disk_info['partitiontable']
-        # The device id is unpredictable.
-        partitions.pop('id')
-        self.assertEqual(partitions, {
-            'device': self.img,
-            'label': 'dos',
-            'unit': 'sectors',
-            'partitions': [{
-                'bootable': True,
-                'node': '{}1'.format(self.img),
-                'size': 3000,
-                'start': 33,
-                'type': '83',
-                }]
-            })
-
-    def test_mbr_image_partition_append(self):
-        image = MBRImage(self.img, MiB(2))
-        self.assertFalse(image.initialized)
+    def test_mbr_image_partitions(self):
+        image = Image(self.img, MiB(2), VolumeSchema.mbr)
         # Create the first partition.
-        image.partition(1, new='33:3000', activate=True, typecode='83')
-        self.assertTrue(image.initialized)
+        image.partition(offset=image.sector(33),
+                        size=image.sector(3000),
+                        is_bootable=True)
+        self.assertEqual(len(image.disk.partitions), 1)
         # Append the next one.
-        image.partition(2, new='3032:1000', typecode='dd')
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
+        image.partition(offset=image.sector(3033),
+                        size=image.sector(1000))
+        self.assertEqual(len(image.disk.partitions), 2)
+        image.set_parition_type(1, '83')
+        image.set_parition_type(2, 'dd')
+        disk_info = image.diagnostics()
         partitions = disk_info['partitiontable']
         # The device id is unpredictable.
         partitions.pop('id')
@@ -173,57 +199,52 @@ class TestImage(TestCase):
                 }],
             })
 
-    def test_mbr_image_partition_tuple_typecode(self):
-        # See the spec; type codes can by hybrid mbr/gpt style.
-        image = MBRImage(self.img, MiB(2))
-        self.assertFalse(image.initialized)
-        image.partition(
-            1, new='33:3000', activate=True,
-            typecode=('83', '00000000-0000-0000-0000-0000deadbeef'))
-        self.assertTrue(image.initialized)
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
-        partitions = disk_info['partitiontable']
-        # The device id is unpredictable.
-        partitions.pop('id')
-        self.assertEqual(partitions, {
-            'device': self.img,
-            'label': 'dos',
-            'unit': 'sectors',
-            'partitions': [{
-                'bootable': True,
-                'node': '{}1'.format(self.img),
-                'size': 3000,
-                'start': 33,
-                'type': '83',
-                }]
-            })
+    def test_set_partition_type_gpt(self):
+        image = Image(self.img, MiB(6), VolumeSchema.gpt)
+        image.partition(offset=MiB(1), size=MiB(1))
+        self.assertEqual(len(image.disk.partitions), 1)
+        image.set_parition_type(1, '21686148-6449-6E6F-744E-656564454649')
+        disk_info = image.diagnostics()
+        self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
+                         '21686148-6449-6E6F-744E-656564454649')
+        image.set_parition_type(1, '00000000-0000-0000-0000-0000DEADBEEF')
+        disk_info = image.diagnostics()
+        self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
+                         '00000000-0000-0000-0000-0000DEADBEEF')
 
-    def test_mbr_image_partition_bad_keyword(self):
-        image = MBRImage(self.img, MiB(2))
-        self.assertRaises(
-            ValueError,
-            image.partition, 1, new='0:100', cracktivate=1, typecode='fe')
+    def test_set_partition_type_mbr(self):
+        image = Image(self.img, MiB(6), VolumeSchema.mbr)
+        image.partition(offset=MiB(1), size=MiB(1))
+        self.assertEqual(len(image.disk.partitions), 1)
+        image.set_parition_type(1, '83')
+        disk_info = image.diagnostics()
+        self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
+                         '83')
+        image.set_parition_type(1, 'da')
+        disk_info = image.diagnostics()
+        self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
+                         'da')
 
-    def test_mbr_image_partition_named(self):
-        # sfdisk does not support the --change-name argument, so it's
-        # currently just ignored.
-        image = MBRImage(self.img, MiB(2))
-        self.assertFalse(image.initialized)
-        image.partition(1, new='33:3000', activate=True, typecode='83',
-                        change_name='first')
-        self.assertTrue(image.initialized)
-        proc = run('sfdisk --json {}'.format(self.img))
-        disk_info = load_json(proc.stdout)
-        partitions = disk_info['partitiontable']
-        # See?  No name.  However, the device id is unpredictable.
-        partitions.pop('id')
-        self.assertEqual(partitions, {
-            'device': self.img,
-            'label': 'dos',
-            'partitions': [{'bootable': True,
-                            'node': '{}1'.format(self.img),
-                            'size': 3000,
-                            'start': 33,
-                            'type': '83'}],
-            'unit': 'sectors'})
+    def test_set_partition_type_hybrid(self):
+        image = Image(self.img, MiB(6), VolumeSchema.mbr)
+        image.partition(offset=MiB(1), size=MiB(1))
+        self.assertEqual(len(image.disk.partitions), 1)
+        image.set_parition_type(
+            1, ('83', '00000000-0000-0000-0000-0000DEADBEEF'))
+        disk_info = image.diagnostics()
+        self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
+                         '83')
+        image.set_parition_type(
+            1, ('da', '00000000-0000-0000-0000-0000DEADBEEF'))
+        disk_info = image.diagnostics()
+        self.assertEqual(disk_info['partitiontable']['partitions'][0]['type'],
+                         'da')
+
+    def test_sector_conversion(self):
+        # For empty non-partitioned images we default to a 512 sector size.
+        image = Image(self.img, MiB(1))
+        self.assertEqual(image.sector(10), 5120)
+        # In case of using partitioning, be sure we use the sector size as
+        # returned by pyparted.
+        image = Image(self.img, MiB(5), VolumeSchema.mbr)
+        self.assertEqual(image.sector(10), 10 * image.device.sectorSize)
