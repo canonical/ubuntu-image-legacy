@@ -5,8 +5,9 @@ import re
 import logging
 
 from contextlib import ExitStack, contextmanager
+from parted import Device
 from subprocess import PIPE, run as subprocess_run
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, mkstemp
 
 
 __all__ = [
@@ -158,3 +159,15 @@ def mkfs_ext4(img_file, contents_dir, label='writable'):
         # fixme: everything is terrible.
         run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
             contents_dir, mountpoint), shell=True)
+
+
+def get_default_sector_size():
+    tmp_path = mkstemp()[1]
+    # Truncate to zero, so that extending the size in the next call
+    # will cause all the bytes to read as zero.  Stevens $4.13
+    os.truncate(tmp_path, 0)
+    os.truncate(tmp_path, MiB(1))
+    device = Device(tmp_path)
+    sector_size = device.sectorSize
+    os.remove(tmp_path)
+    return sector_size
