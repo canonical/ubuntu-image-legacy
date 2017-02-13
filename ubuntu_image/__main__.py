@@ -192,7 +192,7 @@ def main(argv=None):
         try:
             state_machine = ModelAssertionBuilder(args)
         except TMPNotReadableFromOutsideSnap as error:
-            print(error.__doc__, file=sys.stderr)
+            print(str(error), file=sys.stderr)
             return 1
     # Run the state machine, either to the end or thru/until the named state.
     try:

@@ -244,7 +244,7 @@ class TestMainWithModel(TestCase):
             image_path = os.path.join(outputdir, '{}.img'.format(name))
             self.assertTrue(os.path.exists(image_path))
 
-    def test_output_for_snaps(self):
+    def test_snaps_output(self):
         # The good path.
         self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
         self._resources.enter_context(patch(
@@ -260,7 +260,7 @@ class TestMainWithModel(TestCase):
               self.model_assertion))
         self.assertFalse(os.path.exists(output_dir))
 
-    def test_output_to_snaps_tmp(self):
+    def test_snaps_output_to_tmp(self):
         # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
         # a snap you cannot use `-o /tmp/something`.
         #
@@ -281,7 +281,7 @@ class TestMainWithModel(TestCase):
             '-o/--output is deprecated; use -O/--output-dir instead\n'
             'ubuntu-image snap cannot write images to /tmp\n')
 
-    def test_output_dir_to_snaps_tmp(self):
+    def test_snaps_output_dir_to_tmp(self):
         self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
@@ -295,7 +295,7 @@ class TestMainWithModel(TestCase):
             self._stderr.getvalue(),
             'ubuntu-image snap cannot write images to /tmp\n')
 
-    def test_no_output_as_snaps_pwd_tmp(self):
+    def test_snaps_no_output_tmp_is_pwd(self):
         # LP: 1646968 - With no --output, if the current working directory is
         # /tmp, refuse to run.
         #
@@ -319,6 +319,31 @@ class TestMainWithModel(TestCase):
         self.assertEqual(
             self._stderr.getvalue(),
             'ubuntu-image snap cannot write images to /tmp\n')
+
+    def test_snaps_no_model_assertion(self):
+        # LP: #1663424 - When run as a snap, the model assertion cannot live
+        # in /tmp.
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        code = main(('/tmp/model.assertion',))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            self._stderr.getvalue(),
+            'ubuntu-image snap cannot read models from /tmp\n')
+
+    def test_snaps_no_extra_snaps(self):
+        # LP: #1663424 - When run as a snap, --extra-snaps cannot live in /tmp.
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        code = main((self.model_assertion, '--extra-snaps', '/tmp/extra.snap'))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            self._stderr.getvalue(),
+            'ubuntu-image snap cannot read extra snaps from /tmp\n')
 
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:
