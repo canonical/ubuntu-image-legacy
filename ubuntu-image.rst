@@ -7,7 +7,7 @@ Generate a bootable disk image
 ------------------------------
 
 :Author: Barry Warsaw <barry@ubuntu.com>
-:Date: 2017-01-24
+:Date: 2017-02-13
 :Copyright: 2016-2017 Canonical Ltd.
 :Version: 0.15
 :Manual section: 1
@@ -68,18 +68,16 @@ model_assertion
 -O DIRECTORY, --output-dir DIRECTORY
     Write generated disk image files to this directory.  The files will be
     named after the ``gadget.yaml`` volume names, with ``.img`` suffix
-    appended.  If not given, the current working directory is used.  **NOTE**
-    when run as a snap, this directory cannot be ``/tmp``.  This option
-    replaces, and cannot be used with the deprecated ``--output`` option.
+    appended.  If not given, the current working directory is used.  This
+    option replaces, and cannot be used with, the deprecated ``--output``
+    option.
 
 -o FILENAME, --output FILENAME
     **DEPRECATED** (Use ``--output-dir`` instead.)  The generated disk image
     file.  If not given, the image will be put in a file called ``disk.img``
     in the working directory, in which case, you probably want to specify
     ``--workdir``.  If ``--workdir`` is not given, the image will be written
-    to the current working directory.  **NOTE** when run as a snap,
-    ``ubuntu-image`` refuses to write to ``/tmp`` since this directory is not
-    accessible outside of the snap environment.
+    to the current working directory.
 
 -i SIZE, --image-size SIZE
     The size of the generated disk image files.  If this size is smaller than
@@ -154,6 +152,30 @@ but ``--workdir`` must be given in that case since the state is saved in a
 -r, --resume
     Continue the state machine from the previously saved state.  It is an
     error if there is no previous state.
+
+
+LIMITATIONS
+===========
+
+``ubuntu-image`` may be installed via traditional ``.deb`` or it maybe be
+installed as a snap.  You can tell by running ``ubuntu-image --version`` and
+if the version number has ``+snap`` in the output, you're running it as a
+snap.
+
+It is the case for all snaps that ``/tmp`` outside the snap is not the same as
+``/tmp`` inside the snap, and outside-``/tmp`` is not accessible inside.  This
+means that several options have additional limitations when ``ubuntu-image``
+is run as a snap:
+
+* Outputting images to ``/tmp`` is not possible, therefore you may not use
+  ``/tmp`` in either the ``-O/--output-dir`` or ``-o/--output`` options.
+* Model assertion files may not live in ``/tmp``.
+* Extra snaps (i.e. ``--extra-snaps``) may not refer to snaps in ``/tmp``.
+
+In all these cases, ``ubuntu-image`` will print an error message and exit when
+run as a snap.
+
+None of these limitation apply when ``ubuntu-image`` is installed via ``.deb``.
 
 
 FILES

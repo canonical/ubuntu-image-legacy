@@ -20,7 +20,7 @@ override_dh_install:
 	   debian/ubuntu-image/usr/bin/
 
 override_dh_installman:
-	rst2man ubuntu-image.rst > debian/ubuntu-image.1
+	rst2man ubuntu-image.rst debian/ubuntu-image.1
 	dh_installman
 
 # Run the bare minimum of tests during build.  The majority of the tests will
