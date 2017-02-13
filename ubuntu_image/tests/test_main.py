@@ -339,7 +339,9 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        code = main((self.model_assertion, '--extra-snaps', '/tmp/extra.snap'))
+        code = main((self.model_assertion,
+                     '--extra-snaps', '/not/in/tmp/extra.snap',
+                     '--extra-snaps', '/tmp/extra.snap'))
         self.assertEqual(code, 1)
         self.assertEqual(
             self._stderr.getvalue(),
