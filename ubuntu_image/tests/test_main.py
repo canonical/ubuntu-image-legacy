@@ -254,11 +254,12 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.builder.os.getcwd', return_value=output_dir))
         # This directory should not get created.
-        main(('-O', output_dir,
-              # Do not run the full state machine.
-              '-u', 'load_gadget_yaml',
-              self.model_assertion))
-        self.assertFalse(os.path.exists(output_dir))
+        code = main(('-O', output_dir,
+                     # Do not run the full state machine.
+                     '-u', 'load_gadget_yaml',
+                     '/not/tmp/model.assertion'))
+        # Success.
+        self.assertEqual(code, 0, self._stderr.getvalue())
 
     def test_snaps_output_to_tmp(self):
         # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
