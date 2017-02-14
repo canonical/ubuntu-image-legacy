@@ -413,9 +413,10 @@ def parse(stream_or_string):
                 else:
                     offset = last_offset
             if (size % sector_size) != 0 or (offset % sector_size) != 0:
-                warn('Partition size/offset need to be a multiple of sector '
-                     'size ({}).  The size/offset will be rounded up to the '
-                     'nearest sector.'.format(sector_size))
+                _logger.warning(
+                    'Partition size/offset need to be a multiple of sector '
+                    'size ({}).  The size/offset will be rounded up to the '
+                    'nearest sector.'.format(sector_size))
             last_offset = offset + size
             farthest_offset = max(farthest_offset, last_offset)
             # Extract the rest of the structure data.
