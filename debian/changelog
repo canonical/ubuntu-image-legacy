@@ -12,6 +12,8 @@ ubuntu-image (0.15+17.04ubuntu1) UNRELEASED; urgency=medium
   * Handle structure parts with size of offset < 1MiB.  (LP: #1630709)
   * Allow and ignore any string values in the ``defaults`` section.
     (LP: #1661515)
+  * Handle a couple more cases where ubuntu-image as a snap cannot read
+    from /tmp (model assertions and extra snaps).  (LP: #1663424)
 
  -- Barry Warsaw <barry@ubuntu.com>  Mon, 06 Feb 2017 18:36:02 -0500
 

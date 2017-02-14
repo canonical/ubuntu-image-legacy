@@ -21,7 +21,7 @@ _logger = logging.getLogger('ubuntu-image')
 
 
 class TMPNotReadableFromOutsideSnap(Exception):
-    """ubuntu-image snap cannot write images to /tmp"""
+    """/tmp is different from inside and outside a snap."""
 
 
 class ModelAssertionBuilder(State):
@@ -57,10 +57,23 @@ class ModelAssertionBuilder(State):
                     continue
                 path = os.sep.join(path.split(os.sep)[:2])
                 if path == '/tmp':
-                    raise TMPNotReadableFromOutsideSnap
+                    raise TMPNotReadableFromOutsideSnap(
+                        'ubuntu-image snap cannot write images to /tmp')
                 # This path is okay and since it'll take precedence, we're
                 # done checking.
                 break
+            # Check the location of the model assertion.
+            path = os.sep.join(args.model_assertion.split(os.sep)[:2])
+            if path == '/tmp':
+                raise TMPNotReadableFromOutsideSnap(
+                    'ubuntu-image snap cannot read models from /tmp')
+            # Check all the extra snaps.
+            extra_snaps = [] if args.extra_snaps is None else args.extra_snaps
+            for snap_path in extra_snaps:
+                path = os.sep.join(snap_path.split(os.sep)[:2])
+                if path == '/tmp':
+                    raise TMPNotReadableFromOutsideSnap(
+                        'ubuntu-image snap cannot read extra snaps from /tmp')
         self.output_dir = args.output_dir
         self.output = args.output
         # Information passed between states.
