@@ -1,7 +1,7 @@
 """Tests of the gadget.yaml parser."""
 
 from contextlib import ExitStack
-from ubuntu_image.helpers import GiB, MiB, get_default_sector_size
+from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, GadgetSpecificationError, StructureRole,
     VolumeSchema, parse)
@@ -11,6 +11,15 @@ from uuid import UUID
 
 
 class TestParser(TestCase):
+    def setUp(self):
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
+        # Many of the tests existed before the sector size warning was added,
+        # and rather than change all those tests, let's just quiet the
+        # warnings.
+        self._resources.enter_context(
+            patch('ubuntu_image.parser._logger.warning'))
+
     def test_minimal(self):
         gadget_spec = parse("""\
 volumes:
@@ -1204,11 +1213,19 @@ volumes:
 """)
         self.assertIsNone(gadget_spec.format)
 
+
+class TestParserWarnings(TestCase):
+    def setUp(self):
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
+        self._mock = self._resources.enter_context(
+            patch('ubuntu_image.parser._logger.warning'))
+
     def test_parser_sector_multiple_warning_for_size(self):
-        with ExitStack() as resources:
-            mock = resources.enter_context(
-                patch('ubuntu_image.parser._logger.warning'))
-            parse("""\
+        self._resources.enter_context(
+            patch('ubuntu_image.parser.get_default_sector_size',
+                  return_value=111))
+        parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -1216,19 +1233,19 @@ volumes:
         - type: 00000000-0000-0000-0000-0000deadbeef
           size: 590
 """)
-            self.assertEqual(len(mock.call_args_list), 1)
-            posargs, kwargs = mock.call_args_list[0]
-            self.assertEqual(
-                posargs[0],
-                'Partition size/offset need to be a multiple of sector '
-                'size ({}).  The size/offset will be rounded up to the '
-                'nearest sector.'.format(get_default_sector_size()))
+        self.assertEqual(len(self._mock.call_args_list), 1)
+        posargs, kwargs = self._mock.call_args_list[0]
+        self.assertEqual(
+            posargs[0],
+            'Partition size/offset need to be a multiple of sector '
+            'size (111).  The size/offset will be rounded up to the '
+            'nearest sector.')
 
     def test_parser_sector_multiple_warning_for_offset(self):
-        with ExitStack() as resources:
-            mock = resources.enter_context(
-                patch('ubuntu_image.parser._logger.warning'))
-            parse("""\
+        self._resources.enter_context(
+            patch('ubuntu_image.parser.get_default_sector_size',
+                  return_value=111))
+        parse("""\
 volumes:
   first-image:
     bootloader: u-boot
@@ -1237,17 +1254,26 @@ volumes:
           size: 1M
           offset: 590
 """)
-            self.assertEqual(len(mock.call_args_list), 1)
-            posargs, kwargs = mock.call_args_list[0]
-            self.assertEqual(
-                posargs[0],
-                'Partition size/offset need to be a multiple of sector '
-                'size ({}).  The size/offset will be rounded up to the '
-                'nearest sector.'.format(get_default_sector_size()))
+        self.assertEqual(len(self._mock.call_args_list), 1)
+        posargs, kwargs = self._mock.call_args_list[0]
+        self.assertEqual(
+            posargs[0],
+            'Partition size/offset need to be a multiple of sector '
+            'size (111).  The size/offset will be rounded up to the '
+            'nearest sector.')
 
 
 class TestParserErrors(TestCase):
     # Test corner cases, as well as YAML, schema, and specification violations.
+
+    def setUp(self):
+        self._resources = ExitStack()
+        self.addCleanup(self._resources.close)
+        # Many of the tests existed before the sector size warning was added,
+        # and rather than change all those tests, let's just quiet the
+        # warnings.
+        self._resources.enter_context(
+            patch('ubuntu_image.parser._logger.warning'))
 
     def test_not_yaml(self):
         with ExitStack() as resources:

@@ -237,6 +237,9 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             Builder))
+        # Quiet the test suite.
+        self._resources.enter_context(patch(
+            'ubuntu_image.parser._logger.warning'))
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         outputdir = os.path.join(tmpdir, 'images')
         main(('-O', outputdir, self.model_assertion))
