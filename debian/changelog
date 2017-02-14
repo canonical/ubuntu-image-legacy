@@ -14,6 +14,7 @@ ubuntu-image (0.15+17.04ubuntu1) UNRELEASED; urgency=medium
     (LP: #1661515)
   * Handle a couple more cases where ubuntu-image as a snap cannot read
     from /tmp (model assertions and extra snaps).  (LP: #1663424)
+  * Add a release script.  (LP: #1655669)
 
  -- Barry Warsaw <barry@ubuntu.com>  Mon, 06 Feb 2017 18:36:02 -0500
 
