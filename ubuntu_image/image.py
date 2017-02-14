@@ -3,23 +3,11 @@
 import os
 import parted
 
-from enum import Enum
 from json import loads as load_json
 from math import ceil
 from struct import pack
 from ubuntu_image.helpers import run
 from ubuntu_image.parser import VolumeSchema
-
-
-__all__ = [
-    'Diagnostics',
-    'Image',
-    ]
-
-
-class Diagnostics(Enum):
-    mbr = '--print-mbr'
-    gpt = '--print'
 
 
 COMMASPACE = ', '

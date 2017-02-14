@@ -1,11 +1,12 @@
 """Tests of the gadget.yaml parser."""
 
 from contextlib import ExitStack
-from ubuntu_image.helpers import GiB, MiB
+from ubuntu_image.helpers import GiB, MiB, get_default_sector_size
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, GadgetSpecificationError, StructureRole,
     VolumeSchema, parse)
 from unittest import TestCase
+from unittest.mock import patch
 from uuid import UUID
 
 
@@ -1202,6 +1203,47 @@ volumes:
           size: 400M
 """)
         self.assertIsNone(gadget_spec.format)
+
+    def test_parser_sector_multiple_warning_for_size(self):
+        with ExitStack() as resources:
+            mock = resources.enter_context(
+                patch('ubuntu_image.parser._logger.warning'))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 590
+""")
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'Partition size/offset need to be a multiple of sector '
+                'size ({}).  The size/offset will be rounded up to the '
+                'nearest sector.'.format(get_default_sector_size()))
+
+    def test_parser_sector_multiple_warning_for_offset(self):
+        with ExitStack() as resources:
+            mock = resources.enter_context(
+                patch('ubuntu_image.parser._logger.warning'))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 1M
+          offset: 590
+""")
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            self.assertEqual(
+                posargs[0],
+                'Partition size/offset need to be a multiple of sector '
+                'size ({}).  The size/offset will be rounded up to the '
+                'nearest sector.'.format(get_default_sector_size()))
 
 
 class TestParserErrors(TestCase):

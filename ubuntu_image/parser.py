@@ -7,7 +7,7 @@ import logging
 from enum import Enum
 from io import StringIO
 from operator import attrgetter, methodcaller
-from ubuntu_image.helpers import GiB, MiB, as_size
+from ubuntu_image.helpers import GiB, MiB, as_size, get_default_sector_size
 from uuid import UUID
 from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
 from warnings import warn
@@ -316,6 +316,7 @@ def parse(stream_or_string):
     format = validated.get('format')
     volume_specs = {}
     bootloader_seen = False
+    sector_size = get_default_sector_size()
     # These two variables only exist to support backwards compatibility in the
     # single-volume, implicit-root-fs case, and are ignored when multiple
     # volumes are defined.  We have no b/c considerations for implicit-root-fs
@@ -411,6 +412,11 @@ def parse(stream_or_string):
                     offset = MiB(1)
                 else:
                     offset = last_offset
+            if (size % sector_size) != 0 or (offset % sector_size) != 0:
+                _logger.warning(
+                    'Partition size/offset need to be a multiple of sector '
+                    'size ({}).  The size/offset will be rounded up to the '
+                    'nearest sector.'.format(sector_size))
             last_offset = offset + size
             farthest_offset = max(farthest_offset, last_offset)
             # Extract the rest of the structure data.
