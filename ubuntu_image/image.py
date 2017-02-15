@@ -1,35 +1,28 @@
 """Classes for creating a bootable image."""
 
 import os
+import parted
 
-from enum import Enum
+from json import loads as load_json
 from math import ceil
 from struct import pack
 from ubuntu_image.helpers import run
-
-
-__all__ = [
-    'Diagnostics',
-    'Image',
-    ]
-
-
-class Diagnostics(Enum):
-    mbr = '--print-mbr'
-    gpt = '--print'
+from ubuntu_image.parser import VolumeSchema
 
 
 COMMASPACE = ', '
 
 
 class Image:
-    def __init__(self, path, size):
+    def __init__(self, path, size, schema=None):
         """Initialize an image file to a given size in bytes.
 
         :param path: Path to image file on the file system.
         :type path: str
         :param size: Size in bytes to set the image file to.
         :type size: int
+        :param schema: The partitioning schema of the volume.
+        :type schema: VolumeSchema
 
         Public attributes:
 
@@ -45,6 +38,20 @@ class Image:
         # will cause all the bytes to read as zero.  Stevens $4.13
         os.truncate(path, 0)
         os.truncate(path, size)
+        # Prepare the device and disk objects for parted to be used for all
+        # future partition() calls.  Only do it if we actually care about the
+        # partition table.
+        if schema is None:
+            self.sector_size = 512
+            self.device = None
+            self.disk = None
+            self.schema = None
+        else:
+            self.device = parted.Device(self.path)
+            label = 'msdos' if schema is VolumeSchema.mbr else 'gpt'
+            self.schema = schema
+            self.disk = parted.freshDisk(self.device, label)
+            self.sector_size = self.device.sectorSize
 
     def copy_blob(self, blob_path, **dd_args):
         """Copy a blob to the image file.
@@ -69,52 +76,89 @@ class Image:
         # - log stdout/stderr
         run(args)
 
-    def partition(self, partnum, **sgdisk_args):
-        """Manipulate the GPT contained in the image file.
+    def partition(self, offset, size, name=None, is_bootable=False):
+        """Add a new partition in the image file.
 
-        The manipulation is done using ``sgdisk`` for consistency.  The
-        device operated on is the image file represented by this
-        instance.  The keyword arguments are passed directly to the
-        ``sgdisk`` call (after tweaking to prefix the keys with ``--``
-        for the command line switch syntax).  See the sgdisk(8) manpage
-        for details.
+        The newly added partition will be appended to the existing partition
+        table on the image as defined by the volume schema.  This is all done
+        by pyparted.  Please note that libparted has no means of changing the
+        partition type GUID directly (this can only be done by setting
+        partition flags) so this has to be done separately after *all*
+        partitions have been added. The commit() operation also clobbers the
+        hybrid MBR in GPT labels so be sure to first perform partitioning and
+        only afterwards attempting copy operations.
 
-        Underscores in argument keys will be changed to dashes.
-        E.g. change_name='1:grub' becomes ``--change-name=1:grub``
+        :param offset: Offset (start position) of the partition in bytes.
+        :type offset: int
+        :param size: Size of partition in bytes.
+        :type size: int
+        :param name: Name of the partition.
+        :type name: str
+        :param is_bootable: Toggle if the bootable flag should be set.
+        :type name: bool
+
         """
-        # Put together the sgdisk command.
-        args = ['sgdisk']
-        for key, value in sorted(sgdisk_args.items(),
-                                 key=lambda x: '' if x[0] == 'new' else x[0]):
-            # special case of gpt vs. mbr type codes
-            if key == 'typecode' and isinstance(value, tuple):
-                value = value[1]
-            args.append('--{}={}:{}'
-                        .format(key.replace('_', '-'), partnum, value))
-        # End the command args with the image file.
-        args.append(self.path)
-        # Run the command.  We'll capture stderr for logging purposes.
-        #
-        # TBD:
-        # - check status of the returned CompletedProcess
-        # - handle errors
-        # - log stdout/stderr
-        run(args)
+        # When defining geometries for our partitions we can't use the pyparted
+        # parted.sizeToSectors() function as it actually rounds down the sizes
+        # instead of rounding up, which means you might end up not having
+        # enough sectors for a partition's contents (LP: #1661298).
+        if self.device is None:
+            raise TypeError('No schema for device partition')
+        geometry = parted.Geometry(
+            device=self.device,
+            start=ceil(offset / self.sector_size),
+            length=ceil(size / self.sector_size))
+        partition = parted.Partition(
+            disk=self.disk,
+            type=parted.PARTITION_NORMAL,
+            geometry=geometry)
+        # Force an exact geometry constraint as otherwise libparted tries to be
+        # too smart and changes our geometry itself.
+        constraint = parted.Constraint(exactGeom=geometry)
+        self.disk.addPartition(partition, constraint)
+        # XXX: Sadly the current pyparted bindings do not export a setter for
+        # the partition name (LP: #1661297).  To work-around this we need to
+        # reach out to the internal PedPartition object of the partition to
+        # call the set_name() function. We also follow the same guideline as
+        # before - for mbr labels we just ignore the name as it's not
+        # supported.
+        if name and self.schema is not VolumeSchema.mbr:
+            partition._Partition__partition.set_name(name)
+        if is_bootable:
+            partition.setFlag(parted.PARTITION_BOOT)
+        # Save all the partition changes so far to disk.
+        self.disk.commit()
 
-    def diagnostics(self, which):
+    def set_parition_type(self, partnum, typecode):
+        """Set the partition type for selected partition.
+
+        Since libparted is unable to provide this functionality, we use sfdisk
+        to be able to set arbitrary type identifiers.  Please note that this
+        method needs to be only used after all partition() operations have been
+        performed.  Any disk.commit() operation resets the type GUIDs to
+        defaults.
+
+        """
+        if isinstance(typecode, tuple):
+            if self.schema is VolumeSchema.gpt:
+                typecode = typecode[1]
+            else:
+                typecode = typecode[0]
+        run(['sfdisk', '--part-type', self.path,
+             str(partnum), str(typecode)])
+
+    def diagnostics(self):
         """Return diagnostics string.
 
-        :param which: An enum value describing which diagnostic to
-            return.  Must be either Diagnostics.mbr or Diagnostics.gpt
-        :type which: Diagnostics enum item.
-        :return: Printed output from the chosen ``sgdisk`` command.
-        :rtype: str
+        :return: Dictionary with disk parition information
+        :rtype: dict
         """
-        status = run(['sgdisk', which.value, self.path])
+        status = run(['sfdisk', '--json', self.path])
+        disk_info = load_json(status.stdout)
         # TBD:
         # - check status
         # - log stderr
-        return status.stdout
+        return disk_info
 
     def write_value_at_offset(self, value, offset):
         """Write the given value to the specified absolute offset.
@@ -140,68 +184,7 @@ class Image:
             fp.seek(offset)
             fp.write(binary_value)
 
-
-class MBRImage(Image):
-    def __init__(self, path, size):
-        """Create an MBR image.
-
-        sfdisk needs different options for new disks vs. existing
-        partition tables, so cope with that here.
+    def sector(self, value):
+        """Helper function that converts sectors to bytes for the device.
         """
-        super().__init__(path, size)
-        self.initialized = False
-
-    def partition(self, partnum, **sfdisk_args):
-        """Manipulate the MBR contained in the image file.
-
-        The manipulation is done using ``sfdisk`` for consistency.  The
-        device operated on is the image file represented by this
-        instance.  The keyword arguments are given in ``sgdisk`` format,
-        so are parsed for handing off to ``sfdisk`` instead.
-        """
-        # Put together the sfdisk command.
-        args = ['sfdisk', self.path]
-        if self.initialized:
-            args.append('--append')
-        self.initialized = True
-        command_input = []
-        for key, value in sfdisk_args.items():
-            if key == 'new':
-                offset, size = value.split(':')
-                # XXX: special behavior from sfdisk: it rounds our partition
-                # size down to the nearest MiB without asking.  So round up,
-                # and if it extends past the end of the disk sfdisk will round
-                # it down to where it was supposed to be in the first place.
-                if size.endswith('K'):
-                    size = int(size.rstrip('K').lstrip('+'))
-                    size = '+{}M'.format(ceil(size / 1024))
-                command_input.extend([
-                    'start={}'.format(offset),
-                    'size={}'.format(size),
-                    ])
-            elif key == 'activate':
-                command_input.append('bootable')
-            elif key == 'typecode':
-                if isinstance(value, tuple):
-                    value = value[0]
-                command_input.append('type={}'.format(value))
-            elif key == 'change_name':
-                # If the gadget.yaml has an mbr schema with a named structure,
-                # the builder will try to set the partition's name to this
-                # value.  That's not supported by sfdisk and is probably not
-                # allowed by the mbr partition table format.  Rather than
-                # change the builder (i.e. in case we find a workaround), for
-                # now, just ignore the argument.
-                pass
-            else:
-                raise ValueError('{} option not supported for MBR partitions'
-                                 .format(key))
-        input_arg = 'part{}: {}'.format(
-            partnum, COMMASPACE.join(command_input))
-        # Run the command.  We'll capture stderr for logging purposes.
-        #
-        # TBD:
-        # - check status of the returned CompletedProcess
-        # - handle errors
-        # - log stdout/stderr
-        run(args, input=input_arg)
+        return value * self.sector_size
