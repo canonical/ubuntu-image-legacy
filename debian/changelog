@@ -1,4 +1,4 @@
-ubuntu-image (0.15+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (0.15+17.04ubuntu1) zesty; urgency=medium
 
   * ubuntu-image now supports gadget.yaml files with multiple volume
     specifications.  Each volume describes a different disk image.  For
