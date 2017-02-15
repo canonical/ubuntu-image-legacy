@@ -10,6 +10,8 @@ ubuntu-image (0.15+17.04ubuntu1) UNRELEASED; urgency=medium
     written here using the volume name and a .img suffix.  Deprecate
     -o/--output.  -O and -o are mutually exclusive.
   * Handle structure parts with size or offset < 1MiB.  (LP: #1630709)
+  * Warn when the size or offset is not a multiple of the sector size.
+    (LP: #1663172 and LP: #1621151)
   * Allow and ignore any string values in the ``defaults`` section.
     (LP: #1661515)
   * Handle a couple more cases where ubuntu-image as a snap cannot read
