@@ -1,0 +1,8 @@
+name: pc-multivolume
+version: 16.04-0.8
+summary: AMD64 generic package
+description: |
+ This package contains a simple OEM snappy package for system configuration
+type: gadget
+architectures:
+    - amd64

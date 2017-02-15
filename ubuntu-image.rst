@@ -7,9 +7,9 @@ Generate a bootable disk image
 ------------------------------
 
 :Author: Barry Warsaw <barry@ubuntu.com>
-:Date: 2016-11-01
-:Copyright: 2016 Canonical Ltd.
-:Version: 0.11
+:Date: 2017-02-13
+:Copyright: 2016-2017 Canonical Ltd.
+:Version: 0.15
 :Manual section: 1
 
 
@@ -65,16 +65,44 @@ model_assertion
 -d, --debug
     Enable debugging output.
 
--o FILENAME, --output FILENAME
-    The generated disk image file.  If not given, the image will be put in a
-    file called ``disk.img`` in the working directory (in which case, you
-    probably want to specify ``--workdir``).
+-O DIRECTORY, --output-dir DIRECTORY
+    Write generated disk image files to this directory.  The files will be
+    named after the ``gadget.yaml`` volume names, with ``.img`` suffix
+    appended.  If not given, the current working directory is used.  This
+    option replaces, and cannot be used with, the deprecated ``--output``
+    option.
 
---image-size SIZE
-    The size of the generated disk image file (see ``--output``).  If this
-    size is smaller than the minimum calculated size of the image, a warning
-    will be issued and ``--image-size`` will be ignored.  The value is the
-    size in bytes, with allowable suffixes 'M' for MiB and 'G' for GiB.
+-o FILENAME, --output FILENAME
+    **DEPRECATED** (Use ``--output-dir`` instead.)  The generated disk image
+    file.  If not given, the image will be put in a file called ``disk.img``
+    in the working directory, in which case, you probably want to specify
+    ``--workdir``.  If ``--workdir`` is not given, the image will be written
+    to the current working directory.
+
+-i SIZE, --image-size SIZE
+    The size of the generated disk image files.  If this size is smaller than
+    the minimum calculated size of the volume, a warning will be issued and
+    ``--image-size`` will be ignored.  The value is the size in bytes, with
+    allowable suffixes 'M' for MiB and 'G' for GiB.
+
+    An extended syntax is supported for gadget.yaml files which specify
+    multiple volumes (i.e. disk images).  In that case, a single ``SIZE``
+    argument will be used for all the defined volumes, with the same rules for
+    ignoring a too small value.  You can specify the image size for a single
+    volume using an indexing prefix on the ``SIZE`` parameter, where the index
+    is either a volume name or an integer index starting at zero.  For
+    example, to set the image size only on the second volume, which might be
+    called ``sdcard`` in the gadget.yaml, you could use: ``--image-size 1:8G``
+    since the 1-th index names the second volume (volumes are 0-indexed).  Or
+    you could use ``--image-size sdcard:8G``.
+
+    You can also specify multiple volume sizes by separating them with commas,
+    and you can mix and match integer indexes and volume name indexes.  Thus,
+    if the gadget.yaml named three volumes, and you wanted to set all three to
+    different sizes, you could use ``--image-size 0:2G,sdcard:8G,eMMC:4G``.
+
+    In the case of ambiguities, the size hint is ignored and the calculated
+    size for the volume will be used instead.
 
 
 Image content options
@@ -124,6 +152,30 @@ but ``--workdir`` must be given in that case since the state is saved in a
 -r, --resume
     Continue the state machine from the previously saved state.  It is an
     error if there is no previous state.
+
+
+LIMITATIONS
+===========
+
+``ubuntu-image`` may be installed via traditional ``.deb`` or it maybe be
+installed as a snap.  You can tell by running ``ubuntu-image --version`` and
+if the version number has ``+snap`` in the output, you're running it as a
+snap.
+
+It is the case for all snaps that ``/tmp`` outside the snap is not the same as
+``/tmp`` inside the snap, and outside-``/tmp`` is not accessible inside.  This
+means that several options have additional limitations when ``ubuntu-image``
+is run as a snap:
+
+* Outputting images to ``/tmp`` is not possible, therefore you may not use
+  ``/tmp`` in either the ``-O/--output-dir`` or ``-o/--output`` options.
+* Model assertion files may not live in ``/tmp``.
+* Extra snaps (i.e. ``--extra-snaps``) may not refer to snaps in ``/tmp``.
+
+In all these cases, ``ubuntu-image`` will print an error message and exit when
+run as a snap.
+
+None of these limitation apply when ``ubuntu-image`` is installed via ``.deb``.
 
 
 FILES

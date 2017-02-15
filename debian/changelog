@@ -1,3 +1,28 @@
+ubuntu-image (0.15+16.04ubuntu1) xenial; urgency=medium
+
+  * SRU tracking number LP: #1665014
+  * ubuntu-image now supports gadget.yaml files with multiple volume
+    specifications.  Each volume describes a different disk image.  For
+    the multi-volume case, no implicit root file system structure is added
+    at all; the root file system partition must be defined in the
+    gadget.yaml.  -o/--output is ignored in the multi-volume case.
+    (LP:1641727)
+  * Add -O/--output-dir command line options.  Disk image files are
+    written here using the volume name and a .img suffix.  Deprecate
+    -o/--output.  -O and -o are mutually exclusive.
+  * Handle structure parts with size or offset < 1MiB.  (LP:1630709)
+  * Warn when the size or offset is not a multiple of the sector size.
+    (LP:1663172 and LP:1621151)
+  * Allow and ignore any string values in the ``defaults`` section.
+    (LP:1661515)
+  * Handle a couple more cases where ubuntu-image as a snap cannot read
+    from /tmp (model assertions and extra snaps).  (LP:1663424)
+  * Add a release script.  (LP:1655669)
+  * Version numbers for the snap now say "+snap" instead of "+real".
+    (LP:1664296)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Mon, 06 Feb 2017 18:36:02 -0500
+
 ubuntu-image (0.14+16.04ubuntu2) xenial; urgency=medium
 
   * SRU tracking bug LP: #1655133

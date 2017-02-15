@@ -65,6 +65,42 @@ class TestParseArgs(TestCase):
                               parseargs,
                               ['--image-size', 'BIG', 'model.assertion'])
 
+    def test_output_dir_mutually_exclusive_with_output(self):
+        # You can't use -O/--output-dir and -o/--output at the same time.
+        with patch('argparse._sys.stderr'):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['-o', '/tmp/disk.img', '-O', '/tmp'])
+
+    def test_output_is_deprecated(self):
+        # -o/--output is deprecated.
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            parseargs(['-o', '/tmp/disk.img', 'model.assertion'])
+        self.assertEqual(
+            stderr.getvalue(),
+            '-o/--output is deprecated; use -O/--output-dir instead\n')
+
+    def test_multivolume_image_size(self):
+        args = parseargs(['-i', '0:4G,sdcard:2G,1:4G', 'model.assertion'])
+        self.assertEqual(args.image_size, {
+            0: GiB(4),
+            'sdcard': GiB(2),
+            1: GiB(4),
+            })
+
+    def test_multivolume_no_colon(self):
+        with patch('argparse._sys.stderr'):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['-i', '0:2G,4G,1:8G'])
+
+    def test_multivolume_bad_size(self):
+        with patch('argparse._sys.stderr'):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['-i', '0:2G,1:4BIG,2:8G'])
+
 
 class TestMain(TestCase):
     def setUp(self):
@@ -186,7 +222,49 @@ class TestMainWithModel(TestCase):
         main(('--output', imgfile, self.model_assertion))
         self.assertTrue(os.path.exists(imgfile))
 
-    def test_output_to_snaps_tmp(self):
+    def test_output_directory(self):
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        outputdir = os.path.join(tmpdir, 'images')
+        main(('--output-dir', outputdir, self.model_assertion))
+        self.assertTrue(os.path.exists(os.path.join(outputdir, 'pc.img')))
+
+    def test_output_directory_multiple_images(self):
+        class Builder(DoNothingBuilder):
+            gadget_yaml = 'gadget-multi.yaml'
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            Builder))
+        # Quiet the test suite.
+        self._resources.enter_context(patch(
+            'ubuntu_image.parser._logger.warning'))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        outputdir = os.path.join(tmpdir, 'images')
+        main(('-O', outputdir, self.model_assertion))
+        for name in ('first', 'second', 'third', 'fourth'):
+            image_path = os.path.join(outputdir, '{}.img'.format(name))
+            self.assertTrue(os.path.exists(image_path))
+
+    def test_snaps_output(self):
+        # The good path.
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        output_dir = '/this/does/not/live/in/tmp'
+        self._resources.enter_context(patch(
+            'ubuntu_image.builder.os.getcwd', return_value=output_dir))
+        # This directory should not get created.
+        code = main(('-O', output_dir,
+                     # Do not run the full state machine.
+                     '-u', 'load_gadget_yaml',
+                     '/not/tmp/model.assertion'))
+        # Success.
+        self.assertEqual(code, 0, self._stderr.getvalue())
+
+    def test_snaps_output_to_tmp(self):
         # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
         # a snap you cannot use `-o /tmp/something`.
         #
@@ -204,9 +282,24 @@ class TestMainWithModel(TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(
             self._stderr.getvalue(),
+            '-o/--output is deprecated; use -O/--output-dir instead\n'
             'ubuntu-image snap cannot write images to /tmp\n')
 
-    def test_no_output_as_snaps_pwd_tmp(self):
+    def test_snaps_output_dir_to_tmp(self):
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        self.assertFalse(os.path.exists(imgfile))
+        code = main(('--output-dir', '/tmp/images', self.model_assertion))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            self._stderr.getvalue(),
+            'ubuntu-image snap cannot write images to /tmp\n')
+
+    def test_snaps_no_output_tmp_is_pwd(self):
         # LP: 1646968 - With no --output, if the current working directory is
         # /tmp, refuse to run.
         #
@@ -230,6 +323,35 @@ class TestMainWithModel(TestCase):
         self.assertEqual(
             self._stderr.getvalue(),
             'ubuntu-image snap cannot write images to /tmp\n')
+
+    def test_snaps_no_model_assertion(self):
+        # LP: #1663424 - When run as a snap, the model assertion cannot live
+        # in /tmp.
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        code = main(('-O', '/not/tmp',
+                     '/tmp/model.assertion',))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            self._stderr.getvalue(),
+            'ubuntu-image snap cannot read models from /tmp\n')
+
+    def test_snaps_no_extra_snaps(self):
+        # LP: #1663424 - When run as a snap, --extra-snaps cannot live in /tmp.
+        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        code = main(('-O', '/not/tmp',
+                     '--extra-snaps', '/not/in/tmp/extra.snap',
+                     '--extra-snaps', '/tmp/extra.snap',
+                     '/not/tmp/model.assertion'))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            self._stderr.getvalue(),
+            'ubuntu-image snap cannot read extra snaps from /tmp\n')
 
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:
