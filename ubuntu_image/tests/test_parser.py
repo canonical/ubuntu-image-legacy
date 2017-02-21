@@ -1221,7 +1221,7 @@ class TestParserWarnings(TestCase):
         self._mock = self._resources.enter_context(
             patch('ubuntu_image.parser._logger.warning'))
 
-    def test_parser_sector_multiple_warning_for_size(self):
+    def test_sector_misalign_size_type(self):
         self._resources.enter_context(
             patch('ubuntu_image.parser.get_default_sector_size',
                   return_value=111))
@@ -1237,11 +1237,11 @@ volumes:
         posargs, kwargs = self._mock.call_args_list[0]
         self.assertEqual(
             posargs[0],
-            'Partition size/offset need to be a multiple of sector '
-            'size (111).  The size/offset will be rounded up to the '
-            'nearest sector.')
+            'Partition type 00000000-0000-0000-0000-0000deadbeef size/offset '
+            'need to be a multiple of sector size (111).  The size/offset '
+            'will be rounded up to the nearest sector.')
 
-    def test_parser_sector_multiple_warning_for_offset(self):
+    def test_sector_misalign_size_name(self):
         self._resources.enter_context(
             patch('ubuntu_image.parser.get_default_sector_size',
                   return_value=111))
@@ -1251,6 +1251,28 @@ volumes:
     bootloader: u-boot
     structure:
         - type: 00000000-0000-0000-0000-0000deadbeef
+          name: beefy
+          size: 590
+""")
+        self.assertEqual(len(self._mock.call_args_list), 1)
+        posargs, kwargs = self._mock.call_args_list[0]
+        self.assertEqual(
+            posargs[0],
+            'Partition beefy size/offset need to be a multiple of sector '
+            'size (111).  The size/offset will be rounded up to the '
+            'nearest sector.')
+
+    def test_sector_misalign_offset_role(self):
+        self._resources.enter_context(
+            patch('ubuntu_image.parser.get_default_sector_size',
+                  return_value=111))
+        parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          role: system-data
           size: 1M
           offset: 590
 """)
@@ -1258,8 +1280,8 @@ volumes:
         posargs, kwargs = self._mock.call_args_list[0]
         self.assertEqual(
             posargs[0],
-            'Partition size/offset need to be a multiple of sector '
-            'size (111).  The size/offset will be rounded up to the '
+            'Partition role system-data size/offset need to be a multiple of '
+            'sector size (111).  The size/offset will be rounded up to the '
             'nearest sector.')
 
 
