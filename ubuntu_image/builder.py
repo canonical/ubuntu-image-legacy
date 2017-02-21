@@ -24,6 +24,15 @@ class TMPNotReadableFromOutsideSnap(Exception):
     """/tmp is different from inside and outside a snap."""
 
 
+class DoesNotFit(Exception):
+    """A part's content does not fit in the structure."""
+
+    def __init__(self, volume_name, part, part_number):
+        self.volume_name = volume_name
+        self.part = part
+        self.part_number = part_number
+
+
 class ModelAssertionBuilder(State):
     def __init__(self, args):
         super().__init__()
@@ -211,6 +220,7 @@ class ModelAssertionBuilder(State):
         # Calculate the size of the root file system.  Basically, I'm trying
         # to reproduce du(1) close enough without having to call out to it and
         # parse its output.
+        #
         # On a 100MiB filesystem, ext4 takes a little over 7MiB for the
         # metadata.  Use 8MiB as a minimum padding here.
         self.rootfs_size = self._calculate_dirsize(self.rootfs) + MiB(8)
@@ -400,7 +410,8 @@ class ModelAssertionBuilder(State):
                     # XXX: We need to check for overlapping images.
                     if content.offset is not None:
                         offset = content.offset
-                    # XXX: We must check offset+size vs. the target image.
+                    if offset + file_size > part.size:
+                        raise DoesNotFit(name, part, partnum)
                     image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
                     offset += file_size
             elif part.filesystem is FileSystemType.vfat:

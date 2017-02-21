@@ -12,6 +12,7 @@ from struct import unpack
 from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
+from ubuntu_image.builder import DoesNotFit
 from ubuntu_image.helpers import MiB, run
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema)
@@ -1817,6 +1818,68 @@ class TestModelAssertionBuilder(TestCase):
                 posargs[0],
                 'rootfs partition size (1047465) smaller than '
                 'actual rootfs contents 1048576')
+
+    def test_mbr_contents_too_large(self):
+        # A structure with role:mbr cannot have contents larger than 446 bytes.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                given_image_size='1M',
+                image_size=MiB(1),
+                debug=False,
+                output=None,
+                output_dir=None,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Create mbr contents that is bigger than the mbr partition.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            gadget_dir = os.path.join(state.unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            mbr_content = os.path.join(gadget_dir, 'pc-boot.img')
+            with open(mbr_content, 'wb') as fp:
+                # Oops!  This is > 446 bytes (mbr role limit).
+                fp.write(b'\1' * 512)
+            # Name the part image file.
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
+            content = SimpleNamespace(
+                image='pc-boot.img',
+                size=None,
+                offset=None,
+                )
+            part0 = SimpleNamespace(
+                name='mbr',
+                type='mbr',
+                role=StructureRole.mbr,
+                filesystem=FileSystemType.none,
+                size=440,
+                offset=0,
+                offset_write=None,
+                content=[content],
+                )
+            volume = SimpleNamespace(
+                structures=[part0],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(pc=volume),
+                )
+            prep_state(state, workdir, part_images=[part0_img])
+            with self.assertRaises(DoesNotFit) as cm:
+                next(state)
+            self.assertEqual(cm.exception.volume_name, 'pc')
+            self.assertEqual(cm.exception.part.name, 'mbr')
+            self.assertEqual(cm.exception.part_number, 0)
 
     def test_snap_command_fails(self):
         # LP: #1621445 - If the snap(1) command fails, don't print the full
