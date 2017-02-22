@@ -429,6 +429,8 @@ class TestMainWithModel(TestCase):
         main(('--workdir', workdir, '--resume'))
         self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))
 
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
     def test_does_not_fit(self):
         # The contents of a structure is too large for the image size.
         workdir = self._resources.enter_context(TemporaryDirectory())

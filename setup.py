@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 
 try:
@@ -37,6 +38,7 @@ def require_python(minimum):
                 major, minor, micro, hex(release)[2:]))
         sys.exit(1)
 
+
 require_python(0x30500f0)
 
 
@@ -49,6 +51,17 @@ else:
         # --version` can display it.
         with open('ubuntu_image/version.txt', 'w', encoding='utf-8') as outfp:
             print(__version__, file=outfp)
+
+
+# LP: #1631156 - We want the flake8 entry point for all testing purposes, but
+# we do not want to install an ubuntu_image.egg-info/entry_points.txt file
+# with the flake8 entry point, since this will globally break other packages.
+# Unfortunately we cannot adopt flufl.testing since that's not available
+# before Ubuntu 17.04, and we still need to support 16.04 LTS.
+entry_points = dict()
+if os.environ.get('UBUNTU_IMAGE_BUILD_FOR_TESTING', False):
+    entry_points['flake8.extension'] = [
+        'B4 = ubuntu_image.testing.flake8:ImportOrder']
 
 
 setup(
@@ -65,9 +78,7 @@ setup(
         ],
     include_package_data=True,
     scripts=['ubuntu-image'],
-    entry_points={
-        'flake8.extension': ['B4 = ubuntu_image.testing.flake8:ImportOrder'],
-        },
+    entry_points=entry_points,
     license='GPLv3',
     classifiers=(
         'Development Status :: 3 - Alpha',
