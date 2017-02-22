@@ -7,7 +7,6 @@ export PYBUILD_NAME=ubuntu-image
 export UBUNTU_IMAGE_TESTS_NO_NETWORK=1
 export pkgversion=$(shell dpkg-parsechangelog --show-field version)
 
-
 %:
 	dh $@ --with=python3 --buildsystem=pybuild
 
