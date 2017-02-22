@@ -412,13 +412,6 @@ def parse(stream_or_string):
                     offset = MiB(1)
                 else:
                     offset = last_offset
-            if (size % sector_size) != 0 or (offset % sector_size) != 0:
-                _logger.warning(
-                    'Partition size/offset need to be a multiple of sector '
-                    'size ({}).  The size/offset will be rounded up to the '
-                    'nearest sector.'.format(sector_size))
-            last_offset = offset + size
-            farthest_offset = max(farthest_offset, last_offset)
             # Extract the rest of the structure data.
             structure_id = structure.get('id')
             filesystem = structure['filesystem']
@@ -435,6 +428,28 @@ def parse(stream_or_string):
                 if filesystem is not FileSystemType.none:
                     raise GadgetSpecificationError(
                         'mbr structures must not specify a file system')
+            else:
+                # Size and offset constraints on other partitions mandate
+                # sector size alignment.
+                if (size % sector_size) != 0 or (offset % sector_size) != 0:
+                    # Provide some hint as to which partition is unaligned.
+                    # Only the structure type is required, but if the name or
+                    if name is None:
+                        if structure_role is None:
+                            whats_wrong = 'type {}'.format(structure_type)
+                        else:
+                            whats_wrong = 'role {}'.format(
+                                structure_role.value)
+                    else:
+                        whats_wrong = name
+
+                    _logger.warning(
+                        'Partition {} size/offset need to be a multiple of '
+                        'sector size ({}).  The size/offset will be rounded '
+                        'up to the nearest sector.'.format(
+                            whats_wrong, sector_size))
+            last_offset = offset + size
+            farthest_offset = max(farthest_offset, last_offset)
             filesystem_label = structure.get('filesystem-label', name)
             # Support the legacy mode setting of partition roles through
             # filesystem labels.

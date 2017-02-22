@@ -429,6 +429,25 @@ class TestMainWithModel(TestCase):
         main(('--workdir', workdir, '--resume'))
         self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))
 
+    def test_does_not_fit(self):
+        # The contents of a structure is too large for the image size.
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        # See LP: #1666580
+        main(('--workdir', workdir,
+              '--thru', 'load_gadget_yaml',
+              self.model_assertion))
+        # Make the gadget's mbr contents too big.
+        path = os.path.join(workdir, 'unpack', 'gadget', 'pc-boot.img')
+        os.truncate(path, 512)
+        mock = self._resources.enter_context(patch(
+            'ubuntu_image.__main__._logger.error'))
+        code = main(('--workdir', workdir, '--resume'))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            mock.call_args_list[-1],
+            call('Volume contents do not fit (72B over): '
+                 'volumes:<pc>:structure:<mbr> [#0]'))
+
 
 class TestMainWithBadGadget(TestCase):
     def setUp(self):
