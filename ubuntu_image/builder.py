@@ -13,7 +13,7 @@ from ubuntu_image.image import Image
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema,
     parse as parse_yaml)
-from ubuntu_image.state import State
+from ubuntu_image.state import ExpectedError, State
 
 
 SPACE = ' '
@@ -24,13 +24,13 @@ class TMPNotReadableFromOutsideSnap(Exception):
     """/tmp is different from inside and outside a snap."""
 
 
-class DoesNotFit(Exception):
+class DoesNotFit(ExpectedError):
     """A part's content does not fit in the structure."""
 
-    def __init__(self, volume_name, part, part_number):
-        self.volume_name = volume_name
-        self.part = part
+    def __init__(self, part_number, part_path, overage):
         self.part_number = part_number
+        self.part_path = part_path
+        self.overage = overage
 
 
 class ModelAssertionBuilder(State):
@@ -410,8 +410,19 @@ class ModelAssertionBuilder(State):
                     # XXX: We need to check for overlapping images.
                     if content.offset is not None:
                         offset = content.offset
-                    if offset + file_size > part.size:
-                        raise DoesNotFit(name, part, partnum)
+                    end = offset + file_size
+                    if end > part.size:
+                        if part.name is None:
+                            if part.role is None:
+                                whats_wrong = part.type
+                            else:
+                                whats_wrong = part.role.value
+                        else:
+                            whats_wrong = part.name
+                        part_path = 'volumes:<{}>:structure:<{}>'.format(
+                            name, whats_wrong)
+                        self.exitcode = 1
+                        raise DoesNotFit(partnum, part_path, end - part.size)
                     image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
                     offset += file_size
             elif part.filesystem is FileSystemType.vfat:

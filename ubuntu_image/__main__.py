@@ -9,7 +9,7 @@ from contextlib import suppress
 from pickle import dump, load
 from ubuntu_image import __version__
 from ubuntu_image.builder import (
-    ModelAssertionBuilder, TMPNotReadableFromOutsideSnap)
+    DoesNotFit, ModelAssertionBuilder, TMPNotReadableFromOutsideSnap)
 from ubuntu_image.helpers import as_size
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
@@ -208,6 +208,10 @@ def main(argv=None):
         else:
             _logger.error('gadget.yaml parse error: {}'.format(error))
             _logger.error('Use --debug for more information')
+    except DoesNotFit as error:
+        _logger.error(
+            'Volume contents do not fit ({}B over): {} [#{}]'.format(
+                error.overage, error.part_path, error.part_number))
     except:
         _logger.exception('Crash in state machine')
         return 1

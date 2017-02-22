@@ -1877,9 +1877,11 @@ class TestModelAssertionBuilder(TestCase):
             prep_state(state, workdir, part_images=[part0_img])
             with self.assertRaises(DoesNotFit) as cm:
                 next(state)
-            self.assertEqual(cm.exception.volume_name, 'pc')
-            self.assertEqual(cm.exception.part.name, 'mbr')
             self.assertEqual(cm.exception.part_number, 0)
+            self.assertEqual(
+                cm.exception.part_path, 'volumes:<pc>:structure:<mbr>')
+            # 72 bytes over == 512 - 440
+            self.assertEqual(cm.exception.overage, 72)
 
     def test_snap_command_fails(self):
         # LP: #1621445 - If the snap(1) command fails, don't print the full

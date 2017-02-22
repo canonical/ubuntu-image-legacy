@@ -8,6 +8,15 @@ from logging import getLogger
 log = getLogger('ubuntu-image')
 
 
+class ExpectedError(Exception):
+    """Base class for exceptions that should be passed up.
+
+    Normally exceptions that occur during the execution of a state machine
+    method are logged and re-raised.  If the exception inherits from this base
+    class, the error is not logged but it is still re-raised.
+    """
+
+
 class State:
     def __init__(self):
         # Variables which manage state transitions.
@@ -76,8 +85,9 @@ class State:
             # Do not chain the exception.
             self.close()
             raise StopIteration from None
-        except:
-            self._log_exception(name)
+        except Exception as error:
+            if not isinstance(error, ExpectedError):
+                self._log_exception(name)
             self.close()
             raise
 
