@@ -104,6 +104,10 @@ model_assertion
     In the case of ambiguities, the size hint is ignored and the calculated
     size for the volume will be used instead.
 
+--image-file-list FILENAME
+    Print to ``FILENAME``, a list of the file system paths to all the disk
+    images created by the command, if any.
+
 
 Image content options
 ---------------------
