@@ -225,9 +225,9 @@ def main(argv=None):
     if state_machine.exitcode != 0:
         return state_machine.exitcode
     # Write out the list of images, if there are any.
-    if (state_machine.gadget is not None
-            and state_machine.done
-            and args.image_file_list is not None):
+    if (state_machine.gadget is not None and
+            state_machine.done and
+            args.image_file_list is not None):
         with open(args.image_file_list, 'w', encoding='utf-8') as fp:
             if args.output is None:
                 for name in state_machine.gadget.volumes:
