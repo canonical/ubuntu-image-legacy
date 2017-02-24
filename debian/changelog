@@ -3,6 +3,10 @@ ubuntu-image (1.0+17.04ubuntu1) UNRELEASED; urgency=medium
   * Exit with a console message instead of crashing when the contents of a
     partition does not fit within the specified size.  (LP: #1666580)
   * Don't install an unusable global flake8 extension.  (LP: #1631156)
+  * Fix the autopkgtests to use --output-dir instead of the obsolete
+    --output command line switch.  (LP: #1667140)
+  * Added ``--image-file-list`` command line argument to record the paths
+    of all the disk image files written.
 
  -- Barry Warsaw <barry@ubuntu.com>  Wed, 22 Feb 2017 11:30:01 -0500
 

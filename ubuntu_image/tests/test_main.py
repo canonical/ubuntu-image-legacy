@@ -247,6 +247,46 @@ class TestMainWithModel(TestCase):
             image_path = os.path.join(outputdir, '{}.img'.format(name))
             self.assertTrue(os.path.exists(image_path))
 
+    def test_output_directory_multiple_images_image_file_list(self):
+        class Builder(DoNothingBuilder):
+            gadget_yaml = 'gadget-multi.yaml'
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            Builder))
+        # Quiet the test suite.
+        self._resources.enter_context(patch(
+            'ubuntu_image.parser._logger.warning'))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        outputdir = os.path.join(tmpdir, 'images')
+        image_file_list = os.path.join(tmpdir, 'ifl.txt')
+        main(('-O', outputdir,
+              '--image-file-list', image_file_list,
+              self.model_assertion))
+        with open(image_file_list, 'r', encoding='utf-8') as fp:
+            img_files = set(line.rstrip() for line in fp.readlines())
+        self.assertEqual(
+            img_files,
+            set(os.path.join(outputdir, '{}.img'.format(filename))
+                for filename in ('first', 'second', 'third', 'fourth'))
+            )
+
+    def test_output_image_file_list(self):
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        # Quiet the test suite.
+        self._resources.enter_context(patch(
+            'ubuntu_image.parser._logger.warning'))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        output = os.path.join(tmpdir, 'pc.img')
+        image_file_list = os.path.join(tmpdir, 'ifl.txt')
+        main(('-o', output,
+              '--image-file-list', image_file_list,
+              self.model_assertion))
+        with open(image_file_list, 'r', encoding='utf-8') as fp:
+            img_files = set(line.rstrip() for line in fp.readlines())
+        self.assertEqual(img_files, {output})
+
     def test_snaps_output(self):
         # The good path.
         self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))

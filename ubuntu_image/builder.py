@@ -97,6 +97,7 @@ class ModelAssertionBuilder(State):
         self.volumedir = None
         self.cloud_init = args.cloud_init
         self.exitcode = 0
+        self.done = False
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -104,6 +105,7 @@ class ModelAssertionBuilder(State):
         state.update(
             args=self.args,
             cloud_init=self.cloud_init,
+            done=self.done,
             exitcode=self.exitcode,
             gadget=self.gadget,
             images=self.images,
@@ -121,6 +123,7 @@ class ModelAssertionBuilder(State):
         super().__setstate__(state)
         self.args = state['args']
         self.cloud_init = state['cloud_init']
+        self.done = state['done']
         self.exitcode = state['exitcode']
         self.gadget = state['gadget']
         self.images = state['images']
@@ -531,4 +534,5 @@ class ModelAssertionBuilder(State):
         self._next.append(self.finish)
 
     def finish(self):
+        self.done = True
         self._next.append(self.close)
