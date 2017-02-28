@@ -33,3 +33,6 @@ Depends: @, kpartx
 Tests: multivol
 Restrictions: needs-root, allow-stderr, isolation-machine
 Depends: @, kpartx
+
+Tests: boot
+Depends: @, qemu-system-x86
