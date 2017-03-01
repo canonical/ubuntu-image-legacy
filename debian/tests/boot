@@ -41,6 +41,7 @@ extra_snap = os.path.abspath(
 
 
 def qemu(image, qmp_port, fwd_port):
+    print('RUNNING IMAGE: qmp={}, fwd={}'.format(qmp_port, fwd_port))
     run(['qemu-system-x86_64',
          '-qmp', 'tcp:localhost:{},server'.format(qmp_port),
          '-nographic',
@@ -135,8 +136,9 @@ def main():
             raise RuntimeError('Cannot connect to SSH port')
         resources.callback(echo.close)
         echo.sendall(GREETING)
+        time.sleep(5)
         response = echo.recv(4096)
-        assert response == GREETING, response
+        assert response == GREETING.swapcase(), response
 
 
 main()

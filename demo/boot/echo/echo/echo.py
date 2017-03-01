@@ -16,9 +16,7 @@ class EchoServerClientProtocol(asyncio.Protocol):
         message = data.decode()
         print('Data received: {!r}'.format(message))
         print('Send: {!r}'.format(message))
-        self.transport.write(data)
-        print('Close the client socket')
-        self.transport.close()
+        self.transport.write(data.swapcase())
 
 
 def main():

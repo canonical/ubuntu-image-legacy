@@ -3,8 +3,10 @@
 ========================
 
 The autopkgtests include a boot test, which creates a bootable amd64 image
-with an extra snap.  This extra snap implements a simple "echo service" daemon
-which starts on image boot, listening on localhost:8888.
+with an extra snap.  This extra snap implements a simple "case swapping echo
+service" daemon which starts on image boot, listening on localhost:8888, which
+returns whatever bytes are sent to it, case swapped.  (E.g. the results of
+bytes.swapcase()).
 
 The test boots this image under QEMU, forwarding the VM's port 8888 to the
 autopkgtest process.  Then the test connects to port 8888 and sends it a
@@ -29,3 +31,7 @@ directory and then clean up::
 
     $ mv echo-service_0.1_amd64.snap ../../debian/tests/snaps/
     $ snapcraft clean
+
+**VERY IMPORTANT**: Be sure to call that ``snapcraft clean`` command.  If you
+don't you'll get a ton of extra cruft in your source package, if it even
+builds.
