@@ -40,3 +40,7 @@ def main():
         loop.close()
     except Exception:
         pass
+
+
+if __name__ == '__main__':
+    main()
