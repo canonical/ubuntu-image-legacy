@@ -6,11 +6,11 @@ We use QEMU to boot the image created by ubuntu-image.  We open the QMP
 monitor port so that the controlling process (i.e. the autopkgtest) can start
 and stop the virtual machine.
 
-When creating the image, pass a very simple cloud-init user data file which
-starts up a Python 3 echo server on port 8888 of the guest.  That port gets
-forwarded to the host so that the autopkgtest (i.e. this script) can connect
-to it.  We send the echo server some data, get the results, and if they match,
-we're good.
+When creating the image, pass a very simple extra snap that implements an echo
+service.  This services starts on image boot and listens on port 8888 of the
+guest.  That port gets forwarded to the host so that the autopkgtest (i.e. this
+script) can connect to it.  We send the echo server some data, get the results,
+and if they match, we're good.
 
 NOTE: This test only runs on amd64!
 """
@@ -34,15 +34,17 @@ DIR = os.path.abspath(os.path.join('debian', 'tests', 'models'))
 QMP_TIMEOUT = 60 # seconds
 SSH_TIMEOUT = 60 * 3
 NEWLINE = b'\n'
-
 GREETING = b'this is the autopkgtest boot test'
+
+extra_snap = os.path.abspath(
+    os.path.join('debian', 'tests', 'snaps', 'echo-service_0.1_amd64.snap'))
 
 
 def qemu(image, qmp_port, fwd_port):
     run(['qemu-system-x86_64',
          '-qmp', 'tcp:localhost:{},server'.format(qmp_port),
          '-nographic',
-         '-m', '2G',
+         '-m', '500M',
          '-netdev', 'user,id=mynet0,hostfwd=::{}-:8888'.format(fwd_port),
          '-device', 'e1000,netdev=mynet0',
          image],
@@ -80,58 +82,17 @@ def main():
     if platform.machine() != 'x86_64':
         # We can't but it makes no sense to fail.
         sys.exit(0)
-    # Use ubuntu-image to create an image.  Use cloud-init to initialize the
-    # instance (so it doesn't print 'Press enter to configure.' and wait for
-    # user input).
-    with TemporaryDirectory() as tmpdir:
-        user_data_file = os.path.join(tmpdir, 'user-data.txt')
-        with open(user_data_file, 'w', encoding='utf-8') as fp:
-            print("""\
-write_files:
- - content: |
-      #!/usr/bin/python3
-      import asyncio
-      print('Starting echo service')
-      class EchoServerClientProtocol(asyncio.Protocol):
-          def connection_made(self, transport):
-              peername = transport.get_extra_info('peername')
-              print('Connection from {}'.format(peername))
-              self.transport = transport
-          def data_received(self, data):
-              message = data.decode()
-              print('Data received: {!r}'.format(message))
-              print('Send: {!r}'.format(message))
-              self.transport.write(data)
-              print('Close the client socket')
-              self.transport.close()
-      loop = asyncio.get_event_loop()
-      # Each client connection will create a new protocol instance
-      coro = loop.create_server(EchoServerClientProtocol, '127.0.0.1', 8888)
-      server = loop.run_until_complete(coro)
-      # Serve requests until Ctrl+C is pressed
-      print('Serving on {}'.format(server.sockets[0].getsockname()))
-      try:
-          loop.run_forever()
-      except KeyboardInterrupt:
-          pass
-      # Close the server
-      server.close()
-      loop.run_until_complete(server.wait_closed())
-      loop.close()
-   path: /usr/bin/echo
-   permissions:  '0777'
-bootcmd:
-  - /usr/bin/echo
-""", file=fp)
-        image_file = os.path.join(tmpdir, 'image-file-list.txt')
-        run(['ubuntu-image', '--image-file-list', image_file,
-             '--output-dir', TMP,
-             '--cloud-init', user_data_file,
-             os.path.join(DIR, 'pc-amd64-model.assertion')],
-            check=True)
-        with open(image_file, 'r', encoding='utf-8') as fp:
-            images = [line.rstrip() for line in fp.readlines()]
-            assert len(images) == 1, images
+    # Use ubuntu-image to create an image with a local extra snap that
+    # implements an echo service.  This service starts on image boot.
+    image_file = os.path.join(TMP, 'image-file-list.txt')
+    run(['ubuntu-image', '--image-file-list', image_file,
+         '--output-dir', TMP,
+         '--extra-snaps', extra_snap,
+         os.path.join(DIR, 'pc-amd64-model.assertion')],
+        check=True)
+    with open(image_file, 'r', encoding='utf-8') as fp:
+        images = [line.rstrip() for line in fp.readlines()]
+        assert len(images) == 1, images
     image = images[0]
     # Assume that we can find a random port between [10000-20000) - if we
     # can't, no biggie, the test may fail but we can always retry it.

@@ -6,12 +6,15 @@ description: |
   created by ubuntu-image using --extra-snaps.  It implements an echo service
   which starts on boot and which the autopkgtest pings once the image is
   booted.  If it connects and returns the expected results, the test passes.
-grade: devel # must be 'stable' to release into candidate/stable channels
-confinement: devmode # use 'strict' once you have the right plugs and slots
+grade: devel
+confinement: strict
 apps:
   echo-service:
     command: python3 -m echo
+    daemon: simple
+    restart-condition: always
+    plugs: [network-bind]
 parts:
   echo-service:
     plugin: python
-    source: echo
+    source: ./echo

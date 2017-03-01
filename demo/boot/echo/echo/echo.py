@@ -35,9 +35,9 @@ def main():
         pass
 
     # Close the server
-    server.close()
-    loop.run_until_complete(server.wait_closed())
-    loop.close()
-
-
-main()
+    try:
+        server.close()
+        loop.run_until_complete(server.wait_closed())
+        loop.close()
+    except Exception:
+        pass
