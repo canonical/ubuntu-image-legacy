@@ -6,11 +6,11 @@ We use QEMU to boot the image created by ubuntu-image.  We open the QMP
 monitor port so that the controlling process (i.e. the autopkgtest) can start
 and stop the virtual machine.
 
-When creating the image, pass a very simple extra snap that implements an echo
-service.  This services starts on image boot and listens on port 8888 of the
-guest.  That port gets forwarded to the host so that the autopkgtest (i.e. this
-script) can connect to it.  We send the echo server some data, get the results,
-and if they match, we're good.
+When creating the image, pass an extra snap that implements a very simple case
+swapping echo service.  This service starts on image boot and listens on port
+8888 of the guest.  That port gets forwarded to the host so that the
+autopkgtest (i.e. this script) can connect to it.  We send the echo server some
+bytes data and check the response.
 
 NOTE: This test only runs on amd64!
 """
@@ -22,6 +22,7 @@ import platform
 from contextlib import ExitStack
 from datetime import datetime, timedelta
 from json import dumps, loads
+from pprint import pprint
 from random import randrange
 from socket import create_connection
 from subprocess import run
@@ -40,13 +41,12 @@ extra_snap = os.path.abspath(
     os.path.join('debian', 'tests', 'snaps', 'echo-service_0.2_amd64.snap'))
 
 
-def qemu(image, qmp_port, fwd_port):
-    print('RUNNING IMAGE: qmp={}, fwd={}'.format(qmp_port, fwd_port))
+def qemu(image):
     run(['qemu-system-x86_64',
-         '-qmp', 'tcp:localhost:{},server'.format(qmp_port),
+         '-qmp', 'tcp:localhost:4444,server',
          '-nographic',
          '-m', '500M',
-         '-netdev', 'user,id=mynet0,hostfwd=::{}-:8888'.format(fwd_port),
+         '-netdev', 'user,id=mynet0,hostfwd=::8888-:8888',
          '-device', 'e1000,netdev=mynet0',
          image],
         check=True)
@@ -79,6 +79,7 @@ def shutdown(conn):
 
 
 def main():
+    pprint(os.environ)
     # First off, can we even run the test on this architecture?
     if platform.machine() != 'x86_64':
         # We can't but it makes no sense to fail.
@@ -95,12 +96,8 @@ def main():
         images = [line.rstrip() for line in fp.readlines()]
         assert len(images) == 1, images
     image = images[0]
-    # Assume that we can find a random port between [10000-20000) - if we
-    # can't, no biggie, the test may fail but we can always retry it.
-    qmp_port = randrange(10000, 15000)
-    fwd_port = randrange(20000, 25000)
     with ExitStack() as resources:
-        thread = Thread(target=qemu, args=(image, qmp_port, fwd_port))
+        thread = Thread(target=qemu, args=(image,))
         thread.daemon = True
         thread.start()
         # Connect to QMP, but watch out for the race condition.  Connecting
@@ -110,7 +107,7 @@ def main():
             # No, the timeout argument to this function does *not* handle
             # ConnectionRefusedErrors.
             try:
-                qmp = create_connection(('localhost', qmp_port))
+                qmp = create_connection(('localhost', 4444))
                 break
             except ConnectionRefusedError:
                 time.sleep(0.1)
@@ -128,7 +125,7 @@ def main():
             # No, the timeout argument to this function does *not* handle
             # ConnectionRefusedErrors.
             try:
-                echo = create_connection(('localhost', fwd_port))
+                echo = create_connection(('localhost', 8888))
                 break
             except ConnectionRefusedError:
                 time.sleep(0.1)
@@ -136,7 +133,6 @@ def main():
             raise RuntimeError('Cannot connect to SSH port')
         resources.callback(echo.close)
         echo.sendall(GREETING)
-        time.sleep(5)
         response = echo.recv(4096)
         assert response == GREETING.swapcase(), response
 
