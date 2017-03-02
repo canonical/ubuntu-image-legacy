@@ -46,7 +46,7 @@ def qemu(image):
          '-qmp', 'tcp:localhost:4444,server',
          '-nographic',
          '-m', '500M',
-         '-netdev', 'user,id=mynet0,hostfwd=::8888-:8888',
+         '-netdev', 'user,id=mynet0,hostfwd=::8888-:8888,hostfwd=::10022-:22',
          '-device', 'e1000,netdev=mynet0',
          image],
         check=True)

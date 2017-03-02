@@ -2,21 +2,26 @@
 
 import asyncio
 
+from syslog import syslog
 
-print('Starting echo service')
+
+syslog('Starting echo service')
 
 
 class EchoServerClientProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         peername = transport.get_extra_info('peername')
-        print('Connection from {}'.format(peername))
+        syslog('Connection from {}'.format(peername))
         self.transport = transport
 
     def data_received(self, data):
-        message = data.decode()
-        print('Data received: {!r}'.format(message))
-        print('Send: {!r}'.format(message))
-        self.transport.write(data.swapcase())
+        try:
+            message = data.decode()
+            syslog('Data received: {!r}'.format(message))
+            syslog('Send: {!r}'.format(message))
+            self.transport.write(data.swapcase())
+        except Exception as error:
+            syslog(str(error))
 
 
 def main():
@@ -27,7 +32,7 @@ def main():
     server = loop.run_until_complete(coro)
 
     # Serve requests until Ctrl+C is pressed
-    print('Serving on {}'.format(server.sockets[0].getsockname()))
+    syslog('Serving on {}'.format(server.sockets[0].getsockname()))
     try:
         loop.run_forever()
     except KeyboardInterrupt:
@@ -38,8 +43,8 @@ def main():
         server.close()
         loop.run_until_complete(server.wait_closed())
         loop.close()
-    except Exception:
-        pass
+    except Exception as error:
+        syslog(str(error))
 
 
 if __name__ == '__main__':
