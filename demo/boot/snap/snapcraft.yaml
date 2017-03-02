@@ -1,5 +1,5 @@
 name: echo-service
-version: '0.1'
+version: '0.2'
 summary: Echo service for image boot test
 description: |
   LP: #1625732 - an autopkgtest boot test.  This snap is loaded into an image

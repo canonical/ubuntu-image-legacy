@@ -37,7 +37,7 @@ NEWLINE = b'\n'
 GREETING = b'this is the autopkgtest boot test'
 
 extra_snap = os.path.abspath(
-    os.path.join('debian', 'tests', 'snaps', 'echo-service_0.1_amd64.snap'))
+    os.path.join('debian', 'tests', 'snaps', 'echo-service_0.2_amd64.snap'))
 
 
 def qemu(image, qmp_port, fwd_port):
