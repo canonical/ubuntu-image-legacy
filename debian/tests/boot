@@ -46,10 +46,55 @@ def qemu(image):
          '-qmp', 'tcp:localhost:4444,server',
          '-nographic',
          '-m', '500M',
-         '-netdev', 'user,id=mynet0,hostfwd=::8888-:8888,hostfwd=::10022-:22',
+         '-netdev', 'user,id=mynet0,hostfwd=::8888-:8888,hostfwd=::9922-:22',
          '-device', 'e1000,netdev=mynet0',
          image],
         check=True)
+
+
+CLOUD_INIT = """\
+users:
+ - default
+ - name: debug
+   gecos: Debug
+   passwd: jiPZFMQONuVas
+   home: /home/debug
+   shell: /bin/bash
+   lock_passwd: false
+   groups: [adm, audio, cdrom, dialout, floppy, video, plugdev, dip, netdev]
+   sudo: ALL=(ALL) NOPASSWD:ALL
+manage-resolve-conf: true
+resolve_conf:
+  nameservers: ['8.8.4.4', '8.8.8.8']
+"""
+
+
+def build_image():
+    # Use ubuntu-image to create an image with a local extra snap that
+    # implements an echo service.  This service starts on image boot.
+    image_file = os.path.join(TMP, 'image-file-list.txt')
+    user_data = os.path.join(TMP, 'cloud-init.yml')
+    with open(user_data, 'w', encoding='utf-8') as fp:
+        print(CLOUD_INIT, file=fp)
+    run(['ubuntu-image', '--image-file-list', image_file,
+         '--output-dir', TMP,
+         '--workdir', TMP,
+         '--extra-snaps', extra_snap,
+         # XXX DEBUGGING HACK.
+         '--cloud-init', user_data,
+         '--thru', 'populate_rootfs_contents',
+         os.path.join(DIR, 'pc-amd64-model.assertion')],
+        check=True)
+    os.remove(os.path.join(
+        TMP, 'root', 'system-data', 'etc', 'cloud', 'cloud-init.disabled'))
+    run(['ubuntu-image', '--resume', '--workdir', TMP,
+         '--image-file-list', image_file,
+         '--output-dir', TMP],
+        check=True)
+    with open(image_file, 'r', encoding='utf-8') as fp:
+        images = [line.rstrip() for line in fp.readlines()]
+        assert len(images) == 1, images
+    return images[0]
 
 
 def execute(conn, command=None):
@@ -79,23 +124,11 @@ def shutdown(conn):
 
 
 def main():
-    pprint(os.environ)
     # First off, can we even run the test on this architecture?
     if platform.machine() != 'x86_64':
         # We can't but it makes no sense to fail.
         sys.exit(0)
-    # Use ubuntu-image to create an image with a local extra snap that
-    # implements an echo service.  This service starts on image boot.
-    image_file = os.path.join(TMP, 'image-file-list.txt')
-    run(['ubuntu-image', '--image-file-list', image_file,
-         '--output-dir', TMP,
-         '--extra-snaps', extra_snap,
-         os.path.join(DIR, 'pc-amd64-model.assertion')],
-        check=True)
-    with open(image_file, 'r', encoding='utf-8') as fp:
-        images = [line.rstrip() for line in fp.readlines()]
-        assert len(images) == 1, images
-    image = images[0]
+    image = build_image()
     with ExitStack() as resources:
         thread = Thread(target=qemu, args=(image,))
         thread.daemon = True
