@@ -1,5 +1,5 @@
 name: echo-service
-version: '0.2'
+version: '0.4'
 summary: Echo service for image boot test
 description: |
   LP: #1625732 - an autopkgtest boot test.  This snap is loaded into an image
@@ -7,14 +7,15 @@ description: |
   which starts on boot and which the autopkgtest pings once the image is
   booted.  If it connects and returns the expected results, the test passes.
 grade: devel
-confinement: strict
+confinement: devmode
 apps:
   echo-service:
-    command: python3 -m echo
+    command: ncat -l 8888 --keep-open --exec "/bin/cat"
     daemon: simple
     restart-condition: always
     plugs: [network-bind]
 parts:
   echo-service:
-    plugin: python
-    source: ./echo
+    plugin: dump
+    stage-packages: ['nmap', 'coreutils', 'liblua5.3-0']
+    stage: ['usr/bin/ncat', 'bin/cat', 'usr/lib']

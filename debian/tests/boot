@@ -16,6 +16,7 @@ NOTE: This test only runs on amd64!
 """
 
 import os
+import re
 import time
 import platform
 
@@ -37,8 +38,14 @@ SSH_TIMEOUT = 60 * 3
 NEWLINE = b'\n'
 GREETING = b'this is the autopkgtest boot test'
 
-extra_snap = os.path.abspath(
-    os.path.join('debian', 'tests', 'snaps', 'echo-service_0.2_amd64.snap'))
+snapdir = os.path.join('debian', 'tests', 'snaps')
+extra_snaps = [
+    os.path.abspath(os.path.join(snapdir, snap))
+    for snap in os.listdir(snapdir)
+    if re.match('echo-service_[.0-9]+_amd64.snap', snap)
+    ]
+assert len(extra_snaps) == 1, extra_snaps
+extra_snap = extra_snaps[0]
 
 
 def qemu(image):
@@ -57,7 +64,7 @@ users:
  - default
  - name: debug
    gecos: Debug
-   passwd: jiPZFMQONuVas
+   plain_text_passwd: debug
    home: /home/debug
    shell: /bin/bash
    lock_passwd: false
