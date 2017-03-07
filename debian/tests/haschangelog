@@ -1,0 +1,62 @@
+#!/usr/bin/python3
+
+"""Test if associated PR has a changelog entry for the changes.
+
+"""
+
+import os
+import re
+import sys
+
+from git import InvalidGitRepositoryError, Repo
+from github import Github
+from urllib.request import urlopen
+
+
+TRIVIAL_LABEL = 'trivial'
+
+
+try:
+    local = Repo('.')
+except InvalidGitRepositoryError:
+    # Skip the test if we're not running in a git environment.
+    sys.exit(0)
+branch = local.active_branch.name
+gh = Github()
+# XXX: Maybe we should check with gh.get_api_status().status if we have
+#  internet connectivity and skip the test if we don't?
+remote = gh.get_repo('CanonicalLtd/ubuntu-image')
+# We iterate over all repository open pull requests and try to find one that's
+# made out of our branch.
+try:
+    pull = next(pr for pr in remote.get_pulls() if pr.head.ref == branch)
+except StopIteration:
+    # Skip the test, the branch is not present in any pull-request.
+    sys.exit(0)
+# As per github docs, every pull request is actually a github issue.  And only
+# through the issues API we can fetch the list of available labels.
+pr_issue = remote.get_issue(pull.number)
+try:
+    next(label for label in pr_issue.labels if label.name == TRIVIAL_LABEL)
+    sys.exit(0)
+except StopIteration:
+    pass
+# No trivial label added, make sure the changelog has been touched and
+# that a LP bug has been attached to changelog entry.
+content = urlopen(pull.diff_url).read().decode()
+lines = content.split('\n')
+has_changelog = False
+bug_linked = False
+bug_no = re.compile('^\+.*LP: \#\d+')
+for line in lines:
+    if not has_changelog:
+        if line.startswith(
+                'diff --git a/debian/changelog b/debian/changelog'):
+            has_changelog = True
+            continue
+    elif line.startswith('diff --git '):
+        break
+    elif bug_no.match(line):
+        bug_linked = True
+assert has_changelog
+assert bug_linked
