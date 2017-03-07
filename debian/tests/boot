@@ -102,7 +102,7 @@ def main():
             except (ConnectionResetError, ConnectionRefusedError):
                 time.sleep(0.5)
         else:
-            raise RuntimeError('Cannot connect to SSH port')
+            raise RuntimeError('Cannot connect to echo-service')
         assert response == GREETING, response
 
 
