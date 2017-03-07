@@ -2,9 +2,7 @@
 
 """Test that we can create an image from a model and it will boot.
 
-We use QEMU to boot the image created by ubuntu-image.  We open the QMP
-monitor port so that the controlling process (i.e. the autopkgtest) can start
-and stop the virtual machine.
+We use QEMU to boot the image created by ubuntu-image.
 
 When creating the image, pass an extra snap that implements a very simple case
 swapping echo service.  This service starts on image boot and listens on port
@@ -33,8 +31,7 @@ from threading import Thread
 
 TMP = os.environ['AUTOPKGTEST_TMP']
 DIR = os.path.abspath(os.path.join('debian', 'tests', 'models'))
-QMP_TIMEOUT = 60 # seconds
-SSH_TIMEOUT = 60 * 3
+ECHO_TIMEOUT = 60 * 5 # the VM can be slow
 NEWLINE = b'\n'
 GREETING = b'this is the autopkgtest boot test'
 
@@ -50,84 +47,29 @@ extra_snap = extra_snaps[0]
 
 def qemu(image):
     run(['qemu-system-x86_64',
-         '-qmp', 'tcp:localhost:4444,server',
          '-nographic',
          '-m', '500M',
          '-netdev', 'user,id=mynet0,hostfwd=::8888-:8888,hostfwd=::9922-:22',
          '-device', 'e1000,netdev=mynet0',
-         image],
+         '-drive', 'file={},index=0,media=disk,format=raw'.format(image),
+         '-cpu', 'qemu64,-vmx',
+         ],
         check=True)
-
-
-CLOUD_INIT = """\
-users:
- - default
- - name: debug
-   gecos: Debug
-   plain_text_passwd: debug
-   home: /home/debug
-   shell: /bin/bash
-   lock_passwd: false
-   groups: [adm, audio, cdrom, dialout, floppy, video, plugdev, dip, netdev]
-   sudo: ALL=(ALL) NOPASSWD:ALL
-manage-resolve-conf: true
-resolve_conf:
-  nameservers: ['8.8.4.4', '8.8.8.8']
-"""
 
 
 def build_image():
     # Use ubuntu-image to create an image with a local extra snap that
     # implements an echo service.  This service starts on image boot.
     image_file = os.path.join(TMP, 'image-file-list.txt')
-    user_data = os.path.join(TMP, 'cloud-init.yml')
-    with open(user_data, 'w', encoding='utf-8') as fp:
-        print(CLOUD_INIT, file=fp)
-    run(['ubuntu-image', '--image-file-list', image_file,
-         '--output-dir', TMP,
-         '--workdir', TMP,
-         '--extra-snaps', extra_snap,
-         # XXX DEBUGGING HACK.
-         '--cloud-init', user_data,
-         '--thru', 'populate_rootfs_contents',
-         os.path.join(DIR, 'pc-amd64-model.assertion')],
-        check=True)
-    os.remove(os.path.join(
-        TMP, 'root', 'system-data', 'etc', 'cloud', 'cloud-init.disabled'))
-    run(['ubuntu-image', '--resume', '--workdir', TMP,
+    run(['ubuntu-image',
          '--image-file-list', image_file,
-         '--output-dir', TMP],
+         '--extra-snaps', extra_snap,
+         os.path.join(DIR, 'pc-amd64-model.assertion')],
         check=True)
     with open(image_file, 'r', encoding='utf-8') as fp:
         images = [line.rstrip() for line in fp.readlines()]
         assert len(images) == 1, images
     return images[0]
-
-
-def execute(conn, command=None):
-    # This is a very stupid, low-level way to talk QMP, but who cares?  This
-    # is just a throwaway test in a controlled environment so it doesn't have
-    # to be super robust.  FYI, I couldn't get telnetlib.Telnet to work, even
-    # though you can command-line telnet to QMP.  We should probably use
-    # asyncio.
-    if command is not None:
-        encoded_command = dumps(dict(execute=command)).encode('utf-8')
-        conn.sendall(encoded_command)
-    received = conn.recv(4096).decode('utf-8')
-    responses = [loads(line) for line in received.splitlines()]
-    assert len(responses) == 1, responses
-    return responses[0]
-
-
-def shutdown(conn):
-    try:
-        # Try to shut QEMU down cleanly.  This may or may not succeed, and it
-        # may not even provide a response if it does succeed.  No matter, since
-        # the autopkgtest infrastructure will tear down all the resources any
-        # way.  Still, I like to at least try!
-        execute('quit')
-    except:
-        conn.close()
 
 
 def main():
@@ -140,41 +82,27 @@ def main():
         thread = Thread(target=qemu, args=(image,))
         thread.daemon = True
         thread.start()
-        # Connect to QMP, but watch out for the race condition.  Connecting
-        # will start the boot process for the VM.
-        until = datetime.now() + timedelta(seconds=QMP_TIMEOUT)
+        # Connect to the echo service.  There are lots of factors for why this
+        # can be slow and/or temporarily fail.  Basically, the echo-service
+        # snap won't start responding until the bring-up-network snap succeeds
+        # in calling netplan to initialize the inner VM's network.  Just keep
+        # trying for a while until it succeeds, each time with a fresh
+        # connection.
+        until = datetime.now() + timedelta(seconds=ECHO_TIMEOUT)
         while datetime.now() < until:
-            # No, the timeout argument to this function does *not* handle
-            # ConnectionRefusedErrors.
             try:
-                qmp = create_connection(('localhost', 4444))
-                break
-            except ConnectionRefusedError:
-                time.sleep(0.1)
-        else:
-            raise RuntimeError('Cannot connect to QMP port')
-        resources.callback(shutdown, qmp)
-        # Read off the boot response, which we don't care about.
-        execute(qmp)
-        # Tell QEMU we want to talk to it.
-        results = execute(qmp, 'qmp_capabilities')
-        assert results == {'return': {}}, results
-        # Connect to the SSH service.
-        until = datetime.now() + timedelta(seconds=SSH_TIMEOUT)
-        while datetime.now() < until:
-            # No, the timeout argument to this function does *not* handle
-            # ConnectionRefusedErrors.
-            try:
-                echo = create_connection(('localhost', 8888))
-                break
-            except ConnectionRefusedError:
-                time.sleep(0.1)
+                # No, the timeout argument to this function does *not* handle
+                # ConnectionRefusedErrors.
+                with create_connection(('localhost', 8888)) as conn:
+                    conn.sendall(GREETING)
+                    response = conn.recv(4096)
+                    # If we got this far, we talked to something.
+                    break
+            except (ConnectionResetError, ConnectionRefusedError):
+                time.sleep(0.5)
         else:
             raise RuntimeError('Cannot connect to SSH port')
-        resources.callback(echo.close)
-        echo.sendall(GREETING)
-        response = echo.recv(4096)
-        assert response == GREETING.swapcase(), response
+        assert response == GREETING, response
 
 
 main()
