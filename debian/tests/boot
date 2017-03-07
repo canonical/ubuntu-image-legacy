@@ -63,6 +63,7 @@ def build_image():
     image_file = os.path.join(TMP, 'image-file-list.txt')
     run(['ubuntu-image',
          '--image-file-list', image_file,
+         '--output-dir', TMP,
          '--extra-snaps', extra_snap,
          os.path.join(DIR, 'pc-amd64-model.assertion')],
         check=True)
