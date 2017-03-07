@@ -103,7 +103,7 @@ def main():
                 time.sleep(0.5)
         else:
             raise RuntimeError('Cannot connect to echo-service')
-        assert response == GREETING.swapcase(), response
+        assert response == GREETING, response
 
 
 main()
