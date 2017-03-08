@@ -15,6 +15,7 @@ NOTE: This test only runs on amd64!
 
 import os
 import re
+import sys
 import time
 import platform
 
@@ -92,11 +93,15 @@ def main():
                 # No, the timeout argument to this function does *not* handle
                 # ConnectionRefusedErrors.
                 with create_connection(('localhost', 8888)) as conn:
+                    print('Connected', conn, file=sys.stderr)
                     conn.sendall(GREETING)
+                    print('Sent', file=sys.stderr)
                     response = conn.recv(4096)
+                    print('Response', response, file=sys.stderr)
                     # If we got this far, we talked to something.
                     break
-            except (ConnectionResetError, ConnectionRefusedError):
+            except (ConnectionResetError, ConnectionRefusedError) as error:
+                print('Error:', str(error), file=sys.stderr)
                 time.sleep(0.5)
         else:
             raise RuntimeError('Cannot connect to echo-service')
