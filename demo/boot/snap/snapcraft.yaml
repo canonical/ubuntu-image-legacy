@@ -1,5 +1,5 @@
 name: echo-service
-version: '0.6'
+version: '0.7'
 summary: Echo service for image boot test
 description: |
   LP: #1625732 - an autopkgtest boot test.  This snap is loaded into an image
@@ -14,6 +14,9 @@ apps:
     daemon: simple
     restart-condition: always
     plugs: [network-bind]
+  bring-up-network:
+    command: netplan apply
+    daemon: oneshot
 parts:
   echo-service:
     plugin: dump
