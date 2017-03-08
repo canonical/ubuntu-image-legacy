@@ -20,10 +20,6 @@ SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
 
-class TMPNotReadableFromOutsideSnap(Exception):
-    """/tmp is different from inside and outside a snap."""
-
-
 class DoesNotFit(ExpectedError):
     """A part's content does not fit in the structure."""
 
@@ -49,40 +45,6 @@ class ModelAssertionBuilder(State):
             self.resources.enter_context(TemporaryDirectory())
             if args.workdir is None
             else args.workdir)
-        # Where the disk.img file ends up.  /tmp to a snap is not the same
-        # /tmp outside of the snap.  When running as a snap, don't allow the
-        # user to output a disk image to a location that won't exist for them.
-        # When run as a snap, /tmp is not writable.
-        if any(key.startswith('SNAP') for key in os.environ):
-            # The output directories, in order of precedence.
-            check_paths = (args.output, args.output_dir, os.getcwd())
-            # This loop will never exit normally because either we'll hit a
-            # /tmp directory, or we won't.  In the former case we'll always
-            # exit by raising the exception, and in the latter case, we'll hit
-            # the break.  Therefore, tell coverage not to check partial
-            # branches for this loop.
-            for path in check_paths:                # pragma: no branch
-                if path is None:
-                    continue
-                path = os.sep.join(path.split(os.sep)[:2])
-                if path == '/tmp':
-                    raise TMPNotReadableFromOutsideSnap(
-                        'ubuntu-image snap cannot write images to /tmp')
-                # This path is okay and since it'll take precedence, we're
-                # done checking.
-                break
-            # Check the location of the model assertion.
-            path = os.sep.join(args.model_assertion.split(os.sep)[:2])
-            if path == '/tmp':
-                raise TMPNotReadableFromOutsideSnap(
-                    'ubuntu-image snap cannot read models from /tmp')
-            # Check all the extra snaps.
-            extra_snaps = [] if args.extra_snaps is None else args.extra_snaps
-            for snap_path in extra_snaps:
-                path = os.sep.join(snap_path.split(os.sep)[:2])
-                if path == '/tmp':
-                    raise TMPNotReadableFromOutsideSnap(
-                        'ubuntu-image snap cannot read extra snaps from /tmp')
         self.output_dir = args.output_dir
         self.output = args.output
         # Information passed between states.
