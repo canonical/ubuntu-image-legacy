@@ -19,7 +19,7 @@ parts:
       - PyYAML
       - attrs
       - voluptuous
-    snap:
+    prime:
       - bin/ubuntu-image
       - usr
       - lib
@@ -35,5 +35,5 @@ parts:
     source: https://github.com/snapcore/snapd
     source-type: git
     go-importpath: github.com/snapcore/snapd
-    snap:
+    prime:
       - bin/snap
