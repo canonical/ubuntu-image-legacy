@@ -158,30 +158,6 @@ but ``--workdir`` must be given in that case since the state is saved in a
     error if there is no previous state.
 
 
-LIMITATIONS
-===========
-
-``ubuntu-image`` may be installed via traditional ``.deb`` or it maybe be
-installed as a snap.  You can tell by running ``ubuntu-image --version`` and
-if the version number has ``+snap`` in the output, you're running it as a
-snap.
-
-It is the case for all snaps that ``/tmp`` outside the snap is not the same as
-``/tmp`` inside the snap, and outside-``/tmp`` is not accessible inside.  This
-means that several options have additional limitations when ``ubuntu-image``
-is run as a snap:
-
-* Outputting images to ``/tmp`` is not possible, therefore you may not use
-  ``/tmp`` in either the ``-O/--output-dir`` or ``-o/--output`` options.
-* Model assertion files may not live in ``/tmp``.
-* Extra snaps (i.e. ``--extra-snaps``) may not refer to snaps in ``/tmp``.
-
-In all these cases, ``ubuntu-image`` will print an error message and exit when
-run as a snap.
-
-None of these limitation apply when ``ubuntu-image`` is installed via ``.deb``.
-
-
 FILES
 =====
 

@@ -2,8 +2,9 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.15+snap3
-confinement: devmode
+version: 0.15+snap4
+grade: stable
+confinement: classic
 
 apps:
   ubuntu-image:
