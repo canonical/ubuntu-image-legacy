@@ -19,7 +19,6 @@ import sys
 import time
 import platform
 
-from contextlib import ExitStack
 from datetime import datetime, timedelta
 from json import dumps, loads
 from pprint import pprint
@@ -33,7 +32,6 @@ from threading import Thread
 TMP = os.environ['AUTOPKGTEST_TMP']
 DIR = os.path.abspath(os.path.join('debian', 'tests', 'models'))
 ECHO_TIMEOUT = 60 * 5 # the VM can be slow
-NEWLINE = b'\n'
 GREETING = b'this is the autopkgtest boot test'
 
 snapdir = os.path.join('debian', 'tests', 'snaps')
@@ -80,32 +78,31 @@ def main():
         # We can't but it makes no sense to fail.
         sys.exit(0)
     image = build_image()
-    with ExitStack() as resources:
-        thread = Thread(target=qemu, args=(image,))
-        thread.daemon = True
-        thread.start()
-        # Connect to the echo service.  There are lots of reasons for why this
-        # can be slow and/or temporarily fail.  Just keep trying for a while
-        # until it succeeds, each time with a fresh connection.
-        until = datetime.now() + timedelta(seconds=ECHO_TIMEOUT)
-        while datetime.now() < until:
-            try:
-                # No, the timeout argument to this function does *not* handle
-                # ConnectionRefusedErrors.
-                with create_connection(('localhost', 8888)) as conn:
-                    print('Connected', conn, file=sys.stderr)
-                    conn.sendall(GREETING)
-                    print('Sent', file=sys.stderr)
-                    response = conn.recv(4096)
-                    print('Response', response, file=sys.stderr)
-                    # If we got this far, we talked to something.
-                    break
-            except (ConnectionResetError, ConnectionRefusedError) as error:
-                print('Error:', str(error), file=sys.stderr)
-                time.sleep(0.5)
-        else:
-            raise RuntimeError('Cannot connect to echo-service')
-        assert response == GREETING, response
+    thread = Thread(target=qemu, args=(image,))
+    thread.daemon = True
+    thread.start()
+    # Connect to the echo service.  There are lots of reasons for why this
+    # can be slow and/or temporarily fail.  Just keep trying for a while
+    # until it succeeds, each time with a fresh connection.
+    until = datetime.now() + timedelta(seconds=ECHO_TIMEOUT)
+    while datetime.now() < until:
+        try:
+            # No, the timeout argument to this function does *not* handle
+            # ConnectionRefusedErrors.
+            with create_connection(('localhost', 8888)) as conn:
+                print('Connected', conn, file=sys.stderr)
+                conn.sendall(GREETING)
+                print('Sent', file=sys.stderr)
+                response = conn.recv(4096)
+                print('Response', response, file=sys.stderr)
+                # If we got this far, we talked to something.
+                break
+        except (ConnectionResetError, ConnectionRefusedError) as error:
+            print('Error:', str(error), file=sys.stderr)
+            time.sleep(0.5)
+    else:
+        raise RuntimeError('Cannot connect to echo-service')
+    assert response == GREETING, response
 
 
 main()
