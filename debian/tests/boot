@@ -83,12 +83,9 @@ def main():
         thread = Thread(target=qemu, args=(image,))
         thread.daemon = True
         thread.start()
-        # Connect to the echo service.  There are lots of factors for why this
-        # can be slow and/or temporarily fail.  Basically, the echo-service
-        # snap won't start responding until the bring-up-network snap succeeds
-        # in calling netplan to initialize the inner VM's network.  Just keep
-        # trying for a while until it succeeds, each time with a fresh
-        # connection.
+        # Connect to the echo service.  There are lots of reasons for why this
+        # can be slow and/or temporarily fail.  Just keep trying for a while
+        # until it succeeds, each time with a fresh connection.
         until = datetime.now() + timedelta(seconds=ECHO_TIMEOUT)
         while datetime.now() < until:
             try:
