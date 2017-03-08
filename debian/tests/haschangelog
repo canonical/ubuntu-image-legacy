@@ -20,6 +20,7 @@ try:
     local = Repo('.')
 except InvalidGitRepositoryError:
     # Skip the test if we're not running in a git environment.
+    print('Skipping test, no git branch present.')
     sys.exit(0)
 branch = local.active_branch.name
 gh = Github()
@@ -32,6 +33,7 @@ try:
     pull = next(pr for pr in remote.get_pulls() if pr.head.ref == branch)
 except StopIteration:
     # Skip the test, the branch is not present in any pull-request.
+    print('Skipping test, no pull request for branch.')
     sys.exit(0)
 # As per github docs, every pull request is actually a github issue.  And only
 # through the issues API we can fetch the list of available labels.
