@@ -7,6 +7,8 @@ ubuntu-image (1.0+17.04ubuntu1) UNRELEASED; urgency=medium
     --output command line switch.  (LP: #1667140)
   * Added ``--image-file-list`` command line argument to record the paths
     of all the disk image files written.
+  * Added an autopkgtest to prove that generated images can be
+    successfully booted (on amd64 only).  (LP: #1625732)
 
  -- Barry Warsaw <barry@ubuntu.com>  Wed, 22 Feb 2017 11:30:01 -0500
 
