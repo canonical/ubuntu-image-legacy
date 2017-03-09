@@ -35,4 +35,4 @@ Restrictions: needs-root, allow-stderr, isolation-machine
 Depends: @, kpartx
 
 Tests: haschangelog
-Depends: @, python3-git, python3-github, python3-requests
+Depends: @, python3-git, python3-requests
