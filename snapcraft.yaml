@@ -10,6 +10,10 @@ apps:
   ubuntu-image:
     command: bin/ubuntu-image
 
+environment:
+  PATH: $SNAP/bin/:$PATH
+  PYTHONPATH: $SNAP/lib/python3.5/site-packages:$PYTHONPATH
+
 parts:
   ubuntu-image:
     plugin: python
@@ -30,6 +34,9 @@ parts:
       - python3-debian
       - python3-parted
       - util-linux
+    install: |
+      cp -a ../install/usr/lib/python3/dist-packages/parted ../stage/lib/python3.5/site-packages
+      cp -a ../install/usr/lib/python3/dist-packages/pyparted-*.egg-info ../stage/lib/python3.5/site-packages
   snapd:
     plugin: go
     source: https://github.com/snapcore/snapd
