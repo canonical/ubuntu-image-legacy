@@ -1,16 +1,14 @@
 #!/usr/bin/python3
 
-"""Test if associated PR has a changelog entry for the changes.
-
-"""
+"""Test if associated PR has a changelog entry for the changes."""
 
 import os
 import re
+import requests
 import sys
 
 from git import InvalidGitRepositoryError, Repo
 from github import Github
-from urllib.request import urlopen
 
 
 TRIVIAL_LABEL = 'trivial'
@@ -40,17 +38,18 @@ except StopIteration:
 pr_issue = remote.get_issue(pull.number)
 try:
     next(label for label in pr_issue.labels if label.name == TRIVIAL_LABEL)
+    print('The {} label found on the pull request, skipping check for '
+          'changelog entries.'.format(TRIVIAL_LABEL))
     sys.exit(0)
 except StopIteration:
     pass
 # No trivial label added, make sure the changelog has been touched and
 # that a LP bug has been attached to changelog entry.
-content = urlopen(pull.diff_url).read().decode()
-lines = content.split('\n')
+content = requests.get(pull.diff_url).text
 has_changelog = False
 bug_linked = False
 bug_no = re.compile('^\+.*LP: \#\d+')
-for line in lines:
+for line in content.splitlines():
     if not has_changelog:
         if line.startswith(
                 'diff --git a/debian/changelog b/debian/changelog'):
