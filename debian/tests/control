@@ -40,3 +40,7 @@ Depends: @, qemu-system-x86
 
 Tests: haschangelog
 Depends: @, python3-github, python3-requests
+
+Tests: snap.sh
+Restrictions: needs-root, allow-stderr
+Depends: @, snap, snapcraft

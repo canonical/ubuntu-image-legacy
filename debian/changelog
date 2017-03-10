@@ -11,6 +11,7 @@ ubuntu-image (1.0+17.04ubuntu1) UNRELEASED; urgency=medium
     successfully booted (on amd64 only).  (LP: #1625732)
   * Add an autopkgtest for ensuring each PR has a changelog entry and a bug
     linked to it.  (LP: #1655671)
+  * Make ubuntu-image a classic confinement snap.  (LP: #1638645)
 
  -- Barry Warsaw <barry@ubuntu.com>  Wed, 22 Feb 2017 11:30:01 -0500
 

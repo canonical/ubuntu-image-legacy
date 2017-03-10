@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.15+snap4
+version: 0.15+snap5
 grade: stable
 confinement: classic
 
@@ -17,7 +17,7 @@ environment:
 parts:
   ubuntu-image:
     plugin: python
-    source: https://github.com/CanonicalLtd/ubuntu-image.git
+    source: .
     source-type: git
     python-packages:
       - PyYAML
@@ -34,9 +34,6 @@ parts:
       - python3-debian
       - python3-parted
       - util-linux
-    install: |
-      cp -a ../install/usr/lib/python3/dist-packages/parted ../stage/lib/python3.5/site-packages
-      cp -a ../install/usr/lib/python3/dist-packages/pyparted-*.egg-info ../stage/lib/python3.5/site-packages
   snapd:
     plugin: go
     source: https://github.com/snapcore/snapd
