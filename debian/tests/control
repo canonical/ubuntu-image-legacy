@@ -1,42 +1,42 @@
-Tests: import.sh
-Depends: python3-ubuntu-image
+#Tests: import.sh
+#Depends: python3-ubuntu-image
+#
+#Test-Command: ubuntu-image --help
+#Depends: ubuntu-image
+#Features: test-name=help
+#
+#Test-Command: ubuntu-image --version
+#Depends: ubuntu-image
+#Features: test-name=version
+#
+#Test-Command: man ubuntu-image
+#Depends: ubuntu-image, man-db
+#Features: test-name=manpage
+#
+## Something in the tox/pip/setuptools stack requires git.
+#
+#Test-Command: tox -e py35-nocov,py36-nocov
+#Depends: @builddeps@, git
+#Features: test-name=unittests
+#
+#Test-Command: tox -e qa
+#Depends: @builddeps@, git
+#Features: test-name=qa
+#
+#Tests: coverage.sh
+#Depends: @builddeps@, git, lsb-release
+#
+#Tests: mount
+#Restrictions: needs-root, allow-stderr, isolation-machine
+#Depends: @, kpartx
+#
+#Tests: multivol
+#Restrictions: needs-root, allow-stderr, isolation-machine
+#Depends: @, kpartx
 
-Test-Command: ubuntu-image --help
-Depends: ubuntu-image
-Features: test-name=help
-
-Test-Command: ubuntu-image --version
-Depends: ubuntu-image
-Features: test-name=version
-
-Test-Command: man ubuntu-image
-Depends: ubuntu-image, man-db
-Features: test-name=manpage
-
-# Something in the tox/pip/setuptools stack requires git.
-
-Test-Command: tox -e py35-nocov,py36-nocov
-Depends: @builddeps@, git
-Features: test-name=unittests
-
-Test-Command: tox -e qa
-Depends: @builddeps@, git
-Features: test-name=qa
-
-Tests: coverage.sh
-Depends: @builddeps@, git, lsb-release
-
-Tests: mount
-Restrictions: needs-root, allow-stderr, isolation-machine
-Depends: @, kpartx
-
-Tests: multivol
-Restrictions: needs-root, allow-stderr, isolation-machine
-Depends: @, kpartx
-
-Tests: boot
-Restrictions: needs-root, allow-stderr, isolation-machine
-Depends: @, qemu-system-x86
+#Tests: boot
+#Restrictions: needs-root, allow-stderr, isolation-machine
+#Depends: @, qemu-system-x86
 
 Tests: haschangelog
 Depends: @, python3-github, python3-requests
