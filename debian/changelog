@@ -9,6 +9,7 @@ ubuntu-image (1.0+17.04ubuntu1) UNRELEASED; urgency=medium
     of all the disk image files written.
   * Added an autopkgtest to prove that generated images can be
     successfully booted (on amd64 only).  (LP: #1625732)
+  * Bla bla, some entry without a bug linked.
 
  -- Barry Warsaw <barry@ubuntu.com>  Wed, 22 Feb 2017 11:30:01 -0500
 
