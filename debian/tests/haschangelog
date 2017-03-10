@@ -1,0 +1,63 @@
+#!/usr/bin/python3
+
+"""Test if associated PR has a changelog entry for the changes."""
+
+import os
+import re
+import requests
+import sys
+
+from github import Github, UnknownObjectException
+
+
+TRIVIAL_LABEL = 'trivial'
+
+
+# When the test is being run as part of a GH pull request, the infra sets the
+# UPSTREAM_PULL_REQUEST envirnoment variable to the PR number.  This is needed
+# as otherwise there's no easy way to guess which pull request is being
+# referenced
+pr_number = os.environ.get('UPSTREAM_PULL_REQUEST')
+if not pr_number:
+    # Skip the test if we're not running in a git environment.
+    print('Skipping test, not ran as part of a pull request.')
+    sys.exit(0)
+pr_number = int(pr_number)
+gh = Github()
+# XXX: Maybe we should check with gh.get_api_status().status if we have
+#  internet connectivity and skip the test if we don't?
+remote = gh.get_repo('CanonicalLtd/ubuntu-image')
+try:
+    pull = remote.get_pull(pr_number)
+    # As per github docs, every pull request is actually a github issue.  And 
+    # only through the issues API we can fetch the list of available labels.
+    pr_issue = remote.get_issue(pr_number)
+except UnknownObjectException:
+    # Skip the test, the branch is not present in any pull-request.
+    print('Skipping test, no valid pull request for branch.')
+    sys.exit(0)
+try:
+    next(label for label in pr_issue.labels if label.name == TRIVIAL_LABEL)
+    print('The {} label found on the pull request, skipping check for '
+          'changelog entries.'.format(TRIVIAL_LABEL))
+    sys.exit(0)
+except StopIteration:
+    pass
+# No trivial label added, make sure the changelog has been touched and
+# that a LP bug has been attached to changelog entry.
+content = requests.get(pull.diff_url).text
+has_changelog = False
+bug_linked = False
+bug_no = re.compile('^\+.*LP: \#\d+')
+for line in content.splitlines():
+    if not has_changelog:
+        if line.startswith(
+                'diff --git a/debian/changelog b/debian/changelog'):
+            has_changelog = True
+            continue
+    elif line.startswith('diff --git '):
+        break
+    elif bug_no.match(line):
+        bug_linked = True
+assert has_changelog
+assert bug_linked
