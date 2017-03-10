@@ -1,0 +1,108 @@
+#!/usr/bin/python3
+
+"""Test that we can create an image from a model and it will boot.
+
+We use QEMU to boot the image created by ubuntu-image.
+
+When creating the image, pass an extra snap that implements a very simple case
+swapping echo service.  This service starts on image boot and listens on port
+8888 of the guest.  That port gets forwarded to the host so that the
+autopkgtest (i.e. this script) can connect to it.  We send the echo server some
+bytes data and check the response.
+
+NOTE: This test only runs on amd64!
+"""
+
+import os
+import re
+import sys
+import time
+import platform
+
+from datetime import datetime, timedelta
+from json import dumps, loads
+from pprint import pprint
+from random import randrange
+from socket import create_connection
+from subprocess import run
+from tempfile import TemporaryDirectory
+from threading import Thread
+
+
+TMP = os.environ['AUTOPKGTEST_TMP']
+DIR = os.path.abspath(os.path.join('debian', 'tests', 'models'))
+ECHO_TIMEOUT = 60 * 20 # the VM can be slow
+GREETING = b'this is the autopkgtest boot test'
+
+snapdir = os.path.join('debian', 'tests', 'snaps')
+extra_snaps = [
+    os.path.abspath(os.path.join(snapdir, snap))
+    for snap in os.listdir(snapdir)
+    if re.match('echo-service_[.0-9]+_amd64.snap', snap)
+    ]
+assert len(extra_snaps) == 1, extra_snaps
+extra_snap = extra_snaps[0]
+
+
+def qemu(image):
+    run(['qemu-system-x86_64',
+         '-nographic',
+         '-m', '500M',
+         '-netdev', 'user,id=mynet0,hostfwd=::8888-:8888,hostfwd=::9922-:22',
+         '-device', 'e1000,netdev=mynet0',
+         '-drive', 'file={},index=0,media=disk,format=raw'.format(image),
+         '-cpu', 'qemu64,-vmx',
+         ],
+        check=True)
+
+
+def build_image():
+    # Use ubuntu-image to create an image with a local extra snap that
+    # implements an echo service.  This service starts on image boot.
+    image_file = os.path.join(TMP, 'image-file-list.txt')
+    run(['ubuntu-image',
+         '--image-file-list', image_file,
+         '--output-dir', TMP,
+         '--extra-snaps', extra_snap,
+         os.path.join(DIR, 'pc-amd64-model.assertion')],
+        check=True)
+    with open(image_file, 'r', encoding='utf-8') as fp:
+        images = [line.rstrip() for line in fp.readlines()]
+        assert len(images) == 1, images
+    return images[0]
+
+
+def main():
+    # First off, can we even run the test on this architecture?
+    if platform.machine() != 'x86_64':
+        # We can't but it makes no sense to fail.
+        sys.exit(0)
+    image = build_image()
+    thread = Thread(target=qemu, args=(image,))
+    thread.daemon = True
+    thread.start()
+    # Connect to the echo service.  There are lots of reasons for why this
+    # can be slow and/or temporarily fail.  Just keep trying for a while
+    # until it succeeds, each time with a fresh connection.
+    until = datetime.now() + timedelta(seconds=ECHO_TIMEOUT)
+    while datetime.now() < until:
+        try:
+            # No, the timeout argument to this function does *not* handle
+            # ConnectionRefusedErrors.
+            with create_connection(('localhost', 8888)) as conn:
+                print(datetime.now(), 'Connected', conn, file=sys.stderr)
+                conn.sendall(GREETING)
+                print(datetime.now(), 'Sent', file=sys.stderr)
+                response = conn.recv(4096)
+                print(datetime.now(), 'Response', response, file=sys.stderr)
+                # If we got this far, we talked to something.
+                break
+        except (ConnectionResetError, ConnectionRefusedError) as error:
+            print(datetime.now(), 'Error:', str(error), file=sys.stderr)
+            time.sleep(1)
+    else:
+        raise RuntimeError('Cannot connect to echo-service')
+    assert response == GREETING, response
+
+
+main()
