@@ -84,21 +84,24 @@ def main():
     # Connect to the echo service.  There are lots of reasons for why this
     # can be slow and/or temporarily fail.  Just keep trying for a while
     # until it succeeds, each time with a fresh connection.
-    until = datetime.now() + timedelta(seconds=ECHO_TIMEOUT)
-    while datetime.now() < until:
+    now = datetime.now()
+    until = now + timedelta(seconds=ECHO_TIMEOUT)
+    print(now, 'Trying to connect until', until)
+    while now < until:
+        now = datetime.now()
         try:
             # No, the timeout argument to this function does *not* handle
             # ConnectionRefusedErrors.
             with create_connection(('localhost', 8888)) as conn:
-                print(datetime.now(), 'Connected', conn, file=sys.stderr)
+                print(now, 'Connected', conn, file=sys.stderr)
                 conn.sendall(GREETING)
-                print(datetime.now(), 'Sent', file=sys.stderr)
+                print(now, 'Sent', file=sys.stderr)
                 response = conn.recv(4096)
-                print(datetime.now(), 'Response', response, file=sys.stderr)
+                print(now, 'Response', response, file=sys.stderr)
                 # If we got this far, we talked to something.
                 break
         except (ConnectionResetError, ConnectionRefusedError) as error:
-            print(datetime.now(), 'Error:', str(error), file=sys.stderr)
+            print(now, 'Error:', str(error), file=sys.stderr)
             time.sleep(1)
     else:
         raise RuntimeError('Cannot connect to echo-service')
