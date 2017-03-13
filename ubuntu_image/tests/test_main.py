@@ -287,111 +287,19 @@ class TestMainWithModel(TestCase):
             img_files = set(line.rstrip() for line in fp.readlines())
         self.assertEqual(img_files, {output})
 
-    def test_snaps_output(self):
-        # The good path.
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        output_dir = '/this/does/not/live/in/tmp'
-        self._resources.enter_context(patch(
-            'ubuntu_image.builder.os.getcwd', return_value=output_dir))
-        # This directory should not get created.
-        code = main(('-O', output_dir,
-                     # Do not run the full state machine.
-                     '-u', 'load_gadget_yaml',
-                     '/not/tmp/model.assertion'))
-        # Success.
-        self.assertEqual(code, 0, self._stderr.getvalue())
-
-    def test_snaps_output_to_tmp(self):
-        # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
-        # a snap you cannot use `-o /tmp/something`.
-        #
+    def test_tmp_okay_for_classic_snap(self):
         # For reference see:
         # http://snapcraft.io/docs/reference/env
-        # http://www.zygoon.pl/2016/08/snap-execution-environment.html
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        imgfile = os.path.join(tmpdir, 'my-disk.img')
-        self.assertFalse(os.path.exists(imgfile))
-        code = main(('--output', '/tmp/my.img', self.model_assertion))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            '-o/--output is deprecated; use -O/--output-dir instead\n'
-            'ubuntu-image snap cannot write images to /tmp\n')
-
-    def test_snaps_output_dir_to_tmp(self):
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        imgfile = os.path.join(tmpdir, 'my-disk.img')
-        self.assertFalse(os.path.exists(imgfile))
-        code = main(('--output-dir', '/tmp/images', self.model_assertion))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            'ubuntu-image snap cannot write images to /tmp\n')
-
-    def test_snaps_no_output_tmp_is_pwd(self):
-        # LP: 1646968 - With no --output, if the current working directory is
-        # /tmp, refuse to run.
-        #
-        # For reference see:
-        # http://snapcraft.io/docs/reference/env
-        # http://www.zygoon.pl/2016/08/snap-execution-environment.html
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        # XXX This could fail if /tmp doesn't exist for some reason.  It might
-        # be better to actually mock os.getcwd() to return /tmp instead.  I'm
-        # not doing that here though because I don't want to track down the
-        # mock location.
+        self._resources.enter_context(envar('SNAP_NAME', 'crack-pop'))
         self._resources.enter_context(chdir('/tmp'))
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        imgfile = os.path.join(tmpdir, 'my-disk.img')
-        self.assertFalse(os.path.exists(imgfile))
-        code = main((self.model_assertion,))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            'ubuntu-image snap cannot write images to /tmp\n')
-
-    def test_snaps_no_model_assertion(self):
-        # LP: #1663424 - When run as a snap, the model assertion cannot live
-        # in /tmp.
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        code = main(('-O', '/not/tmp',
-                     '/tmp/model.assertion',))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            'ubuntu-image snap cannot read models from /tmp\n')
-
-    def test_snaps_no_extra_snaps(self):
-        # LP: #1663424 - When run as a snap, --extra-snaps cannot live in /tmp.
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        code = main(('-O', '/not/tmp',
-                     '--extra-snaps', '/not/in/tmp/extra.snap',
+        code = main(('--output-dir', '/tmp/images',
                      '--extra-snaps', '/tmp/extra.snap',
-                     '/not/tmp/model.assertion'))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            'ubuntu-image snap cannot read extra snaps from /tmp\n')
+                     '/tmp/model.assertion'))
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.exists('/tmp/images/pc.img'))
 
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:
