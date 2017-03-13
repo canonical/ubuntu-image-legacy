@@ -15,7 +15,7 @@ from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
-    LogCapture, XXXModelAssertionBuilder)
+    LogCapture, XXXModelAssertionBuilder, envar)
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
@@ -286,6 +286,20 @@ class TestMainWithModel(TestCase):
         with open(image_file_list, 'r', encoding='utf-8') as fp:
             img_files = set(line.rstrip() for line in fp.readlines())
         self.assertEqual(img_files, {output})
+
+    def test_tmp_okay_for_classic_snap(self):
+        # For reference see:
+        # http://snapcraft.io/docs/reference/env
+        self._resources.enter_context(envar('SNAP_NAME', 'crack-pop'))
+        self._resources.enter_context(chdir('/tmp'))
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        code = main(('--output-dir', '/tmp/images',
+                     '--extra-snaps', '/tmp/extra.snap',
+                     '/tmp/model.assertion'))
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.exists('/tmp/images/pc.img'))
 
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:
