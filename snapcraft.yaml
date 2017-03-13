@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.15+snap5
+version: 1.0+snap1
 grade: stable
 confinement: classic
 
