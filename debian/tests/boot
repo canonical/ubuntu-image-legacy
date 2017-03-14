@@ -103,9 +103,14 @@ def main():
         except (ConnectionResetError, ConnectionRefusedError) as error:
             print(now, 'Error:', str(error), file=sys.stderr)
             time.sleep(1)
+        else:
+            if response == GREETING:
+                print(now, 'Good response')
+                break
+            else:
+                print(now, 'Bad response:', response)
     else:
         raise RuntimeError('Cannot connect to echo-service')
-    assert response == GREETING, response
 
 
 main()
