@@ -97,15 +97,18 @@ def main():
                 conn.sendall(GREETING)
                 print(now, 'Sent', file=sys.stderr)
                 response = conn.recv(4096)
-                print(now, 'Response', response, file=sys.stderr)
-                # If we got this far, we talked to something.
-                break
+                print(now, 'Got', response, file=sys.stderr)
         except (ConnectionResetError, ConnectionRefusedError) as error:
             print(now, 'Error:', str(error), file=sys.stderr)
             time.sleep(1)
+        else:
+            if response == GREETING:
+                print(now, 'Good response', file=sys.stderr)
+                break
+            else:
+                print(now, 'Bad response:', response, file=sys.stderr)
     else:
         raise RuntimeError('Cannot connect to echo-service')
-    assert response == GREETING, response
 
 
 main()
