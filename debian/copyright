@@ -3,7 +3,7 @@ Upstream-Name: ubuntu-image
 Source: https://launchpad.net/ubuntu-image
 
 Files: *
-Copyright: Copyright 2016 Canonical Ltd.
+Copyright: Copyright 2016-2017 Canonical Ltd.
 License: GPL-3
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 3,
@@ -21,7 +21,7 @@ License: GPL-3
  /usr/share/common-licenses/GPL-3.
 
 Files: ubuntu_image/testing/nose.py ubuntu_image/testing/flake8.py
-Copyright: 2016 Barry Warsaw
+Copyright: 2016-2017 Barry Warsaw
 License: Apache-2.0
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.

@@ -247,111 +247,59 @@ class TestMainWithModel(TestCase):
             image_path = os.path.join(outputdir, '{}.img'.format(name))
             self.assertTrue(os.path.exists(image_path))
 
-    def test_snaps_output(self):
-        # The good path.
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
+    def test_output_directory_multiple_images_image_file_list(self):
+        class Builder(DoNothingBuilder):
+            gadget_yaml = 'gadget-multi.yaml'
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            Builder))
+        # Quiet the test suite.
+        self._resources.enter_context(patch(
+            'ubuntu_image.parser._logger.warning'))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        outputdir = os.path.join(tmpdir, 'images')
+        image_file_list = os.path.join(tmpdir, 'ifl.txt')
+        main(('-O', outputdir,
+              '--image-file-list', image_file_list,
+              self.model_assertion))
+        with open(image_file_list, 'r', encoding='utf-8') as fp:
+            img_files = set(line.rstrip() for line in fp.readlines())
+        self.assertEqual(
+            img_files,
+            set(os.path.join(outputdir, '{}.img'.format(filename))
+                for filename in ('first', 'second', 'third', 'fourth'))
+            )
+
+    def test_output_image_file_list(self):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        output_dir = '/this/does/not/live/in/tmp'
+        # Quiet the test suite.
         self._resources.enter_context(patch(
-            'ubuntu_image.builder.os.getcwd', return_value=output_dir))
-        # This directory should not get created.
-        code = main(('-O', output_dir,
-                     # Do not run the full state machine.
-                     '-u', 'load_gadget_yaml',
-                     '/not/tmp/model.assertion'))
-        # Success.
-        self.assertEqual(code, 0, self._stderr.getvalue())
+            'ubuntu_image.parser._logger.warning'))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        output = os.path.join(tmpdir, 'pc.img')
+        image_file_list = os.path.join(tmpdir, 'ifl.txt')
+        main(('-o', output,
+              '--image-file-list', image_file_list,
+              self.model_assertion))
+        with open(image_file_list, 'r', encoding='utf-8') as fp:
+            img_files = set(line.rstrip() for line in fp.readlines())
+        self.assertEqual(img_files, {output})
 
-    def test_snaps_output_to_tmp(self):
-        # LP: 1646968 - Snappy maps /tmp to a private directory so when run as
-        # a snap you cannot use `-o /tmp/something`.
-        #
+    def test_tmp_okay_for_classic_snap(self):
         # For reference see:
         # http://snapcraft.io/docs/reference/env
-        # http://www.zygoon.pl/2016/08/snap-execution-environment.html
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        imgfile = os.path.join(tmpdir, 'my-disk.img')
-        self.assertFalse(os.path.exists(imgfile))
-        code = main(('--output', '/tmp/my.img', self.model_assertion))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            '-o/--output is deprecated; use -O/--output-dir instead\n'
-            'ubuntu-image snap cannot write images to /tmp\n')
-
-    def test_snaps_output_dir_to_tmp(self):
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        imgfile = os.path.join(tmpdir, 'my-disk.img')
-        self.assertFalse(os.path.exists(imgfile))
-        code = main(('--output-dir', '/tmp/images', self.model_assertion))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            'ubuntu-image snap cannot write images to /tmp\n')
-
-    def test_snaps_no_output_tmp_is_pwd(self):
-        # LP: 1646968 - With no --output, if the current working directory is
-        # /tmp, refuse to run.
-        #
-        # For reference see:
-        # http://snapcraft.io/docs/reference/env
-        # http://www.zygoon.pl/2016/08/snap-execution-environment.html
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        # XXX This could fail if /tmp doesn't exist for some reason.  It might
-        # be better to actually mock os.getcwd() to return /tmp instead.  I'm
-        # not doing that here though because I don't want to track down the
-        # mock location.
+        self._resources.enter_context(envar('SNAP_NAME', 'crack-pop'))
         self._resources.enter_context(chdir('/tmp'))
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        imgfile = os.path.join(tmpdir, 'my-disk.img')
-        self.assertFalse(os.path.exists(imgfile))
-        code = main((self.model_assertion,))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            'ubuntu-image snap cannot write images to /tmp\n')
-
-    def test_snaps_no_model_assertion(self):
-        # LP: #1663424 - When run as a snap, the model assertion cannot live
-        # in /tmp.
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        code = main(('-O', '/not/tmp',
-                     '/tmp/model.assertion',))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            'ubuntu-image snap cannot read models from /tmp\n')
-
-    def test_snaps_no_extra_snaps(self):
-        # LP: #1663424 - When run as a snap, --extra-snaps cannot live in /tmp.
-        self._resources.enter_context(envar('SNAP_NAME', 'crackle-pop'))
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            DoNothingBuilder))
-        code = main(('-O', '/not/tmp',
-                     '--extra-snaps', '/not/in/tmp/extra.snap',
+        code = main(('--output-dir', '/tmp/images',
                      '--extra-snaps', '/tmp/extra.snap',
-                     '/not/tmp/model.assertion'))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            self._stderr.getvalue(),
-            'ubuntu-image snap cannot read extra snaps from /tmp\n')
+                     '/tmp/model.assertion'))
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.exists('/tmp/images/pc.img'))
 
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:
@@ -428,6 +376,27 @@ class TestMainWithModel(TestCase):
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
         main(('--workdir', workdir, '--resume'))
         self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))
+
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
+    def test_does_not_fit(self):
+        # The contents of a structure is too large for the image size.
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        # See LP: #1666580
+        main(('--workdir', workdir,
+              '--thru', 'load_gadget_yaml',
+              self.model_assertion))
+        # Make the gadget's mbr contents too big.
+        path = os.path.join(workdir, 'unpack', 'gadget', 'pc-boot.img')
+        os.truncate(path, 512)
+        mock = self._resources.enter_context(patch(
+            'ubuntu_image.__main__._logger.error'))
+        code = main(('--workdir', workdir, '--resume'))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            mock.call_args_list[-1],
+            call('Volume contents do not fit (72B over): '
+                 'volumes:<pc>:structure:<mbr> [#0]'))
 
 
 class TestMainWithBadGadget(TestCase):

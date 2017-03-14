@@ -13,15 +13,20 @@ from ubuntu_image.image import Image
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema,
     parse as parse_yaml)
-from ubuntu_image.state import State
+from ubuntu_image.state import ExpectedError, State
 
 
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
 
-class TMPNotReadableFromOutsideSnap(Exception):
-    """/tmp is different from inside and outside a snap."""
+class DoesNotFit(ExpectedError):
+    """A part's content does not fit in the structure."""
+
+    def __init__(self, part_number, part_path, overage):
+        self.part_number = part_number
+        self.part_path = part_path
+        self.overage = overage
 
 
 class ModelAssertionBuilder(State):
@@ -40,40 +45,6 @@ class ModelAssertionBuilder(State):
             self.resources.enter_context(TemporaryDirectory())
             if args.workdir is None
             else args.workdir)
-        # Where the disk.img file ends up.  /tmp to a snap is not the same
-        # /tmp outside of the snap.  When running as a snap, don't allow the
-        # user to output a disk image to a location that won't exist for them.
-        # When run as a snap, /tmp is not writable.
-        if any(key.startswith('SNAP') for key in os.environ):
-            # The output directories, in order of precedence.
-            check_paths = (args.output, args.output_dir, os.getcwd())
-            # This loop will never exit normally because either we'll hit a
-            # /tmp directory, or we won't.  In the former case we'll always
-            # exit by raising the exception, and in the latter case, we'll hit
-            # the break.  Therefore, tell coverage not to check partial
-            # branches for this loop.
-            for path in check_paths:                # pragma: no branch
-                if path is None:
-                    continue
-                path = os.sep.join(path.split(os.sep)[:2])
-                if path == '/tmp':
-                    raise TMPNotReadableFromOutsideSnap(
-                        'ubuntu-image snap cannot write images to /tmp')
-                # This path is okay and since it'll take precedence, we're
-                # done checking.
-                break
-            # Check the location of the model assertion.
-            path = os.sep.join(args.model_assertion.split(os.sep)[:2])
-            if path == '/tmp':
-                raise TMPNotReadableFromOutsideSnap(
-                    'ubuntu-image snap cannot read models from /tmp')
-            # Check all the extra snaps.
-            extra_snaps = [] if args.extra_snaps is None else args.extra_snaps
-            for snap_path in extra_snaps:
-                path = os.sep.join(snap_path.split(os.sep)[:2])
-                if path == '/tmp':
-                    raise TMPNotReadableFromOutsideSnap(
-                        'ubuntu-image snap cannot read extra snaps from /tmp')
         self.output_dir = args.output_dir
         self.output = args.output
         # Information passed between states.
@@ -88,6 +59,7 @@ class ModelAssertionBuilder(State):
         self.volumedir = None
         self.cloud_init = args.cloud_init
         self.exitcode = 0
+        self.done = False
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -95,6 +67,7 @@ class ModelAssertionBuilder(State):
         state.update(
             args=self.args,
             cloud_init=self.cloud_init,
+            done=self.done,
             exitcode=self.exitcode,
             gadget=self.gadget,
             images=self.images,
@@ -112,6 +85,7 @@ class ModelAssertionBuilder(State):
         super().__setstate__(state)
         self.args = state['args']
         self.cloud_init = state['cloud_init']
+        self.done = state['done']
         self.exitcode = state['exitcode']
         self.gadget = state['gadget']
         self.images = state['images']
@@ -211,6 +185,7 @@ class ModelAssertionBuilder(State):
         # Calculate the size of the root file system.  Basically, I'm trying
         # to reproduce du(1) close enough without having to call out to it and
         # parse its output.
+        #
         # On a 100MiB filesystem, ext4 takes a little over 7MiB for the
         # metadata.  Use 8MiB as a minimum padding here.
         self.rootfs_size = self._calculate_dirsize(self.rootfs) + MiB(8)
@@ -400,7 +375,19 @@ class ModelAssertionBuilder(State):
                     # XXX: We need to check for overlapping images.
                     if content.offset is not None:
                         offset = content.offset
-                    # XXX: We must check offset+size vs. the target image.
+                    end = offset + file_size
+                    if end > part.size:
+                        if part.name is None:
+                            if part.role is None:
+                                whats_wrong = part.type
+                            else:
+                                whats_wrong = part.role.value
+                        else:
+                            whats_wrong = part.name
+                        part_path = 'volumes:<{}>:structure:<{}>'.format(
+                            name, whats_wrong)
+                        self.exitcode = 1
+                        raise DoesNotFit(partnum, part_path, end - part.size)
                     image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
                     offset += file_size
             elif part.filesystem is FileSystemType.vfat:
@@ -509,4 +496,5 @@ class ModelAssertionBuilder(State):
         self._next.append(self.finish)
 
     def finish(self):
+        self.done = True
         self._next.append(self.close)
