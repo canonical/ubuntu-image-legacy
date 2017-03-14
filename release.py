@@ -125,7 +125,10 @@ def make_source_package(working_dir):
 
 
 def main():
-    working_dir = sys.argv[1]
+    try:
+        working_dir = sys.argv[1]
+    except IndexError:
+        working_dir = os.getcwd()
     repo = Repo(working_dir)
     assert not repo.bare
     # Start by modifying the master branch.
@@ -155,7 +158,7 @@ def main():
     try:
         repo.git.merge('master', '--no-commit')
     except GitCommandError:
-        continue_abort('Resolve merge conflicts manually')
+        continue_abort('Resolve merge master->yakkety conflicts manually')
     munge_lp_bug_numbers(repo)
     sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'yakkety', version)
@@ -168,7 +171,7 @@ def main():
     try:
         repo.git.merge('master', '--no-commit')
     except GitCommandError:
-        continue_abort('Resolve merge conflicts manually')
+        continue_abort('Resolve merge master->xenial conflicts manually')
     munge_lp_bug_numbers(repo)
     sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'xenial', version)
