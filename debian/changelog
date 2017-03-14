@@ -1,3 +1,21 @@
+ubuntu-image (1.0+16.10ubuntu1) yakkety; urgency=medium
+
+  * SRU tracking number LP: #1672755
+  * Exit with a console message instead of crashing when the contents of a
+    partition does not fit within the specified size.  (LP:1666580)
+  * Don't install an unusable global flake8 extension.  (LP:1631156)
+  * Fix the autopkgtests to use --output-dir instead of the obsolete
+    --output command line switch.  (LP:1667140)
+  * Added ``--image-file-list`` command line argument to record the paths
+    of all the disk image files written.
+  * Added an autopkgtest to prove that generated images can be
+    successfully booted (on amd64 only).  (LP:1625732)
+  * Add an autopkgtest for ensuring each PR has a changelog entry and a bug
+    linked to it.  (LP:1655671)
+  * Make ubuntu-image a classic confinement snap.  (LP:1638645)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Wed, 22 Feb 2017 11:30:01 -0500
+
 ubuntu-image (0.15+16.10ubuntu1) yakkety; urgency=medium
 
   * SRU tracking number LP: #1665014

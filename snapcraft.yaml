@@ -2,35 +2,42 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 0.15+snap1
-confinement: devmode
+version: 1.0+snap1
+grade: stable
+confinement: classic
 
 apps:
   ubuntu-image:
     command: bin/ubuntu-image
 
+environment:
+  PATH: $SNAP/bin/:$PATH
+  PYTHONPATH: $SNAP/lib/python3.5/site-packages:$PYTHONPATH
+
 parts:
   ubuntu-image:
     plugin: python
-    source: https://github.com/CanonicalLtd/ubuntu-image.git
+    source: .
     source-type: git
     python-packages:
+      - PyYAML
       - attrs
       - voluptuous
-      - PyYAML
-    snap:
+    prime:
       - bin/ubuntu-image
       - usr
       - lib
       - sbin
     stage-packages:
-      - mtools
       - e2fsprogs
+      - mtools
       - python3-debian
+      - python3-parted
+      - util-linux
   snapd:
     plugin: go
     source: https://github.com/snapcore/snapd
     source-type: git
     go-importpath: github.com/snapcore/snapd
-    snap:
+    prime:
       - bin/snap

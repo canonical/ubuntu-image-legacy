@@ -39,10 +39,20 @@ for model_file in sorted(model_assertions):
         continue
     # Build the image.
     workdir = os.path.join(TMP, base)
+    image_file_list = os.path.join(workdir, 'image-list.txt')
     model_assertion = os.path.join(DIR, model_file)
-    run(['ubuntu-image', '-c', CHANNEL, '-w', workdir,
-         '-o', os.path.join(workdir, 'disk.img'),
+    run(['ubuntu-image', '-d',
+         '-c', CHANNEL,
+         '-w', workdir,
+         '--output-dir', workdir,
+         '--image-file-list', image_file_list,
          model_assertion])
+    with open(image_file_list, 'r', encoding='utf-8') as fp:
+        images = fp.readlines()
+    # These are all single image gadgets.
+    assert len(images) == 1, images
+    # Strip off the newline.
+    disk_img = images[0][:-1]
     # Now try to mount every mountable partition in the resulting disk image.
     # First, we have to figure out which are the gadget-specified mountable
     # partitions.  These are any defined with `filesystem: ext4|vfat`.
@@ -63,7 +73,6 @@ for model_file in sorted(model_assertions):
             # True if the partition is mountable, False otherwise.
             part.filesystem in (FileSystemType.ext4, FileSystemType.vfat))
     mountable.append(True)
-    disk_img = os.path.join(workdir, 'disk.img')
     # Create device maps (synchronously!) for all the partitions in the disk
     # image.  This should correspond exactly to the number of partitions
     # defined in the 'mountable' list above, since we've ignored the mbr
