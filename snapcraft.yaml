@@ -11,7 +11,7 @@ apps:
     command: bin/ubuntu-image
 
 environment:
-  PATH: $SNAP/bin/:$PATH
+  PATH: $SNAP/bin/:$SNAP/usr/bin:$PATH
   PYTHONPATH: $SNAP/lib/python3.5/site-packages:$SNAP/usr/lib/python3/dist-packages:$PYTHONPATH
 
 parts:
