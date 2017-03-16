@@ -1,3 +1,10 @@
+ubuntu-image (1.1+17.04ubuntu1) UNRELEASED; urgency=medium
+
+  * Fixed the $PYTHONPATH in the snapcraft.yaml to include the location of
+    the extra dist-packages.  (LP: #1673576)
+
+ -- Barry Warsaw <barry@ubuntu.com>  Thu, 16 Mar 2017 14:56:13 -0400
+
 ubuntu-image (1.0+17.04ubuntu1) zesty; urgency=medium
 
   * Exit with a console message instead of crashing when the contents of a

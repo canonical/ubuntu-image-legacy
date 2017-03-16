@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 1.0+snap1
+version: 1.0+snap2
 grade: stable
 confinement: classic
 
@@ -12,7 +12,7 @@ apps:
 
 environment:
   PATH: $SNAP/bin/:$PATH
-  PYTHONPATH: $SNAP/lib/python3.5/site-packages:$PYTHONPATH
+  PYTHONPATH: $SNAP/lib/python3.5/site-packages:$SNAP/usr/lib/python3/dist-packages:$PYTHONPATH
 
 parts:
   ubuntu-image:
