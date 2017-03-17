@@ -8,7 +8,7 @@ confinement: classic
 
 apps:
   ubuntu-image:
-    command: bin/ubuntu-image
+    command: usr/bin/ubuntu-image
 
 environment:
   PATH: $SNAP/bin:$SNAP/usr/bin:$PATH
@@ -23,7 +23,6 @@ parts:
       - attrs
       - voluptuous
     prime:
-      - bin/ubuntu-image
       - usr
       - lib
       - sbin
