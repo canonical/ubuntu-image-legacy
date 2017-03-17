@@ -18,7 +18,6 @@ parts:
   ubuntu-image:
     plugin: python
     source: .
-    source-type: git
     python-packages:
       - PyYAML
       - attrs

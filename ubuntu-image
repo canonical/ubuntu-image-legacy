@@ -1,4 +1,2 @@
 #!/bin/sh
-echo $PATH
-type python3
 exec python3 -m ubuntu_image $*
