@@ -10,6 +10,8 @@ cd $ADTTMP
 mkdir clean
 cd clean
 
+which ubuntu-image
+
 ubuntu-image --version
 ubuntu-image -d -O $ADTTMP $here/debian/tests/models/pc-amd64-model.assertion
 ls -l $ADTTMP/pc.img
