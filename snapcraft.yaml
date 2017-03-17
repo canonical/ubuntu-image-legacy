@@ -33,6 +33,7 @@ parts:
       - python3-debian
       - python3-parted
       - util-linux
+      - ubuntu-image
   snapd:
     plugin: go
     source: https://github.com/snapcore/snapd
