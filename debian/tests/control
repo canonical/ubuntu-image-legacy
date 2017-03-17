@@ -43,4 +43,4 @@ Depends: @, python3-github, python3-requests
 
 Tests: snap.sh
 Restrictions: needs-root, allow-stderr
-Depends: snapd, snapcraft
+Depends: @, snapd, snapcraft
