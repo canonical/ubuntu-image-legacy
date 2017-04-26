@@ -1,4 +1,4 @@
-ubuntu-image (1.1+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
 
   * Fixed the $PYTHONPATH in the snapcraft.yaml to include the location of
     the extra dist-packages, and the $PATH to include the bundled
