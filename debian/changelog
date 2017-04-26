@@ -1,4 +1,4 @@
-ubuntu-image (1.1+17.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
 
   * Add a new step in the builder that generates .manifest files listing all
     snaps installed in the resulting image.  (LP: #1680574)
