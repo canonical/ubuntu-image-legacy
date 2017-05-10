@@ -1,8 +1,6 @@
 ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
 
-  * Fixed the $PYTHONPATH in the snapcraft.yaml to include the location of
-    the extra dist-packages, and the $PATH to include the bundled
-    sub-commands.  (LP: #1673576)
+  * Fix snapcraft.yaml for classic snappage.  (LP: #1673576)
   * Add a new step in the builder that generates .manifest files listing all
     snaps installed in the resulting image.  (LP: #1680574)
 
