@@ -101,6 +101,16 @@ class TestParseArgs(TestCase):
                               parseargs,
                               ['-i', '0:2G,1:4BIG,2:8G'])
 
+    def test_hooks_directory_single(self):
+        args = parseargs(['--hooks-directory', '/foo/bar', 'model.assertion'])
+        self.assertListEqual(args.hooks_directory, ['/foo/bar'])
+
+    def test_hooks_directory_multiple(self):
+        args = parseargs(['--hooks-directory', '/foo/bar,/foo/baz,~/bar',
+                          'model.assertion'])
+        self.assertListEqual(
+            args.hooks_directory, ['/foo/bar', '/foo/baz', '~/bar'])
+
 
 class TestMain(TestCase):
     def setUp(self):
@@ -363,7 +373,8 @@ class TestMainWithModel(TestCase):
         with open(os.path.join(workdir, '.ubuntu-image.pck'), 'rb') as fp:
             pickle_state = load(fp).__getstate__()
         # This is the *next* state to execute.
-        self.assertEqual(pickle_state['state'], ['calculate_rootfs_size'])
+        self.assertEqual(
+            pickle_state['state'], ['populate_rootfs_contents_hooks'])
 
     def test_resume_loads_pickle(self):
         workdir = self._resources.enter_context(TemporaryDirectory())
@@ -397,6 +408,85 @@ class TestMainWithModel(TestCase):
             mock.call_args_list[-1],
             call('Volume contents do not fit (72B over): '
                  'volumes:<pc>:structure:<mbr> [#0]'))
+
+    def test_hook_fired(self):
+        # For the purpose of testing, we will be using the post-populate-rootfs
+        # hook as we made sure it's still executed as part of of the
+        # DoNothingBuilder.
+        hookdir = self._resources.enter_context(TemporaryDirectory())
+        hookfile = os.path.join(hookdir, 'post-populate-rootfs')
+        # Let's make sure that, with the use of post-populate-rootfs, we can
+        # modify the rootfs contents.
+        with open(hookfile, 'w') as fp:
+            fp.write("""\
+#!/bin/sh
+touch $UBUNTU_IMAGE_HOOK_ROOTFS/foo
+""")
+        os.chmod(hookfile, 0o744)
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        code = main(('--hooks-directory', hookdir,
+                     '--workdir', workdir,
+                     self.model_assertion))
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.exists(os.path.join(workdir, 'root', 'foo')))
+        # XXX: Best if we could also easily inspect the resulting image file if
+        # the file is there.
+
+    def test_hook_error(self):
+        # For the purpose of testing, we will be using the post-populate-rootfs
+        # hook as we made sure it's still executed as part of of the
+        # DoNothingBuilder.
+        hookdir = self._resources.enter_context(TemporaryDirectory())
+        hookfile = os.path.join(hookdir, 'post-populate-rootfs')
+        with open(hookfile, 'w') as fp:
+            fp.write("""\
+#!/bin/sh
+echo -n "Failed" 1>&2
+return 1
+""")
+        os.chmod(hookfile, 0o744)
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        mock = self._resources.enter_context(patch(
+            'ubuntu_image.__main__._logger.error'))
+        code = main(('--hooks-directory', hookdir, self.model_assertion))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            mock.call_args_list[-1],
+            call('Hook script in path {} failed for the post-populate-rootfs '
+                 'hook with return code 1. Output of stderr:\nFailed'.format(
+                    hookfile)))
+
+    def test_hook_fired_after_resume(self):
+        # For the purpose of testing, we will be using the post-populate-rootfs
+        # hook as we made sure it's still executed as part of of the
+        # DoNothingBuilder.
+        hookdir = self._resources.enter_context(TemporaryDirectory())
+        hookfile = os.path.join(hookdir, 'post-populate-rootfs')
+        with open(hookfile, 'w') as fp:
+            fp.write("""\
+#!/bin/sh
+touch {}/success
+""".format(hookdir))
+        os.chmod(hookfile, 0o744)
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        main(('--until', 'prepare_image',
+              '--hooks-directory', hookdir,
+              '--workdir', workdir,
+              self.model_assertion))
+        self.assertFalse(os.path.exists(os.path.join(hookdir, 'success')))
+        # Check if after a resume the hook path is still correct and the hooks
+        # are fired as expected.
+        code = main(('--workdir', workdir, '--resume'))
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.exists(os.path.join(hookdir, 'success')))
 
 
 class TestMainWithBadGadget(TestCase):
