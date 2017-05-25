@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.__main__ import main, parseargs
 from ubuntu_image.helpers import GiB, MiB
+from ubuntu_image.hooks import supported_hooks
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
     EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
@@ -487,6 +488,22 @@ touch {}/success
         code = main(('--workdir', workdir, '--resume'))
         self.assertEqual(code, 0)
         self.assertTrue(os.path.exists(os.path.join(hookdir, 'success')))
+
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
+    def test_hook_official_support(self):
+        # This test is responsible for checking if all the officially declared
+        # hooks are called as intended, making sure none get dropped by
+        # accident.
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            XXXModelAssertionBuilder))
+        fire_mock = self._resources.enter_context(patch(
+            'ubuntu_image.hooks.HookManager.fire'))
+        code = main(('--channel', 'edge', self.model_assertion))
+        self.assertEqual(code, 0)
+        called_hooks = [x[0][0] for x in fire_mock.call_args_list]
+        self.assertListEqual(called_hooks, supported_hooks)
 
 
 class TestMainWithBadGadget(TestCase):

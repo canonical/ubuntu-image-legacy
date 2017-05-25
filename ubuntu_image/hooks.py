@@ -10,6 +10,15 @@ from ubuntu_image.state import ExpectedError
 _logger = logging.getLogger('ubuntu-image')
 
 
+# List of hooks currently provided by ubuntu-image.
+# This list will be used by our test infrastructure to make sure we're
+# supporting all hooks.  The test_hook_official_support unit test checks if
+# all the listed hooks are correctly fired during image build time.
+supported_hooks = [
+    'post-populate-rootfs',
+    ]
+
+
 class HookError(ExpectedError):
     """Exception raised whenever a hook script returns a non-zero value."""
     def __init__(self, hook_name, hook_path, hook_retcode, hook_stderr):
@@ -20,13 +29,6 @@ class HookError(ExpectedError):
 
 
 class HookManager:
-    # List of hooks currently provided by ubuntu-image.
-    # This list will be used by our test infrastructure to make sure we're
-    # supporting all hooks.
-    available_hooks = [
-        'post-populate-rootfs',
-        ]
-
     def __init__(self, dirs=[]):
         self._hook_dirs = [os.path.abspath(
             os.path.expanduser(x)) for x in dirs]
