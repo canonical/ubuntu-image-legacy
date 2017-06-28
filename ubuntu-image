@@ -1,2 +1,25 @@
 #!/bin/sh
-exec python3 -m ubuntu_image $*
+
+case $SNAP_ARCH in
+amd64)
+    TRIPLET="x86_64-linux-gnu"
+    ;;
+armhf)
+    TRIPLET="arm-linux-gnueabihf"
+    ;;
+arm64)
+    TRIPLET="aarch64-linux-gnu"
+    ;;
+*)
+    TRIPLET="$(uname -p)-linux-gnu"
+    ;;
+esac
+
+# We need to set the library paths for our snap to find the included libs.
+export LD_LIBRARY_PATH=$SNAP/usr/lib:$SNAP/usr/lib/$TRIPLET:$SNAP/lib/$TRIPLET
+export PYTHONPATH=$SNAP/lib/python3.5/site-packages:$PYTHONPATH
+# Since we use some system-owned tools like mount, sudo or snap that we can't
+# snappify, add some of the system paths to PATH
+export PATH=$SNAP/usr/bin:$SNAP/bin:$SNAP/sbin:/usr/bin:/bin:$PATH
+
+exec $SNAP/usr/bin/python3 -m ubuntu_image $*

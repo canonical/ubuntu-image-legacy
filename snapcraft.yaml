@@ -2,16 +2,13 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 1.0+snap3
+version: 1.0+snap4
 grade: stable
 confinement: classic
 
 apps:
   ubuntu-image:
     command: bin/ubuntu-image
-
-environment:
-  PATH: $SNAP/usr/bin:$PATH
 
 parts:
   ubuntu-image:
@@ -23,10 +20,14 @@ parts:
       - voluptuous
     prime:
       - bin/ubuntu-image
+      - bin/dd
+      - bin/cp
       - usr
       - lib
       - sbin
     stage-packages:
+      - coreutils
+      - dosfstools
       - e2fsprogs
       - mtools
       - python3-debian
