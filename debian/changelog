@@ -1,3 +1,13 @@
+ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
+
+  * Fix snapcraft.yaml for classic snappage.  (LP: #1673576)
+  * Add a new step in the builder that generates .manifest files listing all
+    snaps installed in the resulting image.  (LP: #1680574)
+  * Further fixes to snapcraft.yaml, making sure that we only have one
+    ubuntu-image version installed in the snap.  (LP: #1692901)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 21 Apr 2017 19:35:00 +0200
+
 ubuntu-image (1.0+17.04ubuntu1) zesty; urgency=medium
 
   * Exit with a console message instead of crashing when the contents of a
