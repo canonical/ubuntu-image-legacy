@@ -5,6 +5,9 @@ ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
     snaps installed in the resulting image.  (LP: #1680574)
   * Further fixes to snapcraft.yaml, making sure that we only have one
     ubuntu-image version installed in the snap.  (LP: #1692901)
+  * Extend the ubuntu-image wrapper to set required paths for work with classic
+    confinement, install missing dependancies into the snap.
+    (LP: #1694982, LP: #1694993)
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 21 Apr 2017 19:35:00 +0200
 
