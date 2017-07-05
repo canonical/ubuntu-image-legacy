@@ -28,6 +28,7 @@ parts:
       - sbin
     stage-packages:
       - e2fsprogs
+      - fakeroot
       - mtools
       - python3-debian
       - python3-parted
