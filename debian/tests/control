@@ -24,7 +24,7 @@ Depends: @builddeps@, git
 Features: test-name=qa
 
 Tests: coverage.sh
-Depends: @builddeps@, git, lsb-release
+Depends: @builddeps@, git, lsb-release, fakeroot
 
 Tests: mount
 Restrictions: needs-root, allow-stderr, isolation-machine
