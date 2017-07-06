@@ -6,6 +6,11 @@ version: 1.0+snap4
 grade: stable
 confinement: classic
 
+environment:
+  PATH: $SNAP/usr/bin:$SNAP/bin:$SNAP/sbin:$PATH
+  PYTHONPATH: $SNAP/lib/python3/site-packages:$PYTHONPATH
+  LD_LIBRARY_PATH: $SNAP/usr/lib:$SNAP/lib
+
 apps:
   ubuntu-image:
     command: bin/ubuntu-image
@@ -20,8 +25,6 @@ parts:
       - voluptuous
     prime:
       - bin/ubuntu-image
-      - bin/dd
-      - bin/cp
       - usr
       - lib
       - sbin
@@ -34,3 +37,10 @@ parts:
       - python3-debian
       - python3-parted
       - util-linux
+    install: |
+      TRIPLET="$(uname -p)-linux-gnu"
+      mv $SNAPCRAFT_PART_INSTALL/usr/lib/$TRIPLET/* $SNAPCRAFT_PART_INSTALL/usr/lib/
+      mv $SNAPCRAFT_PART_INSTALL/lib/$TRIPLET/* $SNAPCRAFT_PART_INSTALL/lib/
+      cd $SNAPCRAFT_PART_INSTALL/lib/
+      mkdir python3
+      mv python3.*/* python3/
