@@ -64,7 +64,7 @@ class MountMocker:
         self.results_dir = results_dir
 
     def run(self, command, *args, **kws):
-        if command.startswith('mkfs.ext4'):
+        if 'mkfs.ext4' in command:
             if '-d' in command.split():
                 # Simulate a failing call on <= Ubuntu 16.04 where mkfs.ext4
                 # doesn't yet support the -d optio.n
