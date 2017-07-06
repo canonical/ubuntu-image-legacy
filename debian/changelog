@@ -8,10 +8,10 @@ ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
     ubuntu-image version installed in the snap.  (LP: #1692901)
 
   [ Michael Vogt ]
-  * Use fakeroot when running mkfs.ext4
+  * Use fakeroot when running mkfs.ext4.  (LP: #1702628)
 
   [ Steve Langasek ]
-  * Add fakeroot to the snapcraft.yaml and as a test dep
+  * Add fakeroot to the snapcraft.yaml and as a test dep.  (LP: #1702628)
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 21 Apr 2017 19:35:00 +0200
 
