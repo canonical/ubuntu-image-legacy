@@ -56,6 +56,7 @@ def update_changelog(repo, series, version):
         # Currently, master is always Zesty.
         changelog.distributions = series
         series_version = {
+            'artful': '17.10',
             'zesty': '17.04',
             'yakkety': '16.10',
             'xenial': '16.04',
@@ -125,7 +126,10 @@ def make_source_package(working_dir):
 
 
 def main():
-    working_dir = sys.argv[1]
+    try:
+        working_dir = sys.argv[1]
+    except IndexError:
+        working_dir = os.getcwd()
     repo = Repo(working_dir)
     assert not repo.bare
     # Start by modifying the master branch.
@@ -145,6 +149,19 @@ def main():
                 print('version:', '{}+snap1'.format(version), file=outfp)
             else:
                 outfp.write(line)
+    new_version = update_changelog(repo, 'artful', version)
+    continue_abort('Pausing for manual review and commit')
+    tag_or_skip(repo, new_version)
+    make_source_package(working_dir)
+    # Now do the Zesty branch.
+    repo.git.checkout('zesty')
+    # This will almost certainly cause merge conflicts.
+    try:
+        repo.git.merge('master', '--no-commit')
+    except GitCommandError:
+        continue_abort('Resolve merge master->zesty conflicts manually')
+    munge_lp_bug_numbers(repo)
+    sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'zesty', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)
@@ -155,7 +172,7 @@ def main():
     try:
         repo.git.merge('master', '--no-commit')
     except GitCommandError:
-        continue_abort('Resolve merge conflicts manually')
+        continue_abort('Resolve merge master->yakkety conflicts manually')
     munge_lp_bug_numbers(repo)
     sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'yakkety', version)
@@ -168,7 +185,7 @@ def main():
     try:
         repo.git.merge('master', '--no-commit')
     except GitCommandError:
-        continue_abort('Resolve merge conflicts manually')
+        continue_abort('Resolve merge master->xenial conflicts manually')
     munge_lp_bug_numbers(repo)
     sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'xenial', version)

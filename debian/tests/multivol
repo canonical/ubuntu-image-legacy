@@ -28,17 +28,19 @@ run(['ubuntu-image', '-c', 'stable', '-w', tmp, '-d',
 
 # We now have three .img files in our output directory.
 imgfiles = set(os.listdir(imgdir))
-assert imgfiles == {'hello.img', 'world.img', 'pc.img'}, imgfiles
+assert imgfiles == {'world.img', 'hello.img', 'seed.manifest',
+                    'pc.img', 'snaps.manifest'}, imgfiles
 
 # The fun ones are hello.img and world.img.  Let's mount those and verify they
 # contain some of the expected contents.
+
 
 def mount(filename):
     with ExitStack() as resources:
         img_file = os.path.join(imgdir, filename)
         proc = run(['kpartx', '-avs', img_file],
-                    universal_newlines=True,
-                    stdout=PIPE)
+                   universal_newlines=True,
+                   stdout=PIPE)
         resources.callback(run, ['kpartx', '-dvs', img_file])
         mnt_dir = os.path.join(imgdir, 'mnt')
         os.mkdir(mnt_dir)
