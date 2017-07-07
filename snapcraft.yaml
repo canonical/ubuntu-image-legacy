@@ -29,7 +29,6 @@ parts:
       - lib
       - sbin
     stage-packages:
-      - coreutils
       - dosfstools
       - e2fsprogs
       - fakeroot
@@ -38,9 +37,8 @@ parts:
       - python3-parted
       - util-linux
     install: |
-      TRIPLET="$(uname -p)-linux-gnu"
-      mv $SNAPCRAFT_PART_INSTALL/usr/lib/$TRIPLET/* $SNAPCRAFT_PART_INSTALL/usr/lib/
-      mv $SNAPCRAFT_PART_INSTALL/lib/$TRIPLET/* $SNAPCRAFT_PART_INSTALL/lib/
+      mv $SNAPCRAFT_PART_INSTALL/usr/lib/*-linux-gnu*/* $SNAPCRAFT_PART_INSTALL/usr/lib/
+      mv $SNAPCRAFT_PART_INSTALL/lib/*-linux-gnu*/* $SNAPCRAFT_PART_INSTALL/lib/
       cd $SNAPCRAFT_PART_INSTALL/lib/
       mkdir python3
       mv python3.*/* python3/
