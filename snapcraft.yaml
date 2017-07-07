@@ -2,16 +2,18 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 1.0+snap3
+version: 1.0+snap4
 grade: stable
 confinement: classic
+
+environment:
+  PATH: $SNAP/usr/bin:$SNAP/bin:$SNAP/sbin:$PATH
+  PYTHONPATH: $SNAP/lib/python3/site-packages:$PYTHONPATH
+  LD_LIBRARY_PATH: $SNAP/usr/lib:$SNAP/lib
 
 apps:
   ubuntu-image:
     command: bin/ubuntu-image
-
-environment:
-  PATH: $SNAP/usr/bin:$PATH
 
 parts:
   ubuntu-image:
@@ -27,9 +29,16 @@ parts:
       - lib
       - sbin
     stage-packages:
+      - dosfstools
       - e2fsprogs
       - fakeroot
       - mtools
       - python3-debian
       - python3-parted
       - util-linux
+    install: |
+      mv $SNAPCRAFT_PART_INSTALL/usr/lib/*-linux-gnu*/* $SNAPCRAFT_PART_INSTALL/usr/lib/
+      mv $SNAPCRAFT_PART_INSTALL/lib/*-linux-gnu*/* $SNAPCRAFT_PART_INSTALL/lib/
+      cd $SNAPCRAFT_PART_INSTALL/lib/
+      mkdir python3
+      mv python3.*/* python3/

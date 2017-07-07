@@ -6,6 +6,9 @@ ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
     snaps installed in the resulting image.  (LP: #1680574)
   * Further fixes to snapcraft.yaml, making sure that we only have one
     ubuntu-image version installed in the snap.  (LP: #1692901)
+  * Move files around during snap build to have all needed libraries and python
+    files in common accessible paths, install missing dependencies into the
+    snap.  (LP: #1694982, LP: #1694993)
 
   [ Michael Vogt ]
   * Use fakeroot when running mkfs.ext4.  (LP: #1702628)
