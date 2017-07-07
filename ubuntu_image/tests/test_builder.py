@@ -1215,6 +1215,59 @@ class TestModelAssertionBuilder(TestCase):
                 offset = unpack('<I', fp.read(4))[0]
                 self.assertEqual(offset, MiB(4) / 512)
 
+    def test_generate_manifests(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                debug=False,
+                output=None,
+                output_dir=outputdir,
+                unpackdir=None,
+                workdir=workdir,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.generate_manifests)
+            # Set up expected state.
+            state.rootfs = os.path.join(workdir, 'root')
+            snaps_dir = os.path.join(
+                state.rootfs, 'system-data', 'var', 'lib', 'snapd', 'snaps')
+            seed_dir = os.path.join(
+                state.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed',
+                'snaps')
+            os.makedirs(snaps_dir)
+            os.makedirs(seed_dir)
+            # Create some dummy snaps in both directories
+            snaps = {'foo': '13', 'bar-baz': '43', 'comma': '4.4',
+                     'snap': '1', 'underscore_name': '78'}
+            files = ['{}_{}.snap'.format(k, v) for k, v in snaps.items()]
+            files.append('not_a_snap')
+            for file in files:
+                open(os.path.join(snaps_dir, file), 'w').close()
+            seeds = {'foo': '13', 'bar-baz': '43', 'comma': '4.4',
+                     'snap': '1', 'underscore_name': '78', 'pc': '19'}
+            files = ['{}_{}.snap'.format(k, v) for k, v in seeds.items()]
+            files.append('not_a_snap')
+            for file in files:
+                open(os.path.join(seed_dir, file), 'w').close()
+            next(state)
+            snaps_manifest = os.path.join(outputdir, 'snaps.manifest')
+            seed_manifest = os.path.join(outputdir, 'seed.manifest')
+            self.assertTrue(os.path.exists(snaps_manifest))
+            self.assertTrue(os.path.exists(seed_manifest))
+            with open(snaps_manifest) as f:
+                manifest = set(f.read().splitlines())
+                snap_set = set('{} {}'.format(k, v) for k, v in snaps.items())
+                self.assertEqual(snap_set, manifest)
+            with open(seed_manifest) as f:
+                manifest = set(f.read().splitlines())
+                snap_set = set('{} {}'.format(k, v) for k, v in seeds.items())
+                self.assertEqual(snap_set, manifest)
+
     def test_prepare_filesystems_with_no_vfat_partitions(self):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
@@ -2118,6 +2171,8 @@ class TestModelAssertionBuilder(TestCase):
         with ExitStack() as resources:
             outputdir = resources.enter_context(TemporaryDirectory())
             disk_img = os.path.join(outputdir, 'disk.img')
+            getcwd_mock = resources.enter_context(
+                patch('ubuntu_image.builder.os.getcwd'))
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
@@ -2137,8 +2192,6 @@ class TestModelAssertionBuilder(TestCase):
             resources.enter_context(patch.object(state, '_make_one_disk'))
             log_mock = resources.enter_context(
                 patch('ubuntu_image.builder._logger.warning'))
-            getcwd_mock = resources.enter_context(
-                patch('ubuntu_image.builder.os.getcwd'))
             next(state)
             posargs, kwargs = log_mock.call_args_list[0]
             self.assertEqual(
@@ -2153,6 +2206,9 @@ class TestModelAssertionBuilder(TestCase):
         # current working directory is used.
         with ExitStack() as resources:
             cwd = resources.enter_context(TemporaryDirectory())
+            getcwd_mock = resources.enter_context(
+                patch('ubuntu_image.builder.os.getcwd',
+                      return_value=cwd))
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
@@ -2170,9 +2226,6 @@ class TestModelAssertionBuilder(TestCase):
                          for name in ('one', 'two', 'three')}
                 )
             resources.enter_context(patch.object(state, '_make_one_disk'))
-            getcwd_mock = resources.enter_context(
-                patch('ubuntu_image.builder.os.getcwd',
-                      return_value=cwd))
             next(state)
             self.assertEqual(len(getcwd_mock.call_args_list), 1)
 
