@@ -148,6 +148,19 @@ def main():
                 print('version:', '{}+snap1'.format(version), file=outfp)
             else:
                 outfp.write(line)
+    new_version = update_changelog(repo, 'artful', version)
+    continue_abort('Pausing for manual review and commit')
+    tag_or_skip(repo, new_version)
+    make_source_package(working_dir)
+    # Now do the Zesty branch.
+    repo.git.checkout('zesty')
+    # This will almost certainly cause merge conflicts.
+    try:
+        repo.git.merge('master', '--no-commit')
+    except GitCommandError:
+        continue_abort('Resolve merge master->zesty conflicts manually')
+    munge_lp_bug_numbers(repo)
+    sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'zesty', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)
