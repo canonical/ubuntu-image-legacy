@@ -56,6 +56,7 @@ def update_changelog(repo, series, version):
         # Currently, master is always Zesty.
         changelog.distributions = series
         series_version = {
+            'artful': '17.10',
             'zesty': '17.04',
             'yakkety': '16.10',
             'xenial': '16.04',
