@@ -1,5 +1,6 @@
 ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
 
+  [ Łukasz 'sil2100' Zemczak ]
   * Fix snapcraft.yaml for classic snappage.  (LP: #1673576)
   * Add a new step in the builder that generates .manifest files listing all
     snaps installed in the resulting image.  (LP: #1680574)
@@ -8,6 +9,12 @@ ubuntu-image (1.1+17.10ubuntu1) UNRELEASED; urgency=medium
   * Move files around during snap build to have all needed libraries and python
     files in common accessible paths, install missing dependencies into the
     snap.  (LP: #1694982, LP: #1694993)
+
+  [ Michael Vogt ]
+  * Use fakeroot when running mkfs.ext4.  (LP: #1702628)
+
+  [ Steve Langasek ]
+  * Add fakeroot to the snapcraft.yaml and as a test dep.  (LP: #1702628)
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 21 Apr 2017 19:35:00 +0200
 
