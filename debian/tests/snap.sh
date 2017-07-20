@@ -1,3 +1,5 @@
+[ -z "$UPSTREAM_PULL_REQUEST" ] && ( echo "Skipping test, not ran as part of a pull request."; exit 0; )
+
 sudo snap install core
 
 snapcraft
