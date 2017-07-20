@@ -122,7 +122,7 @@ def munge_lp_bug_numbers(repo):
 
 def make_source_package(working_dir):
     with chdir(working_dir):
-        run(['gbp', 'buildpackage', '-S', '-us', '-uc'])
+        run(['gbp', 'buildpackage', '-S', '-us', '-uc', '--git-ignore-branch'])
 
 
 def main():
