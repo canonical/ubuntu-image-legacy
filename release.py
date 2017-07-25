@@ -58,7 +58,6 @@ def update_changelog(repo, series, version):
         series_version = {
             'artful': '17.10',
             'zesty': '17.04',
-            'yakkety': '16.10',
             'xenial': '16.04',
             }[series]
         new_version = '{}+{}ubuntu1'.format(version, series_version)
@@ -122,7 +121,7 @@ def munge_lp_bug_numbers(repo):
 
 def make_source_package(working_dir):
     with chdir(working_dir):
-        run(['gbp', 'buildpackage', '-S', '-us', '-uc'])
+        run(['gbp', 'buildpackage', '-S', '-us', '-uc', '--git-ignore-branch'])
 
 
 def main():
@@ -163,19 +162,6 @@ def main():
     munge_lp_bug_numbers(repo)
     sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'zesty', version)
-    continue_abort('Pausing for manual review and commit')
-    tag_or_skip(repo, new_version)
-    make_source_package(working_dir)
-    # Now do the Yakkety branch.
-    repo.git.checkout('yakkety')
-    # This will almost certainly cause merge conflicts.
-    try:
-        repo.git.merge('master', '--no-commit')
-    except GitCommandError:
-        continue_abort('Resolve merge master->yakkety conflicts manually')
-    munge_lp_bug_numbers(repo)
-    sru_tracking_bug(repo, sru)
-    new_version = update_changelog(repo, 'yakkety', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)
     make_source_package(working_dir)
