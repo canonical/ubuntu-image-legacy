@@ -1,4 +1,4 @@
-ubuntu-image (1.1+17.10ubuntu3) artful; urgency=medium
+ubuntu-image (1.1+16.04ubuntu3) xenial; urgency=medium
 
   * Only run the snap.sh test on github PRs as it doesn't make sense to run it
     as part of regular deb package migration.  (LP: #1704979)
