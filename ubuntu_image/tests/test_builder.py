@@ -1244,6 +1244,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))

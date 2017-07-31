@@ -47,14 +47,14 @@ class HookManager:
         env.update(overlay_env)
         name_d = '{}.d'.format(name)
         for hook_dir in self._hook_dirs:
-            for entry in os.listdir(hook_dir):
-                abspath = os.path.join(hook_dir, entry)
-                # Hook scripts can be either present in the hook directory as
-                # single hook-named files or in a hook-name.d directory.
-                # We go and execute all of them in the order directory > file.
-                if entry == name_d and os.path.isdir(abspath):
-                    for hook in os.listdir(abspath):
-                        abspath_d = os.path.join(name, abspath, hook)
-                        self._run_hook(name, abspath_d, env)
-                elif entry == name and os.path.isfile(abspath):
-                    self._run_hook(name, abspath, env)
+            # Hook scripts can be either present in the hook directory as
+            # single hook-named files or in a hook-name.d directory.
+            # We go and execute all of them in the order directory > file.
+            abspath = os.path.join(hook_dir, name_d)
+            if os.path.isdir(abspath):
+                for hook in sorted(os.listdir(abspath)):
+                    abspath_d = os.path.join(name, abspath, hook)
+                    self._run_hook(name, abspath_d, env)
+            abspath = os.path.join(hook_dir, name)
+            if os.path.isfile(abspath):
+                self._run_hook(name, abspath, env)
