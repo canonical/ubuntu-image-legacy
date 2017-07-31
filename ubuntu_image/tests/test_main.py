@@ -121,8 +121,10 @@ class TestMain(TestCase):
             main(('--help',))
         self.assertEqual(cm.exception.code, 0)
         lines = self._stdout.getvalue().splitlines()
-        self.assertTrue(lines[0].startswith('usage: ubuntu-image'),
+        self.assertTrue(lines[0].startswith('Usage'),
                         lines[0])
+        self.assertTrue(lines[1].startswith('  ubuntu-image'),
+                        lines[1])
 
     def test_debug(self):
         with ExitStack() as resources:
