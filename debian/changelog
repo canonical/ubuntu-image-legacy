@@ -1,3 +1,30 @@
+ubuntu-image (1.1+17.10ubuntu3) artful; urgency=medium
+
+  * Only run the snap.sh test on github PRs as it doesn't make sense to run it
+    as part of regular deb package migration.  (LP: #1704979)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 19 Jul 2017 15:31:06 +0200
+
+ubuntu-image (1.1+17.10ubuntu1) artful; urgency=medium
+
+  [ Łukasz 'sil2100' Zemczak ]
+  * Fix snapcraft.yaml for classic snappage.  (LP: #1673576)
+  * Add a new step in the builder that generates .manifest files listing all
+    snaps installed in the resulting image.  (LP: #1680574)
+  * Further fixes to snapcraft.yaml, making sure that we only have one
+    ubuntu-image version installed in the snap.  (LP: #1692901)
+  * Move files around during snap build to have all needed libraries and python
+    files in common accessible paths, install missing dependencies into the
+    snap.  (LP: #1694982, LP: #1694993)
+
+  [ Michael Vogt ]
+  * Use fakeroot when running mkfs.ext4.  (LP: #1702628)
+
+  [ Steve Langasek ]
+  * Add fakeroot to the snapcraft.yaml and as a test dep.  (LP: #1702628)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 21 Apr 2017 19:35:00 +0200
+
 ubuntu-image (1.0+17.04ubuntu1) zesty; urgency=medium
 
   * Exit with a console message instead of crashing when the contents of a

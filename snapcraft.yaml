@@ -2,23 +2,23 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 1.0+snap1
+version: 1.1+snap3
 grade: stable
 confinement: classic
+
+environment:
+  PATH: $SNAP/usr/bin:$SNAP/bin:$SNAP/sbin:$PATH
+  PYTHONPATH: $SNAP/lib/python3/site-packages:$PYTHONPATH
+  LD_LIBRARY_PATH: $SNAP/usr/lib:$SNAP/lib:$SNAP/usr/lib/lib-arch:$SNAP/lib/lib-arch
 
 apps:
   ubuntu-image:
     command: bin/ubuntu-image
 
-environment:
-  PATH: $SNAP/bin/:$PATH
-  PYTHONPATH: $SNAP/lib/python3.5/site-packages:$PYTHONPATH
-
 parts:
   ubuntu-image:
     plugin: python
     source: .
-    source-type: git
     python-packages:
       - PyYAML
       - attrs
@@ -29,15 +29,18 @@ parts:
       - lib
       - sbin
     stage-packages:
+      - dosfstools
       - e2fsprogs
+      - fakeroot
       - mtools
       - python3-debian
       - python3-parted
       - util-linux
-  snapd:
-    plugin: go
-    source: https://github.com/snapcore/snapd
-    source-type: git
-    go-importpath: github.com/snapcore/snapd
-    prime:
-      - bin/snap
+    install: |
+      cd $SNAPCRAFT_PART_INSTALL/usr/lib/
+      ln -s *-linux-gnu* lib-arch
+      cd $SNAPCRAFT_PART_INSTALL/lib/
+      ln -s *-linux-gnu* lib-arch
+      cd $SNAPCRAFT_PART_INSTALL/lib/
+      mkdir python3
+      mv python3.*/* python3/

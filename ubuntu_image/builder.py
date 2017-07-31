@@ -46,7 +46,12 @@ class ModelAssertionBuilder(State):
             self.resources.enter_context(TemporaryDirectory())
             if args.workdir is None
             else args.workdir)
-        self.output_dir = args.output_dir
+        # The argument parser ensures that these are mutually exclusive.
+        if args.output_dir is None:
+            self.output_dir = (os.getcwd() if args.workdir is None
+                               else args.workdir)
+        else:
+            self.output_dir = args.output_dir
         self.output = args.output
         # Information passed between states.
         self.rootfs = None
@@ -481,20 +486,14 @@ class ModelAssertionBuilder(State):
         #
         # If -o was given and there are multiple volumes, we ignore it and
         # act as if -O is in use.
-        disk_img = output_dir = None
+        disk_img = None
         if self.output is not None:
             if len(self.gadget.volumes) > 1:
                 _logger.warn('-o/--output ignored for multiple volumes')
             else:
                 disk_img = self.output
-        # The argument parser ensures that these are mutually exclusive.
-        if disk_img is None:
-            if self.output_dir is None:
-                output_dir = (os.getcwd() if self.args.workdir is None
-                              else self.args.workdir)
-            else:
-                output_dir = self.output_dir
-            os.makedirs(output_dir, exist_ok=True)
+        if not disk_img:
+            os.makedirs(self.output_dir, exist_ok=True)
         # Walk through all partitions and write them to the disk image at the
         # lowest permissible offset.  We should not have any overlapping
         # partitions, the parser should have already rejected such as invalid.
@@ -505,8 +504,33 @@ class ModelAssertionBuilder(State):
         for name, volume in self.gadget.volumes.items():
             image_path = (
                 disk_img if disk_img is not None
-                else os.path.join(output_dir, '{}.img'.format(name)))
+                else os.path.join(self.output_dir, '{}.img'.format(name)))
             self._make_one_disk(image_path, name, volume)
+        self._next.append(self.generate_manifests)
+
+    def _write_manifest(self, snaps_dir, filename):
+        if os.path.isdir(snaps_dir):
+            manifest_path = os.path.join(self.output_dir, filename)
+            with open(manifest_path, 'w') as manifest:
+                for file in os.listdir(snaps_dir):
+                    if file.endswith('.snap'):
+                        parts = file[:-5].rpartition('_')
+                        manifest.write('{} {}\n'.format(parts[0], parts[2]))
+
+    def generate_manifests(self):
+        # After the images are built, we would also like to have some image
+        # manifests exported so that one can easily check what snap packages
+        # have been installed as part of the image.
+        # We generate two files - one based off the snaps/ directory and other
+        # basing on the contents of seed/snaps.
+        # snaps.manifest
+        snaps_dir = os.path.join(
+            self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'snaps')
+        self._write_manifest(snaps_dir, 'snaps.manifest')
+        # seed.manifest
+        seed_dir = os.path.join(
+            self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed', 'snaps')
+        self._write_manifest(seed_dir, 'seed.manifest')
         self._next.append(self.finish)
 
     def finish(self):
