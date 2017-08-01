@@ -101,7 +101,7 @@ class SizeAction(argparse.Action):
 
 
 def get_host_arch():
-    proc = run('dpkg --print-architecture')
+    proc = run('dpkg --print-architecture', check=False)
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 
