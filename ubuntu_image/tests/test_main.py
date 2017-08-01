@@ -77,9 +77,13 @@ class TestParseArgs(TestCase):
         stderr = StringIO()
         with patch('sys.stderr', stderr):
             parseargs(['-o', '/tmp/disk.img', 'model.assertion'])
+        lines = stderr.getvalue().splitlines()
+        self.assertTrue(
+                lines[0].startswith('Warning: for backwards compatibility'),
+                lines[0])
         self.assertEqual(
-            stderr.getvalue(),
-            '-o/--output is deprecated; use -O/--output-dir instead\n')
+                lines[1],
+                '-o/--output is deprecated; use -O/--output-dir instead')
 
     def test_multivolume_image_size(self):
         args = parseargs(['-i', '0:4G,sdcard:2G,1:4G', 'model.assertion'])

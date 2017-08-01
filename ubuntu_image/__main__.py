@@ -10,10 +10,9 @@ from contextlib import suppress
 from pickle import dump, load
 from ubuntu_image import __version__
 from ubuntu_image.builder import DoesNotFit, ModelAssertionBuilder
-from ubuntu_image.helpers import as_size
+from ubuntu_image.helpers import as_size, run
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
-from subprocess import Popen, PIPE
 
 
 _logger = logging.getLogger('ubuntu-image')
@@ -28,20 +27,22 @@ class SimpleHelpFormatter(argparse.HelpFormatter):
         if prefix is None:
             prefix = 'Usage: '
         if len(actions) != 0:
-            usage="""
+            usage = ("""
   {prog} [OPTIONS] COMMAND [ARGS]...
-  {prog} COMMAND --help """. format(prog=PROGRAM)
+  {prog} COMMAND --help """).format(prog=PROGRAM)
         else:
-            usage="""
-  {prog} [OPTIONS] """. format(prog=PROGRAM)
+            usage = ("""
+  {prog} [OPTIONS] """).format(prog=PROGRAM)
 
         return super(SimpleHelpFormatter, self).add_usage(
             usage, actions, groups, prefix)
+
     def _format_action(self, action):
         if type(action) == argparse._SubParsersAction:
             # calculate the subcommand max length
             subactions = action._get_subactions()
-            invocations = [self._format_action_invocation(a) for a in subactions]
+            invocations = [self._format_action_invocation(a)
+                           for a in subactions]
             self._subcommand_max_length = max(len(i) for i in invocations)
 
         if type(action) == argparse._SubParsersAction._ChoicesPseudoAction:
@@ -50,8 +51,8 @@ class SimpleHelpFormatter(argparse.HelpFormatter):
             help_text = ""
             if action.help:
                 help_text = self._expand_help(action)
-            return "  {:{width}}\t\t{} \n".format(subcommand, help_text,
-                    width=self._subcommand_max_length)
+            return ("  {:{width}}\t\t{} \n").format(
+                    subcommand, help_text, width=self._subcommand_max_length)
         elif type(action) == argparse._SubParsersAction:
             # eliminate subcommand choices line {cmd1, cmd2}
             msg = ''
@@ -98,11 +99,11 @@ class SizeAction(argparse.Action):
         # For display purposes.
         namespace.given_image_size = values
 
+
 def get_host_arch():
-    process = Popen(["dpkg", "--print-architecture"], stdout=PIPE)
-    (output, err) = process.communicate()
-    exit_code = process.wait()
-    return output.decode('ascii').strip() if exit_code == 0 else None
+    proc = run('dpkg --print-architecture')
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
 
 def get_modified_arguments(self, default_subcommand, argv):
     subparser_found = False
@@ -114,25 +115,26 @@ def get_modified_arguments(self, default_subcommand, argv):
                    '-r', '--resume']:
             break
     else:
-        all_args=' '.join(argv)
+        all_args = ' '.join(argv)
         for x in self._subparsers._actions:
             if not isinstance(x, argparse._SubParsersAction):
                 continue
             for sp_name in x._name_parser_map.keys():
                 if sp_name in argv:
-                    subparser_found = True # if default subcommand is provided.
+                    subparser_found = True  # if `snap` subcommand is given.
         if not subparser_found:
-            print('Warning: for backwards compatibility, `ubuntu-image` fallbacks to '
-                  '`ubuntu-image snap` if no subcommand is provided',
+            print('Warning: for backwards compatibility, `ubuntu-image` '
+                  'fallbacks to `ubuntu-image snap` if no subcommand is given',
                   file=sys.stderr)
 
             # re-arrange snap specific args for backwards compatibility.
-            snap_args_pattern=r'(?:--channel|-c|--extra-snaps|--cloud-init)\s{1}\S*'
-            match_args=re.findall(snap_args_pattern, all_args)
-            snap_args = [arg for arg_pair in match_args for arg in arg_pair.split()]
+            pattern = r'(?:--channel|-c|--extra-snaps|--cloud-init)\s{1}\S*'
+            match_args = re.findall(pattern, all_args)
+            snap_args = [arg for arg_pair in match_args
+                         for arg in arg_pair.split()]
 
             # remove match args and only keep global options.
-            all_args=re.sub(snap_args_pattern, '', all_args)
+            all_args = re.sub(pattern, '', all_args)
 
             # and insert 'snap' subcommand at proper position.
             # put snap specific args after `snap` subcommand.
@@ -143,6 +145,7 @@ def get_modified_arguments(self, default_subcommand, argv):
 
             return new_argv
     return argv
+
 
 def parseargs(argv=None):
     parser = argparse.ArgumentParser(
@@ -156,10 +159,12 @@ def parseargs(argv=None):
 
     # create two subcommands, "snap" and "classic"
     subparser = parser.add_subparsers(title=_('Command'), dest='cmd')
-    snap_cmd = subparser.add_parser('snap',
-        help=_("""Create snap-based Ubuntu Core image."""))
-    classic_cmd = subparser.add_parser('classic',
-        help=_("""Create debian-based Ubuntu Classic image."""))
+    snap_cmd = subparser.add_parser(
+            'snap',
+            help=_("""Create snap-based Ubuntu Core image."""))
+    classic_cmd = subparser.add_parser(
+            'classic',
+            help=_("""Create debian-based Ubuntu Classic image."""))
     argv = parser.get_modified_arguments('snap', argv)
 
     common_group = parser.add_argument_group(_('Common options'))
@@ -296,15 +301,15 @@ def parseargs(argv=None):
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
 
-    if args.cmd == 'snap' :
+    if args.cmd == 'snap':
         # The model assertion argument is required unless --resume is given, in
         # which case it cannot be given.
         if args.resume and args.model_assertion:
             parser.error('model assertion is not allowed with --resume')
         if not args.resume and args.model_assertion is None:
             parser.error('model assertion is required')
-    elif args.cmd == 'classic' :
-        print ('classic::  ', args.arch)
+    elif args.cmd == 'classic':
+        print('classic::  ', args.arch)
 
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
@@ -321,8 +326,9 @@ def parseargs(argv=None):
 
 argparse.ArgumentParser.get_modified_arguments = get_modified_arguments
 
+
 def main(argv=None):
-    if argv == None:
+    if argv is None:
         argv = sys.argv[1:]
 
     args = parseargs(argv)
