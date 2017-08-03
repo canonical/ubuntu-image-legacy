@@ -42,15 +42,20 @@ class BadGadgetModelAssertionBuilder(XXXModelAssertionBuilder):
 
 class TestParseArgs(TestCase):
     def test_image_size_option_bytes(self):
+        args = parseargs(['--image-size', '45', 'snap', 'model.assertion'])
+        self.assertEqual(args.image_size, 45)
+        self.assertEqual(args.given_image_size, '45')
+
+    def test_image_size_option_bytes_without_subcommand(self):
         args = parseargs(['--image-size', '45', 'model.assertion'])
         self.assertEqual(args.image_size, 45)
         self.assertEqual(args.given_image_size, '45')
 
     def test_image_size_option_suffixes(self):
-        args = parseargs(['--image-size', '45G', 'model.assertion'])
+        args = parseargs(['--image-size', '45G', 'snap', 'model.assertion'])
         self.assertEqual(args.image_size, GiB(45))
         self.assertEqual(args.given_image_size, '45G')
-        args = parseargs(['--image-size', '45M', 'model.assertion'])
+        args = parseargs(['--image-size', '45M', 'snap', 'model.assertion'])
         self.assertEqual(args.image_size, MiB(45))
         self.assertEqual(args.given_image_size, '45M')
 
@@ -60,10 +65,12 @@ class TestParseArgs(TestCase):
         with patch('argparse._sys.stderr'):
             self.assertRaises(SystemExit,
                               parseargs,
-                              ['--image-size', '45Q', 'model.assertion'])
+                              ['--image-size', '45Q',
+                               'snap', 'model.assertion'])
             self.assertRaises(SystemExit,
                               parseargs,
-                              ['--image-size', 'BIG', 'model.assertion'])
+                              ['--image-size', 'BIG',
+                               'snap', 'model.assertion'])
 
     def test_output_dir_mutually_exclusive_with_output(self):
         # You can't use -O/--output-dir and -o/--output at the same time.
@@ -86,7 +93,8 @@ class TestParseArgs(TestCase):
                 '-o/--output is deprecated; use -O/--output-dir instead')
 
     def test_multivolume_image_size(self):
-        args = parseargs(['-i', '0:4G,sdcard:2G,1:4G', 'model.assertion'])
+        args = parseargs(['-i', '0:4G,sdcard:2G,1:4G',
+                          'snap', 'model.assertion'])
         self.assertEqual(args.image_size, {
             0: GiB(4),
             'sdcard': GiB(2),
@@ -97,13 +105,15 @@ class TestParseArgs(TestCase):
         with patch('argparse._sys.stderr'):
             self.assertRaises(SystemExit,
                               parseargs,
-                              ['-i', '0:2G,4G,1:8G'])
+                              ['-i', '0:2G,4G,1:8G',
+                               'snap', 'model.assertion'])
 
     def test_multivolume_bad_size(self):
         with patch('argparse._sys.stderr'):
             self.assertRaises(SystemExit,
                               parseargs,
-                              ['-i', '0:2G,1:4BIG,2:8G'])
+                              ['-i', '0:2G,1:4BIG,2:8G',
+                               'snap', 'model.assertion'])
 
 
 class TestMain(TestCase):
@@ -198,6 +208,50 @@ class TestMain(TestCase):
                      'model.assertion'))
         self.assertEqual(code, 1)
 
+    def test_no_arguments(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(())
+        self.assertEqual(cm.exception.code, 2)
+        lines = self._stderr.getvalue().splitlines()
+        self.assertTrue(
+                lines[0].startswith('Warning: for backwards compatibility'),
+                lines[0])
+        self.assertTrue(lines[1], 'Usage:')
+        self.assertEqual(
+                lines[2],
+                '  ubuntu-image [OPTIONS] COMMAND [ARGS]...')
+
+    def test_with_none(self):
+        with self.assertRaises(SystemExit) as cm:
+            main((None))    # code coverage __main__.py 345-346
+        self.assertEqual(cm.exception.code, 2)
+        lines = self._stderr.getvalue().splitlines()
+        self.assertTrue(
+                lines[0].startswith('Warning: for backwards compatibility'),
+                lines[0])
+        self.assertTrue(lines[1], 'Usage:')
+        self.assertEqual(
+                lines[2],
+                '  ubuntu-image [OPTIONS] COMMAND [ARGS]...')
+
+    def test_snap_subcommand_help(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('snap', '--help',))
+        self.assertEqual(cm.exception.code, 0)
+        lines = self._stdout.getvalue().splitlines()
+        self.assertTrue(
+              lines[0].startswith('usage: ubuntu-image [OPTIONS] snap'),
+              lines[0])
+
+    def test_classic_subcommand_help(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('classic', '--help',))
+        self.assertEqual(cm.exception.code, 0)
+        lines = self._stdout.getvalue().splitlines()
+        self.assertTrue(
+              lines[0].startswith('usage: ubuntu-image [OPTIONS] classic'),
+              lines[0])
+
 
 class TestMainWithModel(TestCase):
     def setUp(self):
@@ -218,7 +272,7 @@ class TestMainWithModel(TestCase):
         self.model_assertion = resource_filename(
             'ubuntu_image.tests.data', 'model.assertion')
 
-    def test_output(self):
+    def test_output_without_subcommand(self):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
@@ -228,13 +282,23 @@ class TestMainWithModel(TestCase):
         main(('--output', imgfile, self.model_assertion))
         self.assertTrue(os.path.exists(imgfile))
 
+    def test_output(self):
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            DoNothingBuilder))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        imgfile = os.path.join(tmpdir, 'my-disk.img')
+        self.assertFalse(os.path.exists(imgfile))
+        main(('--output', imgfile, 'snap', self.model_assertion))
+        self.assertTrue(os.path.exists(imgfile))
+
     def test_output_directory(self):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         outputdir = os.path.join(tmpdir, 'images')
-        main(('--output-dir', outputdir, self.model_assertion))
+        main(('--output-dir', outputdir, 'snap', self.model_assertion))
         self.assertTrue(os.path.exists(os.path.join(outputdir, 'pc.img')))
 
     def test_output_directory_multiple_images(self):
@@ -248,7 +312,7 @@ class TestMainWithModel(TestCase):
             'ubuntu_image.parser._logger.warning'))
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         outputdir = os.path.join(tmpdir, 'images')
-        main(('-O', outputdir, self.model_assertion))
+        main(('-O', outputdir, 'snap', self.model_assertion))
         for name in ('first', 'second', 'third', 'fourth'):
             image_path = os.path.join(outputdir, '{}.img'.format(name))
             self.assertTrue(os.path.exists(image_path))
@@ -266,7 +330,7 @@ class TestMainWithModel(TestCase):
         outputdir = os.path.join(tmpdir, 'images')
         image_file_list = os.path.join(tmpdir, 'ifl.txt')
         main(('-O', outputdir,
-              '--image-file-list', image_file_list,
+              '--image-file-list', image_file_list, 'snap',
               self.model_assertion))
         with open(image_file_list, 'r', encoding='utf-8') as fp:
             img_files = set(line.rstrip() for line in fp.readlines())
@@ -287,7 +351,7 @@ class TestMainWithModel(TestCase):
         output = os.path.join(tmpdir, 'pc.img')
         image_file_list = os.path.join(tmpdir, 'ifl.txt')
         main(('-o', output,
-              '--image-file-list', image_file_list,
+              '--image-file-list', image_file_list, 'snap',
               self.model_assertion))
         with open(image_file_list, 'r', encoding='utf-8') as fp:
             img_files = set(line.rstrip() for line in fp.readlines())
@@ -301,13 +365,18 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        code = main(('--output-dir', '/tmp/images',
+        code = main(('--output-dir', '/tmp/images', 'snap',
                      '--extra-snaps', '/tmp/extra.snap',
                      '/tmp/model.assertion'))
         self.assertEqual(code, 0)
         self.assertTrue(os.path.exists('/tmp/images/pc.img'))
 
     def test_resume_and_model_assertion(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('--resume', 'snap', self.model_assertion))
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_resume_and_model_assertion_without_subcommand(self):
         with self.assertRaises(SystemExit) as cm:
             main(('--resume', self.model_assertion))
         self.assertEqual(cm.exception.code, 2)
@@ -318,6 +387,11 @@ class TestMainWithModel(TestCase):
         self.assertEqual(cm.exception.code, 2)
 
     def test_resume_without_workdir(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('--resume', 'snap'))
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_resume_without_workdir_without_subcommand(self):
         with self.assertRaises(SystemExit) as cm:
             main(('--resume',))
         self.assertEqual(cm.exception.code, 2)
@@ -338,7 +412,7 @@ class TestMainWithModel(TestCase):
         self.assertTrue(os.path.exists(os.path.join(
             workdir, '.ubuntu-image.pck')))
         self.assertFalse(os.path.exists(imgfile))
-        main(('--resume', '--workdir', workdir))
+        main(('--resume', '--workdir', workdir, 'snap'))
         self.assertTrue(os.path.exists(imgfile))
 
     def test_until(self):
@@ -362,8 +436,8 @@ class TestMainWithModel(TestCase):
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
         main(('--thru', 'populate_rootfs_contents',
-              '--channel', 'edge',
               '--workdir', workdir,
+              'snap', '--channel', 'edge',
               self.model_assertion))
         # The pickle file will tell us how far the state machine got.
         with open(os.path.join(workdir, '.ubuntu-image.pck'), 'rb') as fp:
@@ -377,7 +451,7 @@ class TestMainWithModel(TestCase):
             'ubuntu_image.__main__.ModelAssertionBuilder',
             EarlyExitLeaveATraceAssertionBuilder))
         main(('--until', 'prepare_image',
-              '--workdir', workdir,
+              '--workdir', workdir, 'snap',
               self.model_assertion))
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
         main(('--workdir', workdir, '--resume'))
@@ -397,7 +471,7 @@ class TestMainWithModel(TestCase):
         os.truncate(path, 512)
         mock = self._resources.enter_context(patch(
             'ubuntu_image.__main__._logger.error'))
-        code = main(('--workdir', workdir, '--resume'))
+        code = main(('--workdir', workdir, '--resume', 'snap'))
         self.assertEqual(code, 1)
         self.assertEqual(
             mock.call_args_list[-1],
@@ -438,9 +512,9 @@ class TestMainWithBadGadget(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             BadGadgetModelAssertionBuilder))
-        main(('--channel', 'edge',
-              '--debug',
+        main(('--debug',
               '--workdir', workdir,
+              'snap', '--channel', 'edge',
               self.model_assertion))
         self.assertEqual(log.logs, [
             (logging.ERROR, 'uncaught exception in state machine step: '

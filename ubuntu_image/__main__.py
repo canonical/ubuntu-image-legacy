@@ -29,7 +29,7 @@ class SimpleHelpFormatter(argparse.HelpFormatter):
         if len(actions) != 0:
             usage = ("""
   {prog} [OPTIONS] COMMAND [ARGS]...
-  {prog} COMMAND --help """).format(prog=PROGRAM)
+  {prog} COMMAND --help""").format(prog=PROGRAM)
         else:
             usage = ("""
   {prog} [OPTIONS] """).format(prog=PROGRAM)
@@ -48,9 +48,7 @@ class SimpleHelpFormatter(argparse.HelpFormatter):
         if type(action) == argparse._SubParsersAction._ChoicesPseudoAction:
             # format subcommand help line
             subcommand = self._format_action_invocation(action)
-            help_text = ""
-            if action.help:
-                help_text = self._expand_help(action)
+            help_text = self._expand_help(action)
             return ("  {:{width}}\t\t{} \n").format(
                     subcommand, help_text, width=self._subcommand_max_length)
         elif type(action) == argparse._SubParsersAction:
@@ -105,24 +103,39 @@ def get_host_arch():
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 
-def get_modified_arguments(self, default_subcommand, argv):
-    subparser_found = False
-    for arg in argv:
-        # skip global help option and state machine resume option, no need
-        # to provide model_assertion file if -r option is not specified
+def is_subcommand_exist(self, argv):
+    for x in self._subparsers._actions:
+        if not isinstance(x, argparse._SubParsersAction):
+            continue
+        for sp_name in x._name_parser_map.keys():
+            if sp_name in argv:
+                return True
+    return False
 
-        if arg in ['-h', '--help',
-                   '-r', '--resume']:
+
+def get_modified_arguments(self, default_subcommand, argv):
+    subcommand_found = False
+    for arg in argv:
+        # skip global help option and state machine resume option
+
+        if arg in ['-h', '--help']:
             break
+
+        # Unlike other global options,
+        # --resume option is mutually exclusive with others,
+        # we add `snap` subcommand right after it to make sure
+        # parse_args working properly if default subcommand is not given.
+        if arg in ['-r', '--resume']:
+            subcommand_found = self.is_subcommand_exist(argv)
+            if not subcommand_found:
+                new_argv = list(argv)
+                index = new_argv.index(arg)
+                new_argv.insert(index + 1, default_subcommand)
+                return new_argv
     else:
         all_args = ' '.join(argv)
-        for x in self._subparsers._actions:
-            if not isinstance(x, argparse._SubParsersAction):
-                continue
-            for sp_name in x._name_parser_map.keys():
-                if sp_name in argv:
-                    subparser_found = True  # if `snap` subcommand is given.
-        if not subparser_found:
+        subcommand_found = self.is_subcommand_exist(argv)
+        if not subcommand_found:  # if `snap` subcommand is not given.
             print('Warning: for backwards compatibility, `ubuntu-image` '
                   'fallbacks to `ubuntu-image snap` if no subcommand is given',
                   file=sys.stderr)
@@ -144,6 +157,7 @@ def get_modified_arguments(self, default_subcommand, argv):
             new_argv[insert_pos:insert_pos] = snap_args
 
             return new_argv
+
     return argv
 
 
@@ -301,15 +315,13 @@ def parseargs(argv=None):
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
 
-    if args.cmd == 'snap':
-        # The model assertion argument is required unless --resume is given, in
-        # which case it cannot be given.
-        if args.resume and args.model_assertion:
-            parser.error('model assertion is not allowed with --resume')
-        if not args.resume and args.model_assertion is None:
-            parser.error('model assertion is required')
-    elif args.cmd == 'classic':
-        print('classic::  ', args.arch)
+    # The model assertion argument is required unless --resume is given, in
+    # which case it cannot be given.
+    # if args.cmd == 'snap':
+    if args.resume and args.model_assertion:
+        parser.error('model assertion is not allowed with --resume')
+    if not args.resume and args.model_assertion is None:
+        parser.error('model assertion is required')
 
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
@@ -324,6 +336,8 @@ def parseargs(argv=None):
               file=sys.stderr)
     return args
 
+
+argparse.ArgumentParser.is_subcommand_exist = is_subcommand_exist
 argparse.ArgumentParser.get_modified_arguments = get_modified_arguments
 
 
@@ -341,13 +355,10 @@ def main(argv=None):
         with open(pickle_file, 'rb') as fp:
             state_machine = load(fp)
         state_machine.workdir = args.workdir
-    elif args.cmd == 'snap':
+    else:
         state_machine = ModelAssertionBuilder(args)
-    '''
-    elif args.cmd == 'classic':
-        sys.exit(0)
-        state_machine = ClassicBuilder(args)
-    '''
+    # elif args.cmd == 'classic':
+
     # Run the state machine, either to the end or thru/until the named state.
     try:
         if args.thru:
