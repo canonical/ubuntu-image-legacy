@@ -1,3 +1,10 @@
+ubuntu-image (1.2+17.10ubuntu1) UNRELEASED; urgency=medium
+
+  * When trying to run the first mkfs.ext4 command, also support the case of
+    fakeroot not being installed.  (LP: #1709029)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 07 Aug 2017 10:16:27 +0200
+
 ubuntu-image (1.1+17.10ubuntu3) artful; urgency=medium
 
   * Only run the snap.sh test on github PRs as it doesn't make sense to run it
