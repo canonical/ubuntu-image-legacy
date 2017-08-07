@@ -149,8 +149,8 @@ def mkfs_ext4(img_file, contents_dir, label='writable'):
            '-O uninit_bg {} -d {}').format(label, img_file, contents_dir)
     try:
         proc = run(cmd, check=False)
-    except FileNotFoundError:                           # pragma: noxenial
-        pass                                            # pragma: noxenial
+    except FileNotFoundError:                           # pragma: nodevel
+        pass                                            # pragma: nodevel
     else:
         if proc.returncode == 0:
             # We have a new enough e2fsprogs, so we're done.
