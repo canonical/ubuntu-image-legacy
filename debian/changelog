@@ -1,3 +1,11 @@
+ubuntu-image (1.1+16.04ubuntu4) xenial; urgency=medium
+
+  * Drop part of the xenial delta, adding the fakeroot dependency as per master.
+    Properly handling the lack of the dependency and still getting 100% code
+    coverage on all series requires too much unnecessary work.  (LP: #1709029)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 08 Aug 2017 10:44:33 +0200
+
 ubuntu-image (1.1+16.04ubuntu3) xenial; urgency=medium
 
   * Only run the snap.sh test on github PRs as it doesn't make sense to run it
