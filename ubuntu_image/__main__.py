@@ -1,7 +1,6 @@
 """Allows the package to be run with `python3 -m ubuntu_image`."""
 
 import os
-import re
 import sys
 import logging
 import argparse
@@ -27,12 +26,10 @@ class SimpleHelpFormatter(argparse.HelpFormatter):
         if prefix is None:
             prefix = 'Usage: '
         if len(actions) != 0:
-            usage = ("""
-  {prog} [OPTIONS] COMMAND [ARGS]...
-  {prog} COMMAND --help""").format(prog=PROGRAM)
+            usage = ('\n  {prog} COMMAND [OPTIONS]...'
+                     '\n  {prog} COMMAND --help').format(prog=PROGRAM)
         else:
-            usage = ("""
-  {prog} [OPTIONS] """).format(prog=PROGRAM)
+            usage = ('{prog} ').format(prog=PROGRAM)
 
         return super(SimpleHelpFormatter, self).add_usage(
             usage, actions, groups, prefix)
@@ -103,85 +100,28 @@ def get_host_arch():
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 
-def is_subcommand_exist(self, argv):
-    for x in self._subparsers._actions:
-        if not isinstance(x, argparse._SubParsersAction):
-            continue
-        for sp_name in x._name_parser_map.keys():
-            if sp_name in argv:
-                return True
-    return False
-
-
-def get_modified_arguments(self, default_subcommand, argv):
-    subcommand_found = False
+def get_modified_args(subparser, default_subcommand, argv):
     for arg in argv:
-        # skip global help option and state machine resume option
-
+        # skip global help option
         if arg in ['-h', '--help']:
             break
-
-        # Unlike other global options,
-        # --resume option is mutually exclusive with others,
-        # we add `snap` subcommand right after it to make sure
-        # parse_args working properly if default subcommand is not given.
-        if arg in ['-r', '--resume']:
-            subcommand_found = self.is_subcommand_exist(argv)
-            if not subcommand_found:
-                new_argv = list(argv)
-                index = new_argv.index(arg)
-                new_argv.insert(index + 1, default_subcommand)
-                return new_argv
     else:
-        all_args = ' '.join(argv)
-        subcommand_found = self.is_subcommand_exist(argv)
-        if not subcommand_found:  # if `snap` subcommand is not given.
+        for sp_name in subparser._name_parser_map.keys():
+            if sp_name in argv:
+                break
+        else:
+            # if `snap` subcommand is not given.
             print('Warning: for backwards compatibility, `ubuntu-image` '
                   'fallbacks to `ubuntu-image snap` if no subcommand is given',
                   file=sys.stderr)
-
-            # re-arrange snap specific args for backwards compatibility.
-            pattern = r'(?:--channel|-c|--extra-snaps|--cloud-init)\s{1}\S*'
-            match_args = re.findall(pattern, all_args)
-            snap_args = [arg for arg_pair in match_args
-                         for arg in arg_pair.split()]
-
-            # remove match args and only keep global options.
-            all_args = re.sub(pattern, '', all_args)
-
-            # and insert 'snap' subcommand at proper position.
-            # put snap specific args after `snap` subcommand.
-            new_argv = all_args.split()
-            insert_pos = len(new_argv)
-            new_argv.insert(insert_pos - 1, default_subcommand)
-            new_argv[insert_pos:insert_pos] = snap_args
-
+            new_argv = list(argv)
+            new_argv.insert(0, default_subcommand)
             return new_argv
-
     return argv
 
 
-def parseargs(argv=None):
-    parser = argparse.ArgumentParser(
-        prog=PROGRAM,
-        description=_('Generate a bootable disk image.'),
-        formatter_class=SimpleHelpFormatter)
-
-    parser.add_argument(
-        '--version', action='version',
-        version='{} {}'.format(PROGRAM, __version__))
-
-    # create two subcommands, "snap" and "classic"
-    subparser = parser.add_subparsers(title=_('Command'), dest='cmd')
-    snap_cmd = subparser.add_parser(
-            'snap',
-            help=_("""Create snap-based Ubuntu Core image."""))
-    classic_cmd = subparser.add_parser(
-            'classic',
-            help=_("""Create debian-based Ubuntu Classic image."""))
-    argv = parser.get_modified_arguments('snap', argv)
-
-    common_group = parser.add_argument_group(_('Common options'))
+def add_common_args(subcommand):
+    common_group = subcommand.add_argument_group(_('Common options'))
     common_group.add_argument(
         '-d', '--debug',
         default=False, action='store_true',
@@ -219,7 +159,7 @@ def parseargs(argv=None):
         specify -w)."""))
 
     # State machine options.
-    inclusive_state_group = parser.add_argument_group(
+    inclusive_state_group = subcommand.add_argument_group(
         _('State machine options'),
         _("""Options for controlling the internal state machine.  Other than
         -w, these options are mutually exclusive.  When -u or -t is given, the
@@ -251,6 +191,31 @@ def parseargs(argv=None):
         default=False, action='store_true',
         help=_("""Continue the state machine from the previously saved state.
         It is an error if there is no previous state."""))
+    return subcommand
+
+
+def parseargs(argv=None):
+    parser = argparse.ArgumentParser(
+        prog=PROGRAM,
+        description=_('Generate a bootable disk image.'),
+        formatter_class=SimpleHelpFormatter)
+
+    parser.add_argument(
+        '--version', action='version',
+        version='{} {}'.format(PROGRAM, __version__))
+
+    # create two subcommands, "snap" and "classic"
+    subparser = parser.add_subparsers(title=_('Command'), dest='cmd')
+    snap_cmd = subparser.add_parser(
+            'snap',
+            help=_("""Create snap-based Ubuntu Core image."""))
+    classic_cmd = subparser.add_parser(
+            'classic',
+            help=_("""Create debian-based Ubuntu Classic image."""))
+    argv = get_modified_args(subparser, 'snap', argv)
+
+    snap_cmd = add_common_args(snap_cmd)
+    classic_cmd = add_common_args(classic_cmd)
 
     # Snap-based image options.
     snap_cmd.add_argument(
@@ -335,10 +300,6 @@ def parseargs(argv=None):
         print('-o/--output is deprecated; use -O/--output-dir instead',
               file=sys.stderr)
     return args
-
-
-argparse.ArgumentParser.is_subcommand_exist = is_subcommand_exist
-argparse.ArgumentParser.get_modified_arguments = get_modified_arguments
 
 
 def main(argv=None):

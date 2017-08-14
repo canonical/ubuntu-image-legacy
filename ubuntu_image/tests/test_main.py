@@ -2,6 +2,7 @@
 
 import os
 import logging
+import argparse
 
 from contextlib import ExitStack, contextmanager
 from io import StringIO
@@ -10,7 +11,7 @@ from pkg_resources import resource_filename
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from ubuntu_image.__main__ import main, parseargs
+from ubuntu_image.__main__ import main, parseargs, get_modified_args
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
@@ -40,9 +41,56 @@ class BadGadgetModelAssertionBuilder(XXXModelAssertionBuilder):
     gadget_yaml = 'bad-gadget.yaml'
 
 
+class TestGetModifiedArgs(TestCase):
+    def test_image_with_help(self):
+        parser = argparse.ArgumentParser(add_help=False)
+        # create one subcommand, "snap"
+        subparser = parser.add_subparsers(dest='cmd')
+        subparser.add_parser('snap')
+        argv = get_modified_args(subparser, 'snap', ['--help'])
+        self.assertEqual(['--help'], argv)
+
+    def test_image_without_subcommand(self):
+        parser = argparse.ArgumentParser(add_help=False)
+        # create one subcommand, "snap"
+        subparser = parser.add_subparsers(dest='cmd')
+        subparser.add_parser('snap')
+        argv = get_modified_args(
+                subparser, 'snap',
+                ['-o', 'abc.img', '-i', '45', 'model.assertion'])
+        self.assertEqual(
+                ['snap', '-o', 'abc.img', '-i', '45', 'model.assertion'],
+                argv)
+
+    def test_image_with_subcommand(self):
+        parser = argparse.ArgumentParser(add_help=False)
+        # create one subcommand, "snap"
+        subparser = parser.add_subparsers(dest='cmd')
+        subparser.add_parser('snap')
+        argv = get_modified_args(
+                subparser, 'snap',
+                ['snap', '-d', '-o', 'pc_amd64.img', 'model.assertion'])
+        self.assertEqual(
+                ['snap', '-d', '-o', 'pc_amd64.img', 'model.assertion'],
+                argv)
+
+    def test_image_with_multiple_subcommand(self):
+        parser = argparse.ArgumentParser(add_help=False)
+        # create two subcommands, "snap" and "classic"
+        subparser = parser.add_subparsers(dest='cmd')
+        subparser.add_parser('snap')
+        subparser.add_parser('classic')
+        argv = get_modified_args(
+                subparser, 'classic',
+                ['-d', '-o', 'pc_amd64.img', 'model.assertion'])
+        self.assertEqual(
+                ['classic', '-d', '-o', 'pc_amd64.img', 'model.assertion'],
+                argv)
+
+
 class TestParseArgs(TestCase):
     def test_image_size_option_bytes(self):
-        args = parseargs(['--image-size', '45', 'snap', 'model.assertion'])
+        args = parseargs(['snap', '--image-size', '45', 'model.assertion'])
         self.assertEqual(args.image_size, 45)
         self.assertEqual(args.given_image_size, '45')
 
@@ -52,10 +100,10 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.given_image_size, '45')
 
     def test_image_size_option_suffixes(self):
-        args = parseargs(['--image-size', '45G', 'snap', 'model.assertion'])
+        args = parseargs(['snap', '--image-size', '45G', 'model.assertion'])
         self.assertEqual(args.image_size, GiB(45))
         self.assertEqual(args.given_image_size, '45G')
-        args = parseargs(['--image-size', '45M', 'snap', 'model.assertion'])
+        args = parseargs(['snap', '--image-size', '45M', 'model.assertion'])
         self.assertEqual(args.image_size, MiB(45))
         self.assertEqual(args.given_image_size, '45M')
 
@@ -65,12 +113,12 @@ class TestParseArgs(TestCase):
         with patch('argparse._sys.stderr'):
             self.assertRaises(SystemExit,
                               parseargs,
-                              ['--image-size', '45Q',
-                               'snap', 'model.assertion'])
+                              ['snap', '--image-size', '45Q',
+                               'model.assertion'])
             self.assertRaises(SystemExit,
                               parseargs,
-                              ['--image-size', 'BIG',
-                               'snap', 'model.assertion'])
+                              ['snap', '--image-size', 'BIG',
+                               'model.assertion'])
 
     def test_output_dir_mutually_exclusive_with_output(self):
         # You can't use -O/--output-dir and -o/--output at the same time.
@@ -93,8 +141,8 @@ class TestParseArgs(TestCase):
                 '-o/--output is deprecated; use -O/--output-dir instead')
 
     def test_multivolume_image_size(self):
-        args = parseargs(['-i', '0:4G,sdcard:2G,1:4G',
-                          'snap', 'model.assertion'])
+        args = parseargs(['snap', '-i', '0:4G,sdcard:2G,1:4G',
+                          'model.assertion'])
         self.assertEqual(args.image_size, {
             0: GiB(4),
             'sdcard': GiB(2),
@@ -105,15 +153,15 @@ class TestParseArgs(TestCase):
         with patch('argparse._sys.stderr'):
             self.assertRaises(SystemExit,
                               parseargs,
-                              ['-i', '0:2G,4G,1:8G',
-                               'snap', 'model.assertion'])
+                              ['snap', '-i', '0:2G,4G,1:8G',
+                               'model.assertion'])
 
     def test_multivolume_bad_size(self):
         with patch('argparse._sys.stderr'):
             self.assertRaises(SystemExit,
                               parseargs,
-                              ['-i', '0:2G,1:4BIG,2:8G',
-                               'snap', 'model.assertion'])
+                              ['snap', '-i', '0:2G,1:4BIG,2:8G',
+                               'model.assertion'])
 
 
 class TestMain(TestCase):
@@ -219,7 +267,7 @@ class TestMain(TestCase):
         self.assertTrue(lines[1], 'Usage:')
         self.assertEqual(
                 lines[2],
-                '  ubuntu-image [OPTIONS] COMMAND [ARGS]...')
+                '  ubuntu-image COMMAND [OPTIONS]...')
 
     def test_with_none(self):
         with self.assertRaises(SystemExit) as cm:
@@ -232,7 +280,7 @@ class TestMain(TestCase):
         self.assertTrue(lines[1], 'Usage:')
         self.assertEqual(
                 lines[2],
-                '  ubuntu-image [OPTIONS] COMMAND [ARGS]...')
+                '  ubuntu-image COMMAND [OPTIONS]...')
 
     def test_snap_subcommand_help(self):
         with self.assertRaises(SystemExit) as cm:
@@ -240,7 +288,7 @@ class TestMain(TestCase):
         self.assertEqual(cm.exception.code, 0)
         lines = self._stdout.getvalue().splitlines()
         self.assertTrue(
-              lines[0].startswith('usage: ubuntu-image [OPTIONS] snap'),
+              lines[0].startswith('usage: ubuntu-image snap'),
               lines[0])
 
     def test_classic_subcommand_help(self):
@@ -249,7 +297,7 @@ class TestMain(TestCase):
         self.assertEqual(cm.exception.code, 0)
         lines = self._stdout.getvalue().splitlines()
         self.assertTrue(
-              lines[0].startswith('usage: ubuntu-image [OPTIONS] classic'),
+              lines[0].startswith('usage: ubuntu-image classic'),
               lines[0])
 
 
@@ -289,7 +337,7 @@ class TestMainWithModel(TestCase):
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         imgfile = os.path.join(tmpdir, 'my-disk.img')
         self.assertFalse(os.path.exists(imgfile))
-        main(('--output', imgfile, 'snap', self.model_assertion))
+        main(('snap', '--output', imgfile, self.model_assertion))
         self.assertTrue(os.path.exists(imgfile))
 
     def test_output_directory(self):
@@ -298,7 +346,7 @@ class TestMainWithModel(TestCase):
             DoNothingBuilder))
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         outputdir = os.path.join(tmpdir, 'images')
-        main(('--output-dir', outputdir, 'snap', self.model_assertion))
+        main(('snap', '--output-dir', outputdir, self.model_assertion))
         self.assertTrue(os.path.exists(os.path.join(outputdir, 'pc.img')))
 
     def test_output_directory_multiple_images(self):
@@ -312,7 +360,7 @@ class TestMainWithModel(TestCase):
             'ubuntu_image.parser._logger.warning'))
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         outputdir = os.path.join(tmpdir, 'images')
-        main(('-O', outputdir, 'snap', self.model_assertion))
+        main(('snap', '-O', outputdir, self.model_assertion))
         for name in ('first', 'second', 'third', 'fourth'):
             image_path = os.path.join(outputdir, '{}.img'.format(name))
             self.assertTrue(os.path.exists(image_path))
@@ -329,8 +377,8 @@ class TestMainWithModel(TestCase):
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         outputdir = os.path.join(tmpdir, 'images')
         image_file_list = os.path.join(tmpdir, 'ifl.txt')
-        main(('-O', outputdir,
-              '--image-file-list', image_file_list, 'snap',
+        main(('snap', '-O', outputdir,
+              '--image-file-list', image_file_list,
               self.model_assertion))
         with open(image_file_list, 'r', encoding='utf-8') as fp:
             img_files = set(line.rstrip() for line in fp.readlines())
@@ -350,8 +398,8 @@ class TestMainWithModel(TestCase):
         tmpdir = self._resources.enter_context(TemporaryDirectory())
         output = os.path.join(tmpdir, 'pc.img')
         image_file_list = os.path.join(tmpdir, 'ifl.txt')
-        main(('-o', output,
-              '--image-file-list', image_file_list, 'snap',
+        main(('snap', '-o', output,
+              '--image-file-list', image_file_list,
               self.model_assertion))
         with open(image_file_list, 'r', encoding='utf-8') as fp:
             img_files = set(line.rstrip() for line in fp.readlines())
@@ -365,7 +413,7 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        code = main(('--output-dir', '/tmp/images', 'snap',
+        code = main(('snap', '--output-dir', '/tmp/images',
                      '--extra-snaps', '/tmp/extra.snap',
                      '/tmp/model.assertion'))
         self.assertEqual(code, 0)
@@ -373,7 +421,7 @@ class TestMainWithModel(TestCase):
 
     def test_resume_and_model_assertion(self):
         with self.assertRaises(SystemExit) as cm:
-            main(('--resume', 'snap', self.model_assertion))
+            main(('snap', '--resume', self.model_assertion))
         self.assertEqual(cm.exception.code, 2)
 
     def test_resume_and_model_assertion_without_subcommand(self):
@@ -388,7 +436,7 @@ class TestMainWithModel(TestCase):
 
     def test_resume_without_workdir(self):
         with self.assertRaises(SystemExit) as cm:
-            main(('--resume', 'snap'))
+            main(('snap', '--resume'))
         self.assertEqual(cm.exception.code, 2)
 
     def test_resume_without_workdir_without_subcommand(self):
@@ -412,7 +460,7 @@ class TestMainWithModel(TestCase):
         self.assertTrue(os.path.exists(os.path.join(
             workdir, '.ubuntu-image.pck')))
         self.assertFalse(os.path.exists(imgfile))
-        main(('--resume', '--workdir', workdir, 'snap'))
+        main(('snap', '--resume', '--workdir', workdir))
         self.assertTrue(os.path.exists(imgfile))
 
     def test_until(self):
@@ -420,7 +468,7 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        main(('--until', 'populate_rootfs_contents',
+        main(('snap', '--until', 'populate_rootfs_contents',
               '--channel', 'edge',
               '--workdir', workdir,
               self.model_assertion))
@@ -435,9 +483,9 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             DoNothingBuilder))
-        main(('--thru', 'populate_rootfs_contents',
+        main(('snap', '--thru', 'populate_rootfs_contents',
               '--workdir', workdir,
-              'snap', '--channel', 'edge',
+              '--channel', 'edge',
               self.model_assertion))
         # The pickle file will tell us how far the state machine got.
         with open(os.path.join(workdir, '.ubuntu-image.pck'), 'rb') as fp:
@@ -450,8 +498,8 @@ class TestMainWithModel(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             EarlyExitLeaveATraceAssertionBuilder))
-        main(('--until', 'prepare_image',
-              '--workdir', workdir, 'snap',
+        main(('snap', '--until', 'prepare_image',
+              '--workdir', workdir,
               self.model_assertion))
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
         main(('--workdir', workdir, '--resume'))
@@ -463,7 +511,7 @@ class TestMainWithModel(TestCase):
         # The contents of a structure is too large for the image size.
         workdir = self._resources.enter_context(TemporaryDirectory())
         # See LP: #1666580
-        main(('--workdir', workdir,
+        main(('snap', '--workdir', workdir,
               '--thru', 'load_gadget_yaml',
               self.model_assertion))
         # Make the gadget's mbr contents too big.
@@ -471,7 +519,7 @@ class TestMainWithModel(TestCase):
         os.truncate(path, 512)
         mock = self._resources.enter_context(patch(
             'ubuntu_image.__main__._logger.error'))
-        code = main(('--workdir', workdir, '--resume', 'snap'))
+        code = main(('snap', '--workdir', workdir, '--resume'))
         self.assertEqual(code, 1)
         self.assertEqual(
             mock.call_args_list[-1],
@@ -495,7 +543,7 @@ class TestMainWithBadGadget(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             BadGadgetModelAssertionBuilder))
-        main(('--channel', 'edge',
+        main(('snap', '--channel', 'edge',
               '--workdir', workdir,
               self.model_assertion))
         self.assertEqual(log.logs, [
@@ -512,9 +560,9 @@ class TestMainWithBadGadget(TestCase):
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
             BadGadgetModelAssertionBuilder))
-        main(('--debug',
+        main(('snap', '--debug',
               '--workdir', workdir,
-              'snap', '--channel', 'edge',
+              '--channel', 'edge',
               self.model_assertion))
         self.assertEqual(log.logs, [
             (logging.ERROR, 'uncaught exception in state machine step: '
