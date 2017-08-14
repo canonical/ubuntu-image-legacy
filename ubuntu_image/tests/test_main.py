@@ -11,7 +11,7 @@ from pkg_resources import resource_filename
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from ubuntu_image.__main__ import main, parseargs, get_modified_args
+from ubuntu_image.__main__ import get_modified_args, main, parseargs
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
