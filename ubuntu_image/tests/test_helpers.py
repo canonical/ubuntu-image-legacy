@@ -11,7 +11,8 @@ from subprocess import run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
-    GiB, MiB, as_bool, as_size, mkfs_ext4, run, snap, sparse_copy)
+     GiB, MiB, as_bool, as_size, get_host_arch, get_host_distro,
+     mkfs_ext4, run, snap, sparse_copy)
 from ubuntu_image.testing.helpers import LogCapture
 from unittest import TestCase
 from unittest.mock import patch
@@ -156,6 +157,12 @@ class TestHelpers(TestCase):
         for value in {'YES', 'tRUE', '1', 'eNaBlE', 'enabled'}:
             self.assertTrue(as_bool(value), value)
         self.assertRaises(ValueError, as_bool, 'anything else')
+
+    def test_get_host_arch(self):
+        self.assertIsNotNone(get_host_arch())
+
+    def test_get_host_distro(self):
+        self.assertIsNotNone(get_host_distro())
 
     def test_sparse_copy(self):
         with ExitStack() as resources:

@@ -78,6 +78,16 @@ def as_size(size, min=0, max=None):
     return value
 
 
+def get_host_arch():
+    proc = run('dpkg --print-architecture', check=False)
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def get_host_distro():
+    proc = run('lsb_release -c -s', check=False)
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
 def run(command, *, check=True, **args):
     runnable_command = (
         command.split() if isinstance(command, str) and 'shell' not in args

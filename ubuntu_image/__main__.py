@@ -9,7 +9,7 @@ from contextlib import suppress
 from pickle import dump, load
 from ubuntu_image import __version__
 from ubuntu_image.builder import DoesNotFit, ModelAssertionBuilder
-from ubuntu_image.helpers import as_size, run
+from ubuntu_image.helpers import as_size, get_host_arch, get_host_distro
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
 
@@ -93,11 +93,6 @@ class SizeAction(argparse.Action):
         setattr(namespace, self.dest, sizes)
         # For display purposes.
         namespace.given_image_size = values
-
-
-def get_host_arch():
-    proc = run('dpkg --print-architecture', check=False)
-    return proc.stdout.strip() if proc.returncode == 0 else None
 
 
 def get_modified_args(subparser, default_subcommand, argv):
@@ -239,32 +234,35 @@ def parseargs(argv=None):
 
     # Classic-based image options.
     classic_cmd.add_argument(
-        'project', nargs='?', metavar='PROJECT',
+        'gadget_tree', nargs='?',
+        help=_("""Gadget tree.  This is a tree equivalent to an unpacked
+        gadget snap at core image build time."""))
+    classic_cmd.add_argument(
+        '-p', '--project',
+        default='ubuntu-cpc', metavar='PROJECT',
         help=_("""Project name to be specified to livecd-rootfs."""))
     classic_cmd.add_argument(
-        'suite', nargs='?', metavar='SUITE',
+        '-s', '--suite',
+        default=get_host_distro(), metavar='SUITE',
         help=_("""Distribution name to be specified to livecd-rootfs."""))
-    classic_cmd.add_argument(
-        'gadget-tree', nargs='?', metavar='GADGET-TREE',
-        help=_("""Gadget tree"""))
     classic_cmd.add_argument(
         '-a', '--arch',
         default=get_host_arch(), metavar='CPU-ARCHITECTURE',
         help=_("""CPU architecture to be specified to livecd-rootfs.
         default value is builder arch."""))
     classic_cmd.add_argument(
-        '-s', '--subarch',
-        default=None, metavar='SUBARCH',
-        help=_("""Sub architecture to be specified to livecd-rootfs."""))
-    classic_cmd.add_argument(
-        '-p', '--proposed',
-        default=None, metavar='PROPOSED',
-        help=_("""Proposed repo to install, This is passed through to
-        livecd-rootfs."""))
-    classic_cmd.add_argument(
         '--subproject',
         default=None, metavar='SUBPROJECT',
         help=_("""Sub project name to be specified to livecd-rootfs."""))
+    classic_cmd.add_argument(
+        '--subarch',
+        default=None, metavar='SUBARCH',
+        help=_("""Sub architecture to be specified to livecd-rootfs."""))
+    classic_cmd.add_argument(
+        '--with-proposed',
+        default=False, action='store_true',
+        help=_("""Proposed repo to install, This is passed through to
+        livecd-rootfs."""))
     classic_cmd.add_argument(
         '--image-format',
         default='img',
