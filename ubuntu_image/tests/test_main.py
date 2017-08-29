@@ -5,6 +5,7 @@ import logging
 
 from contextlib import ExitStack, contextmanager
 from io import StringIO
+from mmap import mmap
 from pickle import load
 from pkg_resources import resource_filename
 from subprocess import CalledProcessError
@@ -421,7 +422,7 @@ class TestMainWithModel(TestCase):
         with open(hookfile, 'w') as fp:
             fp.write("""\
 #!/bin/sh
-touch $UBUNTU_IMAGE_HOOK_ROOTFS/foo
+echo "[MAGIC_STRING_FOR_U-I_HOOKS]" > $UBUNTU_IMAGE_HOOK_ROOTFS/foo
 """)
         os.chmod(hookfile, 0o744)
         workdir = self._resources.enter_context(TemporaryDirectory())
@@ -430,11 +431,17 @@ touch $UBUNTU_IMAGE_HOOK_ROOTFS/foo
             DoNothingBuilder))
         code = main(('--hooks-directory', hookdir,
                      '--workdir', workdir,
+                     '--output-dir', workdir,
                      self.model_assertion))
         self.assertEqual(code, 0)
         self.assertTrue(os.path.exists(os.path.join(workdir, 'root', 'foo')))
-        # XXX: Best if we could also easily inspect the resulting image file if
-        # the file is there.
+        imagefile = os.path.join(workdir, 'pc.img')
+        self.assertTrue(os.path.exists(imagefile))
+        # Map the image and grep through it to see if our hook change actually
+        # landed in the final image.
+        with open(imagefile, 'r+b') as fp:
+            m = self._resources.enter_context(mmap(fp.fileno(), 0))
+            self.assertGreaterEqual(m.find(b'[MAGIC_STRING_FOR_U-I_HOOKS]'), 0)
 
     def test_hook_error(self):
         # For the purpose of testing, we will be using the post-populate-rootfs

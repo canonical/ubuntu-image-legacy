@@ -185,7 +185,7 @@ class ModelAssertionBuilder(State):
         self._next.append(self.populate_rootfs_contents_hooks)
 
     def populate_rootfs_contents_hooks(self):
-        # This has been moved to a separate step to ease testing.
+        # Separate populate step for firing the post-populate-rootfs hook.
         env = {'UBUNTU_IMAGE_HOOK_ROOTFS': self.rootfs}
         self.hook_manager.fire('post-populate-rootfs', env)
         self._next.append(self.calculate_rootfs_size)

@@ -4,6 +4,7 @@ import os
 
 from contextlib import ExitStack
 from tempfile import TemporaryDirectory
+from textwrap import dedent
 from ubuntu_image.hooks import HookError, HookManager
 from unittest import TestCase
 
@@ -46,10 +47,10 @@ echo -n "$UBUNTU_IMAGE_TEST_ENV" >>{}
 
             def create_hook(path):
                 with open(path, 'w') as fp:
-                    fp.write("""\
-#!/bin/sh
-echo "{}" >>{}
-""".format(path, resultfile))
+                    fp.write(dedent("""\
+                                    #!/bin/sh
+                                    echo "{}" >>{}
+                                    """.format(path, resultfile)))
                 os.chmod(path, 0o744)
             create_hook(hookfile1)
             create_hook(hookfile2)
@@ -77,10 +78,10 @@ echo "{}" >>{}
 
             def create_hook(path):
                 with open(path, 'w') as fp:
-                    fp.write("""\
-#!/bin/sh
-echo "{}" >>{}
-""".format(path, resultfile))
+                    fp.write(dedent("""\
+                                    #!/bin/sh
+                                    echo "{}" >>{}
+                                    """.format(path, resultfile)))
                 os.chmod(path, 0o744)
             create_hook(hookfile1)
             create_hook(hookfile2)
@@ -99,11 +100,11 @@ echo "{}" >>{}
             hooksdir = resources.enter_context(TemporaryDirectory())
             hookfile = os.path.join(hooksdir, 'test-hook')
             with open(hookfile, 'w') as fp:
-                fp.write("""\
-#!/bin/sh
-echo -n "error" 1>&2
-exit 1
-""")
+                fp.write(dedent("""\
+                                #!/bin/sh
+                                echo -n "error" 1>&2
+                                exit 1
+                                """))
             os.chmod(hookfile, 0o744)
             manager = HookManager([hooksdir])
             # Check if hook script failures are properly reported

@@ -1,4 +1,11 @@
-"""A general hook mechanism"""
+"""A general hook mechanism.
+
+This module defines a HookManager that will run all the executable scripts
+found in the passed-in hooks directory(s) for defined hook execution points.
+
+Each supported hook trigger can pass different values through the overlay_env
+argument, which will be made visible in the hook scripts as environment
+variables."""
 
 import os
 import logging
