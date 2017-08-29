@@ -104,7 +104,7 @@ class SizeAction(argparse.Action):
 def get_modified_args(subparser, default_subcommand, argv):
     for arg in argv:
         # skip global help option
-        if arg in ['-h', '--help']:
+        if arg in ['-h', '--help', '-v', '--version']:
             break
     else:
         for sp_name in subparser._name_parser_map.keys():
@@ -123,9 +123,6 @@ def get_modified_args(subparser, default_subcommand, argv):
 
 def add_common_args(subcommand):
     common_group = subcommand.add_argument_group(_('Common options'))
-    common_group.add_argument(
-        '--version', action='version',
-        version='{} {}'.format(PROGRAM, __version__))
     common_group.add_argument(
         '-d', '--debug',
         default=False, action='store_true',
@@ -203,6 +200,9 @@ def parseargs(argv=None):
         prog=PROGRAM,
         description=_('Generate a bootable disk image.'),
         formatter_class=SimpleHelpFormatter)
+    parser.add_argument(
+        '--version', action='version',
+        version='{} {}'.format(PROGRAM, __version__))
 
     # create two subcommands, "snap" and "classic"
     subparser = parser.add_subparsers(title=_('Command'), dest='cmd')
