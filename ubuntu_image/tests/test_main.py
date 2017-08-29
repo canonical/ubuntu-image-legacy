@@ -51,16 +51,18 @@ class TestGetModifiedArgs(TestCase):
         self.assertEqual(['--help'], argv)
 
     def test_image_without_subcommand(self):
-        parser = argparse.ArgumentParser(add_help=False)
-        # create one subcommand, "snap"
-        subparser = parser.add_subparsers(dest='cmd')
-        subparser.add_parser('snap')
-        argv = get_modified_args(
-                subparser, 'snap',
-                ['-o', 'abc.img', '-i', '45', 'model.assertion'])
-        self.assertEqual(
-                ['snap', '-o', 'abc.img', '-i', '45', 'model.assertion'],
-                argv)
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            parser = argparse.ArgumentParser(add_help=False)
+            # create one subcommand, "snap"
+            subparser = parser.add_subparsers(dest='cmd')
+            subparser.add_parser('snap')
+            argv = get_modified_args(
+                    subparser, 'snap',
+                    ['-o', 'abc.img', '-i', '45', 'model.assertion'])
+            self.assertEqual(
+                    ['snap', '-o', 'abc.img', '-i', '45', 'model.assertion'],
+                    argv)
 
     def test_image_with_subcommand(self):
         parser = argparse.ArgumentParser(add_help=False)
@@ -75,17 +77,19 @@ class TestGetModifiedArgs(TestCase):
                 argv)
 
     def test_image_with_multiple_subcommand(self):
-        parser = argparse.ArgumentParser(add_help=False)
-        # create two subcommands, "snap" and "classic"
-        subparser = parser.add_subparsers(dest='cmd')
-        subparser.add_parser('snap')
-        subparser.add_parser('classic')
-        argv = get_modified_args(
-                subparser, 'classic',
-                ['-d', '-o', 'pc_amd64.img', 'model.assertion'])
-        self.assertEqual(
-                ['classic', '-d', '-o', 'pc_amd64.img', 'model.assertion'],
-                argv)
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            parser = argparse.ArgumentParser(add_help=False)
+            # create two subcommands, "snap" and "classic"
+            subparser = parser.add_subparsers(dest='cmd')
+            subparser.add_parser('snap')
+            subparser.add_parser('classic')
+            argv = get_modified_args(
+                    subparser, 'classic',
+                    ['-d', '-o', 'pc_amd64.img', 'model.assertion'])
+            self.assertEqual(
+                    ['classic', '-d', '-o', 'pc_amd64.img', 'model.assertion'],
+                    argv)
 
 
 class TestParseArgs(TestCase):
@@ -95,9 +99,11 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.given_image_size, '45')
 
     def test_image_size_option_bytes_without_subcommand(self):
-        args = parseargs(['--image-size', '45', 'model.assertion'])
-        self.assertEqual(args.image_size, 45)
-        self.assertEqual(args.given_image_size, '45')
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            args = parseargs(['--image-size', '45', 'model.assertion'])
+            self.assertEqual(args.image_size, 45)
+            self.assertEqual(args.given_image_size, '45')
 
     def test_image_size_option_suffixes(self):
         args = parseargs(['snap', '--image-size', '45G', 'model.assertion'])

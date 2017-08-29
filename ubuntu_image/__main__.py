@@ -21,6 +21,12 @@ PROGRAM = 'ubuntu-image'
 
 
 class SimpleHelpFormatter(argparse.HelpFormatter):
+    """SimpleHelpFormatter for generating intuitive help infomation.
+
+    It uses fixed-width indentation for each sub command, options.
+    It makes some tweaks on help information layout and removes
+    redundant symbol for sub-commands prompt.
+    """
     def add_usage(self, usage, actions, groups, prefix=None):
         # only show main usage when no subcommand is provided.
         if prefix is None:
@@ -118,6 +124,9 @@ def get_modified_args(subparser, default_subcommand, argv):
 def add_common_args(subcommand):
     common_group = subcommand.add_argument_group(_('Common options'))
     common_group.add_argument(
+        '--version', action='version',
+        version='{} {}'.format(PROGRAM, __version__))
+    common_group.add_argument(
         '-d', '--debug',
         default=False, action='store_true',
         help=_('Enable debugging output'))
@@ -194,10 +203,6 @@ def parseargs(argv=None):
         prog=PROGRAM,
         description=_('Generate a bootable disk image.'),
         formatter_class=SimpleHelpFormatter)
-
-    parser.add_argument(
-        '--version', action='version',
-        version='{} {}'.format(PROGRAM, __version__))
 
     # create two subcommands, "snap" and "classic"
     subparser = parser.add_subparsers(title=_('Command'), dest='cmd')
@@ -277,7 +282,6 @@ def parseargs(argv=None):
 
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
-
     # The model assertion argument is required unless --resume is given, in
     # which case it cannot be given.
     # if args.cmd == 'snap':

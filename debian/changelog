@@ -1,3 +1,10 @@
+ubuntu-image (1.1+17.10ubuntu4) UNRELEASED; urgency=medium
+
+  * In order to support classic image creation, we add two subcommands(snap,classic)
+    support in this tool.
+
+ -- Gary Wang <gary.wang@canonical.com>  Tue, 29 Aug 2017 20:02:57 +0800
+
 ubuntu-image (1.1+17.10ubuntu3) artful; urgency=medium
 
   * Only run the snap.sh test on github PRs as it doesn't make sense to run it
