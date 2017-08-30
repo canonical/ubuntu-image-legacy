@@ -277,16 +277,8 @@ class TestMain(TestCase):
 
     def test_with_none(self):
         with self.assertRaises(SystemExit) as cm:
-            main((None))    # code coverage __main__.py 345-346
+            main((None))    # code coverage __main__.py 308-309
         self.assertEqual(cm.exception.code, 2)
-        lines = self._stderr.getvalue().splitlines()
-        self.assertTrue(
-                lines[0].startswith('Warning: for backwards compatibility'),
-                lines[0])
-        self.assertTrue(lines[1], 'Usage:')
-        self.assertEqual(
-                lines[2],
-                '  ubuntu-image COMMAND [OPTIONS]...')
 
     def test_snap_subcommand_help(self):
         with self.assertRaises(SystemExit) as cm:

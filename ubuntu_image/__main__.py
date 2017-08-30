@@ -103,8 +103,8 @@ class SizeAction(argparse.Action):
 
 def get_modified_args(subparser, default_subcommand, argv):
     for arg in argv:
-        # skip global help option
-        if arg in ['-h', '--help', '-v', '--version']:
+        # skip global help and version option
+        if arg in ['-h', '--help', '--version']:
             break
     else:
         for sp_name in subparser._name_parser_map.keys():
