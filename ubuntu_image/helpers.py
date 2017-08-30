@@ -154,6 +154,13 @@ def live_build(root_dir, env):
     os.chdir(old_working_dir)
 
 
+def fetch_bootloader_bits():
+    apt_cmd = ['sudo', 'apt', 'install', 'shim-signed',
+               'grub-pc-bin', 'grub-efi-amd64-signed']
+
+    run(apt_cmd, stdout=None, stderr=None, env=os.environ)
+
+
 def sparse_copy(src, dst, *, follow_symlinks=True):
     args = ['cp', '--sparse=always', src, dst]
     if not follow_symlinks:
