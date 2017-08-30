@@ -9,6 +9,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap
+from ubuntu_image.hooks import HookManager
 from ubuntu_image.image import Image
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema,
@@ -65,6 +66,9 @@ class ModelAssertionBuilder(State):
         self.cloud_init = args.cloud_init
         self.exitcode = 0
         self.done = False
+        # Generic hook handling manager.
+        self.hookdirs = args.hooks_directory
+        self.hook_manager = HookManager(self.hookdirs)
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -83,6 +87,7 @@ class ModelAssertionBuilder(State):
             rootfs_size=self.rootfs_size,
             unpackdir=self.unpackdir,
             volumedir=self.volumedir,
+            hookdirs=self.hookdirs,
             )
         return state
 
@@ -101,6 +106,9 @@ class ModelAssertionBuilder(State):
         self.rootfs_size = state['rootfs_size']
         self.unpackdir = state['unpackdir']
         self.volumedir = state['volumedir']
+        self.hookdirs = state['hookdirs']
+        # Restore the hook manager along with the state.
+        self.hook_manager = HookManager(self.hookdirs)
 
     def _log_exception(self, name):
         # Only log the exception if we're in debug mode.
@@ -174,6 +182,12 @@ class ModelAssertionBuilder(State):
             shutil.copy(self.cloud_init, userdata_file)
         # This is just a mount point.
         os.makedirs(os.path.join(dst, 'boot'))
+        self._next.append(self.populate_rootfs_contents_hooks)
+
+    def populate_rootfs_contents_hooks(self):
+        # Separate populate step for firing the post-populate-rootfs hook.
+        env = {'UBUNTU_IMAGE_HOOK_ROOTFS': self.rootfs}
+        self.hook_manager.fire('post-populate-rootfs', env)
         self._next.append(self.calculate_rootfs_size)
 
     @staticmethod
