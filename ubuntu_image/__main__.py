@@ -277,6 +277,13 @@ def parseargs(argv=None):
         default=None, action='append',
         help=_("""Extra ppas to install. This is passed through to
         livecd-rootfs."""))
+    '''
+    classic_cmd.add_argument(
+        '--seeding-dir',
+        default=None, metavar='SEEDING-DIR',
+        help=_("""A directory holds a variety of snaps for seeding in classic
+        image."""))
+    '''
 
     args = parser.parse_args(argv)
 
