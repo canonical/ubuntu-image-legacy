@@ -2,6 +2,7 @@
 
 import os
 import re
+import shutil
 import logging
 
 from contextlib import ExitStack, contextmanager
@@ -125,6 +126,32 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
     arg_list.extend([model_assertion, root_dir])
     cmd = SPACE.join(arg_list)
     run(cmd, stdout=None, stderr=None, env=os.environ)
+
+
+def live_build(root_dir, env):
+    # First, setup the build tools and workspace.
+    config_dir = os.path.join(root_dir, 'auto')
+    shutil.copytree('/usr/share/livecd-rootfs/live-build/auto', config_dir)
+
+    # Change the current working directory
+    old_working_dir = os.getcwd()
+    os.chdir(root_dir)
+
+    # Environment variables list
+    env_list = ['%s=%s' % (key, value) for (key, value) in env.items()]
+
+    config_cmd = ['sudo']
+    config_cmd.extend(env_list)
+    config_cmd.extend(['lb', 'config'])
+    run(config_cmd, stdout=None, stderr=None, env=os.environ)
+
+    build_cmd = ['sudo']
+    build_cmd.extend(env_list)
+    build_cmd.extend(['lb', 'build'])
+    run(build_cmd, stdout=None, stderr=None, env=os.environ)
+
+    # Back to previous working directory
+    os.chdir(old_working_dir)
 
 
 def sparse_copy(src, dst, *, follow_symlinks=True):

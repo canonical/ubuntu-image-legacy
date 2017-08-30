@@ -4,6 +4,7 @@ import os
 import errno
 import logging
 
+from collections import OrderedDict
 from contextlib import ExitStack
 from pkg_resources import resource_filename
 from shutil import copytree
@@ -11,7 +12,7 @@ from subprocess import run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
-     GiB, MiB, as_bool, as_size, get_host_arch, get_host_distro,
+     GiB, MiB, as_bool, as_size, get_host_arch, get_host_distro, live_build,
      mkfs_ext4, run, snap, sparse_copy)
 from ubuntu_image.testing.helpers import LogCapture
 from unittest import TestCase
@@ -219,6 +220,69 @@ class TestHelpers(TestCase):
         self.assertEqual(
             args[0],
             ['snap', 'prepare-image', '--channel=edge', model, tmpdir])
+
+    def test_live_build(self):
+        with ExitStack() as resources:
+            resources.enter_context(LogCapture())
+            mock = resources.enter_context(
+                patch('ubuntu_image.helpers.subprocess_run',
+                      return_value=FakeProc()))
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            root_dir = os.path.join(tmpdir, 'root_dir')
+            env = OrderedDict()
+            env['PROJECT'] = 'ubuntu-server'
+            env['SUITE'] = 'xenial'
+            env['ARCH'] = 'amd64'
+            live_build(root_dir, env)
+            self.assertEqual(len(mock.call_args_list), 2)
+            args, kws = mock.call_args_list[0]
+            self.assertEqual(
+                args[0],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=amd64',
+                 'lb', 'config'])
+            args, kws = mock.call_args_list[1]
+            self.assertEqual(
+                args[0],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=amd64',
+                 'lb', 'build'])
+
+    def test_live_build_with_full_args(self):
+        with ExitStack() as resources:
+            resources.enter_context(LogCapture())
+            mock = resources.enter_context(
+                patch('ubuntu_image.helpers.subprocess_run',
+                      return_value=FakeProc()))
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            root_dir = os.path.join(tmpdir, 'root_dir')
+            env = OrderedDict()
+            env['PROJECT'] = 'ubuntu-cpc'
+            env['SUITE'] = 'xenial'
+            env['ARCH'] = 'amd64'
+            env['SUBPROJECT'] = 'live'
+            env['SUBARCH'] = 'ubuntu-cpc'
+            env['PROPOSED'] = 'true'
+            env['IMAGEFORMAT'] = 'ext4'
+            env['EXTRA_PPAS'] = 'foo1/bar1 foo2'
+            live_build(root_dir, env)
+            self.assertEqual(len(mock.call_args_list), 2)
+            args, kws = mock.call_args_list[0]
+            self.assertEqual(
+                args[0],
+                ['sudo',
+                 'PROJECT=ubuntu-cpc', 'SUITE=xenial', 'ARCH=amd64',
+                 'SUBPROJECT=live', 'SUBARCH=ubuntu-cpc', 'PROPOSED=true',
+                 'IMAGEFORMAT=ext4', 'EXTRA_PPAS=foo1/bar1 foo2',
+                 'lb', 'config'])
+            args, kws = mock.call_args_list[1]
+            self.assertEqual(
+                args[0],
+                ['sudo',
+                 'PROJECT=ubuntu-cpc', 'SUITE=xenial', 'ARCH=amd64',
+                 'SUBPROJECT=live', 'SUBARCH=ubuntu-cpc', 'PROPOSED=true',
+                 'IMAGEFORMAT=ext4', 'EXTRA_PPAS=foo1/bar1 foo2',
+                 'lb', 'build'])
 
     def test_snap_with_extra_snaps(self):
         model = resource_filename('ubuntu_image.tests.data', 'model.assertion')
