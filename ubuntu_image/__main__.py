@@ -142,6 +142,10 @@ def add_common_args(subcommand):
         default=None, metavar='FILENAME',
         help=_("""Print to this file, a list of the file system paths to
         all the disk images created by the command, if any."""))
+    common_group.add_argument(
+        '--cloud-init',
+        default=None, metavar='USER-DATA-FILE',
+        help=_('cloud-config data to be copied to the image'))
     output_group = common_group.add_mutually_exclusive_group()
     output_group.add_argument(
         '-O', '--output-dir',
@@ -228,10 +232,6 @@ def parseargs(argv=None):
         default=None, action='append',
         help=_("""Extra snaps to install.  This is passed through to `snap
         prepare-image`."""))
-    snap_cmd.add_argument(
-        '--cloud-init',
-        default=None, metavar='USER-DATA-FILE',
-        help=_('cloud-config data to be copied to the image'))
     snap_cmd.add_argument(
         '-c', '--channel',
         default=None,
