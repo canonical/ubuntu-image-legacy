@@ -3,6 +3,7 @@
 import os
 import re
 import shutil
+import sys
 import logging
 
 from contextlib import ExitStack, contextmanager
@@ -212,3 +213,10 @@ def get_default_sector_size():
         os.truncate(fp.name, 0)
         os.truncate(fp.name, MiB(1))
         return Device(fp.name).sectorSize
+
+
+def check_root_priviledge():
+    if os.geteuid() != 0:
+        print("You must have root privileges to build classic "
+              "image. Please try again with 'sudo'.", file=sys.stderr)
+        exit(1)
