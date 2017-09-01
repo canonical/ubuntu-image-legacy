@@ -220,3 +220,12 @@ def check_root_priviledge():
         print("You must have root privileges to build classic "
               "image. Please try again with 'sudo'.", file=sys.stderr)
         exit(1)
+
+
+class DoesNotFit(ExpectedError):
+    """A part's content does not fit in the structure."""
+
+    def __init__(self, part_number, part_path, overage):
+        self.part_number = part_number
+        self.part_path = part_path
+        self.overage = overage

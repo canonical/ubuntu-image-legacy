@@ -1,4 +1,4 @@
-"""Flow for building a disk image."""
+"""Flow for building a ubuntu core image."""
 
 import os
 import shutil
@@ -8,12 +8,13 @@ from math import ceil
 from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
-from ubuntu_image.helpers import MiB, mkfs_ext4, run, snap
+from ubuntu_image.helpers import (
+    DoesNotFit, MiB, mkfs_ext4, run, snap)
 from ubuntu_image.image import Image
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema,
     parse as parse_yaml)
-from ubuntu_image.state import ExpectedError, State
+from ubuntu_image.state import State
 
 
 SPACE = ' '

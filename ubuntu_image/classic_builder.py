@@ -9,11 +9,12 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import (
-    MiB, check_root_priviledge,
+    DoesNotFit, MiB, mkfs_ext4, check_root_priviledge,
     fetch_bootloader_bits, live_build, run)
+from ubuntu_image.image import Image
 from ubuntu_image.state import State
 from ubuntu_image.parser import (
-    FileSystemType, StructureRole, parse as parse_yaml)
+    FileSystemType, StructureRole, VolumeSchema, parse as parse_yaml)
 
 
 GRUB_MODULES = ['all_video', 'biosdisk', 'boot', 'cat', 'chain', 'configfile',
@@ -198,7 +199,9 @@ class ClassicBuilder(State):
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
         '''
-        To support seeding in classic.
+        One option to support snap seeding if we add a command line argument
+        to support to specify seeds dir. i.e:
+        $ ubuntu_image classic --seed_dir seeding gadget_tree
 
         if self.seeds_dir is not None:
             seeds_dir = os.path.join(dst, 'var', 'lib', 'snapd', 'seed')
@@ -215,7 +218,7 @@ class ClassicBuilder(State):
         if proc.returncode == 0:
             total = int(proc.stdout.strip().split()[0])
         # Fudge factor for incidentals.
-        total *= 1.2
+        total *= 1.5
         return ceil(total)
 
     def calculate_rootfs_size(self):
@@ -234,15 +237,16 @@ class ClassicBuilder(State):
                 if part.role is StructureRole.mbr:
                     boot_img_path = os.path.join(self.workdir,
                                                  content.image)
-                    shutil.copy('/usr/lib/grub/i386-pc/boot.img',
-                                boot_img_path)
+                    # the pc-boot.img is properly 440 bytes  See here:
+                    # https://bugs.launchpad.net/ubuntu-image/+bug/1666580
+                    run("dd if=/usr/lib/grub/i386-pc/boot.img "
+                        "of={} bs=440 count=1".format(boot_img_path))
                     run("echo -n -e '\x90\x90' | "
                         "dd of={} seek=102 bs=1 conv=notrunc"
                         .format(boot_img_path))
                 # It's not reliable to get it via part.name
                 if part.name == 'BIOS Boot':
-                    core_img_path = os.path.join(self.workdir,
-                                                 content.image)
+                    core_img_path = os.path.join(self.workdir, content.image)
                     grub_modules_list = SPACE.join(GRUB_MODULES)
                     run("grub-mkimage -O i386-pc -o {} -p '(,gpt2)/EFI/ubuntu'"
                         " {}".format(core_img_path, grub_modules_list))
@@ -405,6 +409,57 @@ class ClassicBuilder(State):
         self._next.append(self.populate_filesystems)
 
     def _populate_one_volume(self, name, volume):
+        for partnum, part in enumerate(volume.structures):
+            part_img = volume.part_images[partnum]
+            part_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+            if part.role is StructureRole.system_data:
+                # The root partition needs to be ext4, which may or may not be
+                # populated at creation time, depending on the version of
+                # e2fsprogs.
+                mkfs_ext4(part_img, self.rootfs, part.filesystem_label)
+            elif part.filesystem is FileSystemType.none:
+                image = Image(part_img, part.size)
+                offset = 0
+                for content in part.content:
+                    src = os.path.join(self.workdir, content.image)
+                    file_size = os.path.getsize(src)
+                    assert content.size is None or content.size >= file_size, (
+                        'Spec size {} < actual size {} of: {}'.format(
+                            content.size, file_size, content.image))
+                    if content.size is not None:
+                        file_size = content.size
+                    # XXX: We need to check for overlapping images.
+                    if content.offset is not None:
+                        offset = content.offset
+                    end = offset + file_size
+                    if end > part.size:
+                        if part.name is None:
+                            if part.role is None:
+                                whats_wrong = part.type
+                            else:
+                                whats_wrong = part.role.value
+                        else:
+                            whats_wrong = part.name
+                        part_path = 'volumes:<{}>:structure:<{}>'.format(
+                            name, whats_wrong)
+                        self.exitcode = 1
+                        raise DoesNotFit(partnum, part_path, end - part.size)
+                    image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
+                    offset += file_size
+            elif part.filesystem is FileSystemType.vfat:
+                sourcefiles = SPACE.join(
+                    os.path.join(part_dir, filename)
+                    for filename in os.listdir(part_dir)
+                    )
+                env = dict(MTOOLS_SKIP_CHECK='1')
+                env.update(os.environ)
+                run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
+                    env=env)
+            elif part.filesystem is FileSystemType.ext4:
+                mkfs_ext4(part_img, part_dir, part.filesystem_label)
+            else:
+                raise AssertionError('Invalid part filesystem type: {}'.format(
+                    part.filesystem))
         print('_populate_one_volume')
 
     def populate_filesystems(self):
@@ -412,9 +467,85 @@ class ClassicBuilder(State):
             self._populate_one_volume(name, volume)
         self._next.append(self.make_disk)
 
+    def _make_one_disk(self, imgfile, name, volume):
+        part_id = 1
+        # Create the image object for the selected volume schema
+        image = Image(imgfile, volume.image_size, volume.schema)
+        offset_writes = []
+        part_offsets = {}
+        # We first create all the partitions.
+        for part in volume.structures:
+            if part.name is not None:
+                part_offsets[part.name] = part.offset
+            if part.offset_write is not None:
+                offset_writes.append((part.offset, part.offset_write))
+            if part.role is StructureRole.mbr or part.type == 'bare':
+                continue
+            activate = False
+            if (volume.schema is VolumeSchema.mbr and
+                    part.role is StructureRole.system_boot):
+                activate = True
+            elif (volume.schema is VolumeSchema.gpt and
+                    part.role is StructureRole.system_data and
+                    part.name is None):
+                part.name = 'writable'
+            image.partition(part.offset, part.size, part.name, activate)
+        # Now since we're done, we need to do a second pass to copy the data
+        # and set all the partition types.  This needs to be done like this as
+        # libparted's commit() operation resets type GUIDs to defaults and
+        # clobbers things like hybrid MBR partitions.
+        part_id = 1
+        for i, part in enumerate(volume.structures):
+            image.copy_blob(volume.part_images[i],
+                            bs=image.sector_size,
+                            seek=part.offset // image.sector_size,
+                            count=ceil(part.size / image.sector_size),
+                            conv='notrunc')
+            if part.role is StructureRole.mbr or part.type == 'bare':
+                continue
+            image.set_parition_type(part_id, part.type)
+            part_id += 1
+        for value, dest in offset_writes:
+            # Decipher non-numeric offset_write values.
+            if isinstance(dest, tuple):
+                dest = part_offsets[dest[0]] + dest[1]
+            image.write_value_at_offset(value // image.sector_size, dest)
+
     def make_disk(self):
-        print('make_disk')
+        # Based on the -o/--output and -O/--output-dir options, and the volumes
+        # in the gadget.yaml file, we can now calculate where the generated
+        # disk images should go.  We'll write them directly to the final
+        # destination so they don't have to be moved later.  Here is the
+        # option precedence:
+        #
+        # * The location specified by -o/--output;
+        # * <output_dir>/<volume_name>.img
+        # * <work_dir>/disk.img
+        #
+        # If -o was given and there are multiple volumes, we ignore it and
+        # act as if -O is in use.
+        disk_img = None
+        if self.output is not None:
+            if len(self.gadget.volumes) > 1:
+                _logger.warn('-o/--output ignored for multiple volumes')
+            else:
+                disk_img = self.output
+        if not disk_img:
+            os.makedirs(self.output_dir, exist_ok=True)
+        # Walk through all partitions and write them to the disk image at the
+        # lowest permissible offset.  We should not have any overlapping
+        # partitions, the parser should have already rejected such as invalid.
+        #
+        # XXX: The parser should sort these partitions for us in disk order as
+        # part of checking for overlaps, so we should not need to sort them
+        # here.
+        for name, volume in self.gadget.volumes.items():
+            image_path = (
+                disk_img if disk_img is not None
+                else os.path.join(self.output_dir, '{}.img'.format(name)))
+            self._make_one_disk(image_path, name, volume)
         self._next.append(self.generate_manifests)
+        print('make_disk')
 
     def generate_manifests(self):
         # After the images are built, we would also like to have some image
