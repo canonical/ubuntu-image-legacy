@@ -10,6 +10,7 @@ from pickle import dump, load
 from ubuntu_image import __version__
 from ubuntu_image.builder import DoesNotFit, ModelAssertionBuilder
 from ubuntu_image.helpers import as_size, get_host_arch, get_host_distro
+from ubuntu_image.hooks import HookError
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
 
@@ -142,6 +143,11 @@ def add_common_args(subcommand):
         default=None, metavar='FILENAME',
         help=_("""Print to this file, a list of the file system paths to
         all the disk images created by the command, if any."""))
+    common_group.add_argument(
+        '--hooks-directory',
+        default=[], metavar='DIRECTORY',
+        help=_("""Path or comma-separated list of paths of directories in which
+        scripts for build-time hooks will be located."""))
     output_group = common_group.add_mutually_exclusive_group()
     output_group.add_argument(
         '-O', '--output-dir',
@@ -297,6 +303,9 @@ def parseargs(argv=None):
         args.thru = int(args.thru)
     with suppress(ValueError, TypeError):
         args.until = int(args.until)
+    # --hooks-directory can be a comma-separated list of directories
+    if args.hooks_directory:
+        args.hooks_directory = args.hooks_directory.split(',')
     # -o/--output is deprecated and mutually exclusive with -O/--output-dir
     if args.output is not None:
         print('-o/--output is deprecated; use -O/--output-dir instead',
@@ -340,6 +349,13 @@ def main(argv=None):
         _logger.error(
             'Volume contents do not fit ({}B over): {} [#{}]'.format(
                 error.overage, error.part_path, error.part_number))
+    except HookError as error:
+        _logger.error(
+            'Hook script in path {} failed for the {} hook with return code '
+            '{}. Output of stderr:\n{}'.format(
+                error.hook_path, error.hook_name, error.hook_retcode,
+                error.hook_stderr))
+        return 1
     except:
         _logger.exception('Crash in state machine')
         return 1
