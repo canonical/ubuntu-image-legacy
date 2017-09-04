@@ -21,15 +21,6 @@ SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
 
-class DoesNotFit(ExpectedError):
-    """A part's content does not fit in the structure."""
-
-    def __init__(self, part_number, part_path, overage):
-        self.part_number = part_number
-        self.part_path = part_path
-        self.overage = overage
-
-
 class ModelAssertionBuilder(State):
     def __init__(self, args):
         super().__init__()

@@ -10,6 +10,7 @@ from contextlib import ExitStack, contextmanager
 from parted import Device
 from subprocess import PIPE, run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from ubuntu_image.state import ExpectedError
 
 
 __all__ = [

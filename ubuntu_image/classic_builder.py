@@ -7,7 +7,7 @@ import shutil
 from math import ceil
 from pathlib import Path
 from subprocess import CalledProcessError
-from tempfile import TemporaryDirectory
+from tempfile import gettempdir, TemporaryDirectory
 from ubuntu_image.helpers import (
     DoesNotFit, MiB, mkfs_ext4, check_root_priviledge,
     fetch_bootloader_bits, live_build, run)
@@ -38,12 +38,9 @@ class ClassicBuilder(State):
         # The working directory will contain several bits as we stitch
         # everything together.  It will contain the final disk image file
         # (unless output is given).  It will contain an unpack/ directory
-        # which is where `snap prepare-image` will put its contents.  It will
-        # contain a system-data/ directory which containing everything needed
-        # for the final root file system (e.g. an empty boot/ mount point, the
-        # snap/ directory and a var/ hierarchy containing snaps and
-        # sideinfos), and it will contain a boot/ directory with the grub
-        # files.
+        # which is where `lb config && lb build` will put its contents.
+        # It will contain a root/ directory which containing everything needed
+        # for the final root file system.
         self.workdir = (
             self.resources.enter_context(TemporaryDirectory())
             if args.workdir is None
@@ -156,6 +153,7 @@ class ClassicBuilder(State):
 
     def load_gadget_yaml(self):
         # TBD: where do we get the gadget.yaml file, local or remote(bzr, git)?
+        # We're using a local gadget.yaml file the for development and testing.
         # The fine-tuned gadget yaml file we're now using for classic.
         # http://paste.ubuntu.com/25430685/
         yaml_file = os.path.join(self.gadget_tree, 'meta', 'gadget.yaml')
@@ -177,16 +175,29 @@ class ClassicBuilder(State):
 
     def populate_rootfs_contents(self):
         src = os.path.join(self.unpackdir, 'chroot')
-        dst = os.path.join(self.rootfs, 'system-data')
-        os.makedirs(dst)
+        dst = self.rootfs
         for subdir in os.listdir(src):
             shutil.move(os.path.join(src, subdir), os.path.join(dst, subdir))
             # Remove default grub bootloader settings
             # as we get bootloader bits from ubuntu achieve.
-            # and ship the grub.conf from local.
+            # and ship a single piece of the grub.cfg from local.
             if subdir == 'boot':
                 shutil.rmtree(os.path.join(dst, subdir, 'grub'),
                               ignore_errors=True)
+        # Replace pre-defined LABEL in /etc/fstab with the one
+        # we're using 'LABEL=writable'.
+        for name, volume in self.gadget.volumes.items():
+            for part in volume.structures:
+                if (volume.schema is VolumeSchema.gpt and
+                        part.role is StructureRole.system_data and
+                        part.name is None):
+                        fstab_path = os.path.join(dst, 'etc', 'fstab')
+                        with open(fstab_path, 'r') as fstab:
+                            new_content = fstab.read().replace(
+                                        'LABEL=cloudimg-rootfs',
+                                        'LABEL=writable')
+                        with open(fstab_path, "w") as fstab:
+                            fstab.write(new_content)
         if self.cloud_init is not None:
             # LP: #1633232 - Only write out meta-data when the --cloud-init
             # parameter is given.
@@ -246,13 +257,23 @@ class ClassicBuilder(State):
                         .format(boot_img_path))
                 # It's not reliable to get it via part.name
                 if part.name == 'BIOS Boot':
+                    tmp_file_path = os.path.join(gettempdir(), content.image)
                     core_img_path = os.path.join(self.workdir, content.image)
-                    grub_modules_list = SPACE.join(GRUB_MODULES)
+                    modules_list = SPACE.join(GRUB_MODULES)
                     run("grub-mkimage -O i386-pc -o {} -p '(,gpt2)/EFI/ubuntu'"
-                        " {}".format(core_img_path, grub_modules_list))
-                    run("echo -n -e '\x01\x08' | "
-                        "dd of={} seek=500 bs=1 conv=notrunc"
-                        .format(core_img_path))
+                        " {}".format(core_img_path, modules_list), shell=True)
+                    # The first sector of the core image requires an absolute
+                    # pointer to the second sector of the image.  Since this
+                    # is always hard-coded, it means our BIOS boot partition
+                    # must be defined with an absolute offset. The particular
+                    # value here is 2049(0x01 0x08 0x00 0x00 in little-endian).
+                    seek = 500
+                    with open(tmp_file_path, 'rb') as in_file:
+                        with open(core_img_path, 'wb') as out_file:
+                            content = in_file.read()
+                            out_file.write(content[:seek])
+                            out_file.write(b'\x01\x08\x00\x00')
+                            out_file.write(content[seek + 4:])
 
     def prepare_bootfs_contents(self):
         try:
@@ -555,10 +576,9 @@ class ClassicBuilder(State):
 
         deprecated_words = ['ubiquity', 'casper']
         manifest_path = os.path.join(self.output_dir, 'filesystem.manifest')
-        tmpfile_path = os.path.join(self.output_dir, 'filesystem.manifest.tmp')
-        systemdata_path = os.path.join(self.rootfs, 'system-data')
+        tmpfile_path = os.path.join(gettempdir(), 'filesystem.manifest')
         with open(tmpfile_path, 'w+') as tmpfile:
-            query_cmd = ['sudo', 'chroot', systemdata_path, 'dpkg-query', '-W',
+            query_cmd = ['sudo', 'chroot', self.rootfs, 'dpkg-query', '-W',
                          '--showformat=${Package} ${Version}\n']
             run(query_cmd, stdout=tmpfile, stderr=None, env=os.environ)
             tmpfile.seek(0, 0)
@@ -566,9 +586,6 @@ class ClassicBuilder(State):
                 for line in tmpfile:
                     if not any(word in line for word in deprecated_words):
                         manifest.write(line)
-
-        # Remove tmp file
-        os.unlink(tmpfile_path)
 
         self._next.append(self.finish)
 
