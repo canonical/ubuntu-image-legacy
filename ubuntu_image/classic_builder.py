@@ -24,6 +24,8 @@ GRUB_MODULES = ['all_video', 'biosdisk', 'boot', 'cat', 'chain', 'configfile',
                 'part_gpt', 'png', 'reboot', 'search', 'search_fs_uuid',
                 'search_fs_file', 'search_label', 'sleep', 'squash4', 'test',
                 'true', 'video']
+
+
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
@@ -261,7 +263,7 @@ class ClassicBuilder(State):
                     core_img_path = os.path.join(self.workdir, content.image)
                     modules_list = SPACE.join(GRUB_MODULES)
                     run("grub-mkimage -O i386-pc -o {} -p '(,gpt2)/EFI/ubuntu'"
-                        " {}".format(core_img_path, modules_list), shell=True)
+                        " {}".format(tmp_file_path, modules_list), shell=True)
                     # The first sector of the core image requires an absolute
                     # pointer to the second sector of the image.  Since this
                     # is always hard-coded, it means our BIOS boot partition
@@ -302,44 +304,51 @@ class ClassicBuilder(State):
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
-            if part.filesystem is not FileSystemType.none:
-                for content in part.content:
-                    src = (content.source if content.source.startswith('/')
-                           else os.path.join(self.gadget_tree, content.source))
-                    dst = os.path.join(target_dir, content.target)
-                    if content.source.endswith('/'):
-                        # This is a directory copy specification.  The target
-                        # must also end in a slash.
-                        #
-                        # XXX: If this is a file instead of a directory, give
-                        # a useful error message instead of a traceback.
-                        #
-                        # XXX: We should assert this constraint in the parser.
-                        target, slash, tail = content.target.rpartition('/')
-                        if slash != '/' and tail != '':
-                            raise ValueError(
-                                'target must end in a slash: {}'.format(
-                                    content.target))
-                        # The target of a recursive directory copy is the
-                        # target directory name, with or without a trailing
-                        # slash necessary at least to handle the case of
-                        # recursive copy into the root directory), so make
-                        # sure here that it exists.
-                        os.makedirs(dst, exist_ok=True)
-                        for filename in os.listdir(src):
-                            sub_src = os.path.join(src, filename)
-                            dst = os.path.join(target_dir, target, filename)
-                            if os.path.isdir(sub_src):
-                                shutil.copytree(sub_src, dst, symlinks=True,
-                                                ignore_dangling_symlinks=True)
-                            else:
-                                shutil.copy(sub_src, dst)
-                    else:
-                        # XXX: If this is a directory instead of a file, give
-                        # a useful error message instead of a traceback.
-                        os.makedirs(os.path.dirname(dst), exist_ok=True)
-                        shutil.copy(src, dst)
-        print('_populate one bootfs')
+            # we fetch the mbr from the u archive and generate pc-boot.img via
+            # grub-mkimage, so skip them.
+            if part.role is StructureRole.mbr or part.type == 'bare':
+                continue
+            if part.name == 'BIOS Boot':
+                continue
+
+            if part.role is StructureRole.system_boot:
+                volume.bootfs = target_dir
+            for content in part.content:
+                src = (content.source if content.source.startswith('/')
+                       else os.path.join(self.gadget_tree, content.source))
+                dst = os.path.join(target_dir, content.target)
+                if content.source.endswith('/'):
+                    # This is a directory copy specification.  The target
+                    # must also end in a slash.
+                    #
+                    # XXX: If this is a file instead of a directory, give
+                    # a useful error message instead of a traceback.
+                    #
+                    # XXX: We should assert this constraint in the parser.
+                    target, slash, tail = content.target.rpartition('/')
+                    if slash != '/' and tail != '':
+                        raise ValueError(
+                            'target must end in a slash: {}'.format(
+                                content.target))
+                    # The target of a recursive directory copy is the
+                    # target directory name, with or without a trailing
+                    # slash necessary at least to handle the case of
+                    # recursive copy into the root directory), so make
+                    # sure here that it exists.
+                    os.makedirs(dst, exist_ok=True)
+                    for filename in os.listdir(src):
+                        sub_src = os.path.join(src, filename)
+                        dst = os.path.join(target_dir, target, filename)
+                        if os.path.isdir(sub_src):
+                            shutil.copytree(sub_src, dst, symlinks=True,
+                                            ignore_dangling_symlinks=True)
+                        else:
+                            shutil.copy(sub_src, dst)
+                else:
+                    # XXX: If this is a directory instead of a file, give
+                    # a useful error message instead of a traceback.
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    shutil.copy(src, dst)
 
     def populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
@@ -481,7 +490,6 @@ class ClassicBuilder(State):
             else:
                 raise AssertionError('Invalid part filesystem type: {}'.format(
                     part.filesystem))
-        print('_populate_one_volume')
 
     def populate_filesystems(self):
         for name, volume in self.gadget.volumes.items():
@@ -566,7 +574,6 @@ class ClassicBuilder(State):
                 else os.path.join(self.output_dir, '{}.img'.format(name)))
             self._make_one_disk(image_path, name, volume)
         self._next.append(self.generate_manifests)
-        print('make_disk')
 
     def generate_manifests(self):
         # After the images are built, we would also like to have some image
