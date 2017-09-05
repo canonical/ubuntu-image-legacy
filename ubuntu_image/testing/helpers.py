@@ -7,6 +7,7 @@ import logging
 from contextlib import ExitStack, contextmanager
 from pkg_resources import resource_filename
 from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.classic_builder import ClassicBuilder
 from unittest.mock import patch
 
 
@@ -32,6 +33,10 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
             resource_filename('ubuntu_image.tests.data', 'shim.efi.signed'),
             os.path.join(gadget_dir, 'shim.efi.signed'))
         super().load_gadget_yaml()
+
+
+class XXXClassicBuilder(ClassicBuilder):
+        pass
 
 
 class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
