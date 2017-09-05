@@ -55,7 +55,7 @@ class DoNothingBuilder(XXXModelAssertionBuilder):
         self._next.append(self.load_gadget_yaml)
 
     def populate_rootfs_contents(self):
-        self._next.append(self.calculate_rootfs_size)
+        self._next.append(self.populate_rootfs_contents_hooks)
 
     def populate_bootfs_contents(self):
         self._next.append(self.prepare_filesystems)
