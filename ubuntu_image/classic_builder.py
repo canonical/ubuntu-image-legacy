@@ -14,7 +14,8 @@ from ubuntu_image.helpers import (
 from ubuntu_image.image import Image
 from ubuntu_image.state import State
 from ubuntu_image.parser import (
-    FileSystemType, StructureRole, VolumeSchema, parse as parse_yaml)
+    BootLoader, FileSystemType, StructureRole, VolumeSchema,
+    parse as parse_yaml)
 
 
 GRUB_MODULES = ['all_video', 'biosdisk', 'boot', 'cat', 'chain', 'configfile',
@@ -306,13 +307,16 @@ class ClassicBuilder(State):
             target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
             # we fetch the mbr from the u archive and generate pc-boot.img via
             # grub-mkimage, so skip them.
-            if part.role is StructureRole.mbr or part.type == 'bare':
-                continue
-            if part.name == 'BIOS Boot':
+            if part.role is not StructureRole.system_boot:
                 continue
 
-            if part.role is StructureRole.system_boot:
-                volume.bootfs = target_dir
+            if (volume.bootloader is not BootLoader.uboot and
+               volume.bootloader is not BootLoader.grub):
+                    raise ValueError(
+                        'Unsupported volume bootloader value: {}'.format(
+                            volume.bootloader))
+
+            volume.bootfs = target_dir
             for content in part.content:
                 src = (content.source if content.source.startswith('/')
                        else os.path.join(self.gadget_tree, content.source))
