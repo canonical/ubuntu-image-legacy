@@ -172,12 +172,14 @@ class TestParseArgs(TestCase):
                                'model.assertion'])
 
     def test_hooks_directory_single(self):
-        args = parseargs(['--hooks-directory', '/foo/bar', 'model.assertion'])
+        args = parseargs(
+            ['snap', '--hooks-directory', '/foo/bar', 'model.assertion'])
         self.assertListEqual(args.hooks_directory, ['/foo/bar'])
 
     def test_hooks_directory_multiple(self):
-        args = parseargs(['--hooks-directory', '/foo/bar,/foo/baz,~/bar',
-                          'model.assertion'])
+        args = parseargs(
+            ['snap', '--hooks-directory', '/foo/bar,/foo/baz,~/bar',
+             'model.assertion'])
         self.assertListEqual(
             args.hooks_directory, ['/foo/bar', '/foo/baz', '~/bar'])
 
