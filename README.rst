@@ -43,6 +43,8 @@ Project details
 * Report bugs at: https://bugs.launchpad.net/ubuntu-image
 * Git clone: https://github.com/CanonicalLtd/ubuntu-image.git
 * Documentation: TBD
+* Manual page: man ubuntu-image
+  (https://github.com/CanonicalLtd/ubuntu-image/blob/master/ubuntu-image.rst)
 
 The ``gadget.yaml`` specification has moved to `the snapcore repository`_.
 
