@@ -11,7 +11,7 @@ Requirements
 ============
 
 Ubuntu 16.04 (Xenial Xerus) is the minimum platform requirement, but Ubuntu
-16.10 (Yakkety Yak) or newer is recommended.  Python 3.5 is the minimum Python
+17.04 (Zesty Zapus) or newer is recommended.  Python 3.5 is the minimum Python
 version required.  All required third party packages are available in the
 Ubuntu archive.
 
@@ -70,6 +70,6 @@ Pull requests run the same test suite that archive promotion (i.e. -proposed
 to release pocket) runs.  You can reproduce this locally by building the
 source package (with ``gbp buildpackage -S``) and running::
 
-    $ autopkgtest ubuntu-image_0.8+16.10ubuntu1.dsc -- schroot yakkety-amd64
+    $ autopkgtest ubuntu-image_0.8+16.10ubuntu1.dsc -- schroot zesty-amd64
 
 with changes to the version number and Ubuntu distroseries as appropriate.
