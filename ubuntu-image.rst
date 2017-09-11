@@ -7,7 +7,7 @@ Generate a bootable disk image
 ------------------------------
 
 :Author: Barry Warsaw <barry@ubuntu.com>
-:Date: 2017-03-13
+:Date: 2017-09-08
 :Copyright: 2016-2017 Canonical Ltd.
 :Version: 1.0
 :Manual section: 1
@@ -118,6 +118,10 @@ model_assertion
     Print to ``FILENAME``, a list of the file system paths to all the disk
     images created by the command, if any.
 
+--hooks-directory DIRECTORY
+    Path or comma-separated list of paths of directories in which scripts for
+    build-time hooks will be located.
+
 
 Image content options
 ---------------------
@@ -208,6 +212,31 @@ The following environment variables are recognized by ``ubuntu-image``.
 
 There are a few other environment variables used for building and testing
 only.
+
+
+HOOKS
+=====
+
+During image build at certain stages of the build process the user can execute
+custom scripts modifying its contents or otherwise affecting the process
+itself.  Whenever a hook is to be fired, the directories as listed in the
+``--hooks-directory`` parameter are scanned for matching scripts.  There can be
+multiple scripts for a specific hook defined.  The ``HookManager`` will first
+look for executable files in ``<hookdir>/<name-of-the-hook>.d`` and execute
+them in an alphanumerical order.  Finally the ``<hookdir>/<name-of-the-hook>``
+file is executed if existing.
+
+Hook scripts can have various additional data passed onto them through
+environment variables depending on the hook being fired.
+
+Currently supported hooks:
+
+post-populate-rootfs
+    Executed after the rootfs directory has been populated, allowing
+    custom modification of its contents.  Added in version 1.2.  Environment
+    variables present:
+        ``UBUNTU_IMAGE_HOOK_ROOTFS``
+            Includes the absolute path to the rootfs contents.
 
 
 SEE ALSO
