@@ -12,7 +12,7 @@ from subprocess import run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
-     GiB, MiB, as_bool, as_size, fetch_bootloader_bits,
+     GiB, MiB, as_bool, as_size,
      get_host_arch, get_host_distro, live_build,
      mkfs_ext4, run, snap, sparse_copy)
 from ubuntu_image.testing.helpers import LogCapture
@@ -222,6 +222,22 @@ class TestHelpers(TestCase):
             args[0],
             ['snap', 'prepare-image', '--channel=edge', model, tmpdir])
 
+    def test_snap_with_extra_snaps(self):
+        model = resource_filename('ubuntu_image.tests.data', 'model.assertion')
+        with ExitStack() as resources:
+            resources.enter_context(LogCapture())
+            mock = resources.enter_context(
+                patch('ubuntu_image.helpers.subprocess_run',
+                      return_value=FakeProc()))
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            snap(model, tmpdir, extra_snaps=('foo', 'bar'))
+            self.assertEqual(len(mock.call_args_list), 1)
+            args, kws = mock.call_args_list[0]
+        self.assertEqual(
+            args[0],
+            ['snap', 'prepare-image', '--extra-snaps=foo', '--extra-snaps=bar',
+             model, tmpdir])
+
     def test_live_build(self):
         with ExitStack() as resources:
             resources.enter_context(LogCapture())
@@ -284,36 +300,6 @@ class TestHelpers(TestCase):
                  'SUBPROJECT=live', 'SUBARCH=ubuntu-cpc', 'PROPOSED=true',
                  'IMAGEFORMAT=ext4', 'EXTRA_PPAS=foo1/bar1 foo2',
                  'lb', 'build'])
-
-    def test_fetch_bootloader_bits(self):
-        with ExitStack() as resources:
-            resources.enter_context(LogCapture())
-            mock = resources.enter_context(
-                patch('ubuntu_image.helpers.subprocess_run',
-                      return_value=FakeProc()))
-            fetch_bootloader_bits()
-            self.assertEqual(len(mock.call_args_list), 1)
-            args, kws = mock.call_args_list[0]
-            self.assertEqual(
-                args[0],
-                ['sudo', 'apt', 'install', 'shim-signed', 'grub-pc-bin',
-                 'grub-efi-amd64-signed'])
-
-    def test_snap_with_extra_snaps(self):
-        model = resource_filename('ubuntu_image.tests.data', 'model.assertion')
-        with ExitStack() as resources:
-            resources.enter_context(LogCapture())
-            mock = resources.enter_context(
-                patch('ubuntu_image.helpers.subprocess_run',
-                      return_value=FakeProc()))
-            tmpdir = resources.enter_context(TemporaryDirectory())
-            snap(model, tmpdir, extra_snaps=('foo', 'bar'))
-            self.assertEqual(len(mock.call_args_list), 1)
-            args, kws = mock.call_args_list[0]
-        self.assertEqual(
-            args[0],
-            ['snap', 'prepare-image', '--extra-snaps=foo', '--extra-snaps=bar',
-             model, tmpdir])
 
     def test_mkfs_ext4(self):
         with ExitStack() as resources:

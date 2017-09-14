@@ -69,6 +69,7 @@ class TestClassicBuilder(TestCase):
             cloud_init=None,
             with_proposed=None,
             extra_ppas=None,
+            hooks_directory=[],
             gadget_tree=self.gadget_tree,
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
@@ -87,6 +88,7 @@ class TestClassicBuilder(TestCase):
                 )
             self.assertTrue(os.path.exists(path), path)
 
+        # Simply check if all top-level file and folders exist.
         dirs_under_rootfs = ['bin', 'boot', 'dev', 'etc', 'home', 'initrd.img',
                              'lib', 'lib64', 'media', 'mnt', 'opt', 'proc',
                              'root', 'run', 'sbin', 'snap', 'srv', 'sys',
@@ -111,14 +113,15 @@ class TestClassicBuilder(TestCase):
                 cloud_init=None,
                 proposed=None,
                 extra_ppas=None,
+                hooks_directory=[],
                 gadget_tree=self.gadget_tree,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             # Now we have to craft enough of gadget definition to drive the
             # method under test.
             part = SimpleNamespace(
-                role=StructureRole.system_boot,
-                filesystem_label='system-boot',
+                role=StructureRole.system_data,
+                filesystem_label='writable',
                 filesystem=FileSystemType.none,
                 )
             volume = SimpleNamespace(
@@ -142,10 +145,11 @@ class TestClassicBuilder(TestCase):
             state._next.pop()
             state._next.append(state.populate_rootfs_contents)
             next(state)
-            # Both the user data and the seed metadata should exist.
+            # The seed metadata should exist.
+			# And the filesystem label should be modified to 'writable'
             fstab_data = os.path.join(state.rootfs, 'etc', 'fstab')
             with open(fstab_data, 'r', encoding='utf-8') as fp:
-                self.assertEqual(fp.read(), 'LABEL=cloudimg-rootfs   '
+                self.assertEqual(fp.read(), 'LABEL=writable   '
                                             '/    ext4   defaults    0 0')
 
     def test_populate_rootfs_contents_without_cloud_init(self):
@@ -167,6 +171,7 @@ class TestClassicBuilder(TestCase):
                 cloud_init=None,
                 proposed=None,
                 extra_ppas=None,
+                hooks_directory=[],
                 gadget_tree=self.gadget_tree,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
@@ -222,6 +227,7 @@ class TestClassicBuilder(TestCase):
                 output_dir=None,
                 proposed=None,
                 extra_ppas=None,
+                hooks_directory=[],
                 gadget_tree=self.gadget_tree,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
@@ -260,17 +266,16 @@ class TestClassicBuilder(TestCase):
             with open(meta_data, 'r', encoding='utf-8') as fp:
                 self.assertEqual(fp.read(), 'instance-id: nocloud-static\n')
 
-    def test_bootloader_options_uboot(self):
-        # This test provides coverage for populate_bootfs_contents() when the
-        # uboot bootloader is used. The bootloader bits are fetched from ubuntu
-        # archive via the following command when we have network connectivity
-        # `apt-get install shim-signed grub-pc-bin grub-efi-amd64-signed`
-        #
-        # We don't want to run the entire state machine just for this test, so
-        # we start by setting up enough of the environment for the method
-        # under test to function.
+    def test_populate_bootfs_contents(self):
+        # This test provides coverage for populate_bootfs_contents() when a
+        # volume's part is defined as an ext4 or vfat file system type.  In
+        # that case, the part's contents are copied to the target directory.
+        # There are two paths here: one where the contents are a directory and
+        # the other where the contents are a file.  We can test both cases
+        # here for full coverage.
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
                 project='ubuntu-cpc',
@@ -285,63 +290,68 @@ class TestClassicBuilder(TestCase):
                 output_dir=None,
                 proposed=None,
                 extra_ppas=None,
+                hooks_directory=[],
                 gadget_tree=self.gadget_tree,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             state._next.pop()
             state._next.append(state.populate_bootfs_contents)
-            # Since we're not running make_temporary_directories(), just set
-            # up some additional expected state.
-            # state.unpackdir = unpackdir
-
             # Now we have to craft enough of gadget definition to drive the
-            # method under test.
-            content1 = SimpleNamespace(
-                source='/tmp/grubx64.efi.signed',
-                target='EFI/boot/grubx64.efi',
+            # method under test.  The two paths (is-a-file and is-a-directory)
+            # are differentiated by whether the source ends in a slash or not.
+            # In that case, the target must also end in a slash.
+            contents1 = SimpleNamespace(
+                source='as.dat',
+                target='at.dat',
                 )
-            content2 = SimpleNamespace(
-                source='/tmp/shimx64.efi.signed',
-                target='EFI/boot/bootx64.efi',
-                )
-            content3 = SimpleNamespace(
-                source='grub.cfg',
-                target='EFI/ubuntu/grub.cfg',
+            contents2 = SimpleNamespace(
+                source='bs2/',
+                target='bt2/',
                 )
             part = SimpleNamespace(
-                role=StructureRole.system_boot,
-                filesystem_label='system-boot',
-                filesystem=FileSystemType.none,
-                content=[content1, content2, content3]
+                role=None,
+                filesystem_label='not a boot',
+                filesystem=FileSystemType.ext4,
+                content=[contents1, contents2],
                 )
             volume = SimpleNamespace(
                 structures=[part],
-                bootloader=BootLoader.uboot,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
             prep_state(state, workdir)
-            # We fetch the bootloader bits(i.e. boot.img) from ubuntu archive
-            # and have grub configuration file(under gadget_tree) in place.
-            with open(os.path.join('/tmp/', 'grubx64.efi.signed'), 'wb') as fp:
+            # Run the method, the testable effects of which copy all the files
+            # in the source directory (i.e. gadget_tree/<source>) into
+            # the target directory (i.e. <workdir>/part0).  So put some
+            # contents into the source locations.
+            src = os.path.join(self.gadget_tree, 'as.dat')
+            with open(src, 'wb') as fp:
                 fp.write(b'01234')
-            with open(os.path.join('/tmp/', 'shimx64.efi.signed'), 'wb') as fp:
+            src = os.path.join(self.gadget_tree, 'bs2')
+            os.makedirs(src)
+            # Put a couple of files and a directory in the source, since
+            # directories are copied recursively.
+            with open(os.path.join(src, 'c.dat'), 'wb') as fp:
                 fp.write(b'56789')
+            srcdir = os.path.join(src, 'd')
+            os.makedirs(srcdir)
+            with open(os.path.join(srcdir, 'e.dat'), 'wb') as fp:
+                fp.write(b'0abcd')
+            # Run the state machine.
             next(state)
-            # Did the boot data get copied?
-            part0_dir = os.path.join(state.volumedir, 'volume1', 'part0')
-            with open(os.path.join(part0_dir, 'EFI', 'boot', 'grubx64.efi'),
-                      'rb') as fp:
+            # Did all the files and directories get copied?
+            dstbase = os.path.join(workdir, 'volumes', 'volume1', 'part0')
+            with open(os.path.join(dstbase, 'at.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'01234')
-            with open(os.path.join(part0_dir, 'EFI', 'boot', 'bootx64.efi'),
-                      'rb') as fp:
+            with open(os.path.join(dstbase, 'bt2', 'c.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'56789')
-            with open(os.path.join(part0_dir, 'EFI', 'ubuntu', 'grub.cfg'),
-                      'rb') as fp:
-                with open(os.path.join(self.gadget_tree, 'grub.cfg'),
-                          'rb') as org_fp:
-                    self.assertEqual(fp.read(), org_fp.read())
+            with open(os.path.join(dstbase, 'bt2', 'd', 'e.dat'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'0abcd')
 
     def test_bootloader_options_invalid(self):
         # This test provides coverage for populate_bootfs_contents() when the
@@ -367,6 +377,7 @@ class TestClassicBuilder(TestCase):
                 output_dir=None,
                 proposed=None,
                 extra_ppas=None,
+                hooks_directory=[],
                 gadget_tree=self.gadget_tree,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
@@ -374,15 +385,10 @@ class TestClassicBuilder(TestCase):
             state._next.append(state.populate_bootfs_contents)
             # Now we have to craft enough of gadget definition to drive the
             # method under test.
-            content1 = SimpleNamespace(
-                source='grub.cfg',
-                target='EFI/ubuntu/grub.cfg',
-                )
             part = SimpleNamespace(
                 role=StructureRole.system_boot,
                 filesystem_label='system-boot',
                 filesystem=FileSystemType.none,
-                content=[content1],
                 )
             volume = SimpleNamespace(
                 structures=[part],
@@ -419,6 +425,7 @@ class TestClassicBuilder(TestCase):
                 output_dir=None,
                 proposed=None,
                 extra_ppas=None,
+                hooks_directory=[],
                 gadget_tree=self.gadget_tree,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
@@ -429,9 +436,9 @@ class TestClassicBuilder(TestCase):
             # are differentiated by whether the source ends in a slash or not.
             # In that case, the target must also end in a slash.
             content1 = SimpleNamespace(
-                source='bs/',
+                source='bs1/',
                 # No slash!
-                target='bt',
+                target='bt1',
                 )
             part = SimpleNamespace(
                 role=StructureRole.system_boot,
@@ -472,6 +479,7 @@ class TestClassicBuilder(TestCase):
                 output_dir=None,
                 proposed=None,
                 extra_ppas=None,
+                hooks_directory=[],
                 gadget_tree=self.gadget_tree,
                 )
             # Jump right to the method under test.
@@ -517,14 +525,18 @@ class TestClassicBuilder(TestCase):
                 volumes=dict(volume1=volume),
                 )
             prep_state(state, workdir, [part0_img])
-            # They all are placed # in workdir in the end.
-            with open(os.path.join(workdir, 'image1.img'), 'wb') as fp:
+            # They all are placed # in gadget_tree in advance.
+            with open(os.path.join(self.gadget_tree, 'image1.img'),
+                      'wb') as fp:
                 fp.write(b'\1' * 47)
-            with open(os.path.join(workdir, 'image2.img'), 'wb') as fp:
+            with open(os.path.join(self.gadget_tree, 'image2.img'),
+                      'wb') as fp:
                 fp.write(b'\2' * 19)
-            with open(os.path.join(workdir, 'image3.img'), 'wb') as fp:
+            with open(os.path.join(self.gadget_tree, 'image3.img'),
+                      'wb') as fp:
                 fp.write(b'\3' * 51)
-            with open(os.path.join(workdir, 'image4.img'), 'wb') as fp:
+            with open(os.path.join(self.gadget_tree, 'image4.img'),
+                      'wb') as fp:
                 fp.write(b'\4' * 11)
             # Mock out the mkfs.ext4 call, and we'll just test the contents
             # directory (i.e. what would go in the ext4 file system).

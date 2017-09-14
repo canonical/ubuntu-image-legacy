@@ -247,19 +247,19 @@ class ClassicBuilder(State):
 
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
-            if (volume.bootloader is not BootLoader.uboot and
-                    volume.bootloader is not BootLoader.grub):
-                    raise ValueError(
-                        'Unsupported volume bootloader value: {}'.format(
-                            volume.bootloader))
+            target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
             if part.role is StructureRole.system_boot:
-                volume.bootfs = os.path.join(volume.basedir,
-                                             'part{}'.format(partnum))
+                volume.bootfs = target_dir
+                if (volume.bootloader is not BootLoader.uboot and
+                        volume.bootloader is not BootLoader.grub):
+                        raise ValueError(
+                            'Unsupported volume bootloader value: {}'.format(
+                                volume.bootloader))
             if part.filesystem is FileSystemType.none:
                 continue
             for content in part.content:
                 src = os.path.join(self.gadget_tree, content.source)
-                dst = os.path.join(volume.bootfs, content.target)
+                dst = os.path.join(target_dir, content.target)
                 if content.source.endswith('/'):
                     # This is a directory copy specification.  The target
                     # must also end in a slash.
@@ -281,7 +281,7 @@ class ClassicBuilder(State):
                     os.makedirs(dst, exist_ok=True)
                     for filename in os.listdir(src):
                         sub_src = os.path.join(src, filename)
-                        dst = os.path.join(volume.bootfs, target, filename)
+                        dst = os.path.join(target_dir, target, filename)
                         if os.path.isdir(sub_src):
                             shutil.copytree(sub_src, dst, symlinks=True,
                                             ignore_dangling_symlinks=True)
