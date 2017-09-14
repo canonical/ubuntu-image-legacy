@@ -9,8 +9,9 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import gettempdir, TemporaryDirectory
 from ubuntu_image.helpers import (
-    DoesNotFit, MiB, mkfs_ext4, check_root_priviledge,
-    fetch_bootloader_bits, live_build, run)
+     DoesNotFit, MiB, mkfs_ext4, check_root_privilege,
+     live_build, run)
+from ubuntu_image.hooks import HookManager
 from ubuntu_image.image import Image
 from ubuntu_image.state import State
 from ubuntu_image.parser import (
@@ -18,15 +19,7 @@ from ubuntu_image.parser import (
     parse as parse_yaml)
 
 
-GRUB_MODULES = ['all_video', 'biosdisk', 'boot', 'cat', 'chain', 'configfile',
-                'echo', 'ext2', 'fat', 'font', 'gettext', 'gfxmenu', 'gfxterm',
-                'gfxterm_background', 'gzio', 'halt', 'jpeg', 'keystatus',
-                'loadenv', 'loopback', 'linux', 'memdisk', 'minicmd', 'normal',
-                'part_gpt', 'png', 'reboot', 'search', 'search_fs_uuid',
-                'search_fs_file', 'search_label', 'sleep', 'squash4', 'test',
-                'true', 'video']
-
-
+DEFAULT_fS_LABEL = 'writable'
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
@@ -34,9 +27,6 @@ _logger = logging.getLogger('ubuntu-image')
 class ClassicBuilder(State):
     def __init__(self, args):
         super().__init__()
-
-        # It's required to run ubuntu-image as root to build classic image.
-        check_root_priviledge()
 
         # The working directory will contain several bits as we stitch
         # everything together.  It will contain the final disk image file
@@ -68,6 +58,9 @@ class ClassicBuilder(State):
         self.gadget_tree = args.gadget_tree
         self.exitcode = 0
         self.done = False
+        # Generic hook handling manager.
+        self.hookdirs = args.hooks_directory
+        self.hook_manager = HookManager(self.hookdirs)
         self._next.append(self.make_temporary_directories)
 
     def __getstate__(self):
@@ -86,6 +79,7 @@ class ClassicBuilder(State):
             unpackdir=self.unpackdir,
             volumedir=self.volumedir,
             gadget_tree=self.gadget_tree,
+            hookdirs=self.hookdirs,
             )
         return state
 
@@ -104,6 +98,9 @@ class ClassicBuilder(State):
         self.gadget_tree = state['gadget_tree']
         self.unpackdir = state['unpackdir']
         self.volumedir = state['volumedir']
+        self.hookdirs = state['hookdirs']
+        # Restore the hook manager along with the state.
+        self.hook_manager = HookManager(self.hookdirs)
 
     def _log_exception(self, name):
         # Only log the exception if we're in debug mode.
@@ -120,6 +117,9 @@ class ClassicBuilder(State):
         self._next.append(self.prepare_image)
 
     def prepare_image(self):
+        # It's required to run ubuntu-image as root to build classic image.
+        check_root_privilege()
+
         try:
             # Configure it with environment variables.
             env = {}
@@ -130,21 +130,21 @@ class ClassicBuilder(State):
             if self.args.arch is not None:
                 env['ARCH'] = self.args.arch
             if self.args.subproject is not None:
-                env["SUBPROJECT"] = self.args.subproject
+                env['SUBPROJECT'] = self.args.subproject
             if self.args.subarch is not None:
-                env["SUBARCH"] = self.args.subarch
+                env['SUBARCH'] = self.args.subarch
             if self.args.with_proposed is not None:
-                env["PROPOSED"] = self.args.with_proposed
+                env['PROPOSED'] = self.args.with_proposed
             if (self.args.image_format is not None and
                     self.args.image_format != 'ubuntu-image'):
                 # Unset image_format if image_format == ubuntu-image
                 # as we call livecd-rootfs re-entrantly to build classic image
-                env["IMAGEFORMAT"] = self.args.image_format
+                env['IMAGEFORMAT'] = self.args.image_format
             if self.args.extra_ppas is not None:
-                env["EXTRA_PPAS"] = self.args.extra_ppas
+                env['EXTRA_PPAS'] = self.args.extra_ppas
 
             # Only genereate a single rootfs tree for classic image creation.
-            env["GENERATE_ROOTFS_ONLY"] = 'true'
+            env['GENERATE_ROOTFS_ONLY'] = 'true'
             live_build(self.unpackdir, env)
         except CalledProcessError:
             if self.args.debug:
@@ -155,10 +155,9 @@ class ClassicBuilder(State):
             self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):
-        # TBD: where do we get the gadget.yaml file, local or remote(bzr, git)?
-        # We're using a local gadget.yaml file the for development and testing.
-        # The fine-tuned gadget yaml file we're now using for classic.
-        # http://paste.ubuntu.com/25430685/
+        # The layout for gadget_tree is pretty much the same with the one for
+        # unpacked gadget snap. And a piece of gadget.yaml is located at
+        # gadget_tree/meta folder.
         yaml_file = os.path.join(self.gadget_tree, 'meta', 'gadget.yaml')
         # Preserve the gadget.yaml in the working dir.
         shutil.copy(yaml_file, self.workdir)
@@ -181,26 +180,24 @@ class ClassicBuilder(State):
         dst = self.rootfs
         for subdir in os.listdir(src):
             shutil.move(os.path.join(src, subdir), os.path.join(dst, subdir))
-            # Remove default grub bootloader settings
-            # as we get bootloader bits from ubuntu achieve.
-            # and ship a single piece of the grub.cfg from local.
-            if subdir == 'boot':
-                shutil.rmtree(os.path.join(dst, subdir, 'grub'),
-                              ignore_errors=True)
+
+        # Remove default grub bootloader settings as we ship bootloader bits
+        # (binary blobs and grub.cfg) to a generated rootfs locally.
+        grub_folder = os.path.join(dst, 'boot', 'grub')
+        if os.path.exists(grub_folder):
+            shutil.rmtree(grub_folder, ignore_errors=True)
+
         # Replace pre-defined LABEL in /etc/fstab with the one
-        # we're using 'LABEL=writable'.
-        for name, volume in self.gadget.volumes.items():
-            for part in volume.structures:
-                if (volume.schema is VolumeSchema.gpt and
-                        part.role is StructureRole.system_data and
-                        part.name is None):
-                        fstab_path = os.path.join(dst, 'etc', 'fstab')
-                        with open(fstab_path, 'r') as fstab:
-                            new_content = fstab.read().replace(
-                                        'LABEL=cloudimg-rootfs',
-                                        'LABEL=writable')
-                        with open(fstab_path, "w") as fstab:
-                            fstab.write(new_content)
+        # we're using 'LABEL=writable' in grub.cfg.
+        fstab_path = os.path.join(dst, 'etc', 'fstab')
+        if os.path.exists(fstab_path):
+            with open(fstab_path, 'r') as fstab:
+                new_content = fstab.read().replace(
+                    'LABEL=cloudimg-rootfs',
+                    'LABEL={}'.format(DEFAULT_fS_LABEL))
+            with open(fstab_path, 'w') as fstab:
+                fstab.write(new_content)
+
         if self.cloud_init is not None:
             # LP: #1633232 - Only write out meta-data when the --cloud-init
             # parameter is given.
@@ -212,15 +209,12 @@ class ClassicBuilder(State):
                 print('instance-id: nocloud-static', file=fp)
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
-        '''
-        One option to support snap seeding if we add a command line argument
-        to support to specify seeds dir. i.e:
-        $ ubuntu_image classic --seed_dir seeding gadget_tree
+        self._next.append(self.populate_rootfs_contents_hooks)
 
-        if self.seeds_dir is not None:
-            seeds_dir = os.path.join(dst, 'var', 'lib', 'snapd', 'seed')
-            shutil.copytree(self.seeds_dir, seeds_dir)
-        '''
+    def populate_rootfs_contents_hooks(self):
+        # Separate populate step for firing the post-populate-rootfs hook.
+        env = {'UBUNTU_IMAGE_HOOK_ROOTFS': self.rootfs}
+        self.hook_manager.fire('post-populate-rootfs', env)
         self._next.append(self.calculate_rootfs_size)
 
     @staticmethod
@@ -236,63 +230,12 @@ class ClassicBuilder(State):
         return ceil(total)
 
     def calculate_rootfs_size(self):
-        # Calculate the size of the root file system.  Basically, I'm trying
-        # to reproduce du(1) close enough without having to call out to it and
-        # parse its output.
+        # Calculate the size of the root file system.
         #
         # On a 100MiB filesystem, ext4 takes a little over 7MiB for the
         # metadata.  Use 8MiB as a minimum padding here.
         self.rootfs_size = self._calculate_dirsize(self.rootfs) + MiB(8)
-        self._next.append(self.prepare_bootfs_contents)
-
-    def _prepare_one_bootfs(self, volume):
-        for partnum, part in enumerate(volume.structures):
-            for content in part.content:
-                if part.role is StructureRole.mbr:
-                    boot_img_path = os.path.join(self.workdir,
-                                                 content.image)
-                    # the pc-boot.img is properly 440 bytes  See here:
-                    # https://bugs.launchpad.net/ubuntu-image/+bug/1666580
-                    run("dd if=/usr/lib/grub/i386-pc/boot.img "
-                        "of={} bs=440 count=1".format(boot_img_path))
-                    run("echo -n -e '\x90\x90' | "
-                        "dd of={} seek=102 bs=1 conv=notrunc"
-                        .format(boot_img_path))
-                # It's not reliable to get it via part.name
-                if part.name == 'BIOS Boot':
-                    tmp_file_path = os.path.join(gettempdir(), content.image)
-                    core_img_path = os.path.join(self.workdir, content.image)
-                    modules_list = SPACE.join(GRUB_MODULES)
-                    run("grub-mkimage -O i386-pc -o {} -p '(,gpt2)/EFI/ubuntu'"
-                        " {}".format(tmp_file_path, modules_list), shell=True)
-                    # The first sector of the core image requires an absolute
-                    # pointer to the second sector of the image.  Since this
-                    # is always hard-coded, it means our BIOS boot partition
-                    # must be defined with an absolute offset. The particular
-                    # value here is 2049(0x01 0x08 0x00 0x00 in little-endian).
-                    seek = 500
-                    with open(tmp_file_path, 'rb') as in_file:
-                        with open(core_img_path, 'wb') as out_file:
-                            content = in_file.read()
-                            out_file.write(content[:seek])
-                            out_file.write(b'\x01\x08\x00\x00')
-                            out_file.write(content[seek + 4:])
-
-    def prepare_bootfs_contents(self):
-        try:
-            # Fetch the bootloader bits from the ubuntu achieve
-            fetch_bootloader_bits()
-
-            for name, volume in self.gadget.volumes.items():
-                self._prepare_one_bootfs(volume)
-
-        except CalledProcessError:
-            if self.args.debug:
-                _logger.exception('Full debug traceback follows')
-            self.exitcode = 1
-            # Stop the state machine right here by not appending a next step.
-        else:
-            self._next.append(self.pre_populate_bootfs_contents)
+        self._next.append(self.pre_populate_bootfs_contents)
 
     def pre_populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
@@ -304,31 +247,27 @@ class ClassicBuilder(State):
 
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
-            target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
-            # we fetch the mbr from the u archive and generate pc-boot.img via
-            # grub-mkimage, so skip them.
-            if part.role is not StructureRole.system_boot:
-                continue
-
             if (volume.bootloader is not BootLoader.uboot and
-               volume.bootloader is not BootLoader.grub):
+                    volume.bootloader is not BootLoader.grub):
                     raise ValueError(
                         'Unsupported volume bootloader value: {}'.format(
                             volume.bootloader))
-
-            volume.bootfs = target_dir
+            if part.role is StructureRole.system_boot:
+                volume.bootfs = os.path.join(volume.basedir,
+                                             'part{}'.format(partnum))
+            if part.filesystem is FileSystemType.none:
+                continue
             for content in part.content:
-                src = (content.source if content.source.startswith('/')
-                       else os.path.join(self.gadget_tree, content.source))
-                dst = os.path.join(target_dir, content.target)
+                src = os.path.join(self.gadget_tree, content.source)
+                dst = os.path.join(volume.bootfs, content.target)
                 if content.source.endswith('/'):
                     # This is a directory copy specification.  The target
                     # must also end in a slash.
                     #
-                    # XXX: If this is a file instead of a directory, give
+                    # TODO: If this is a file instead of a directory, give
                     # a useful error message instead of a traceback.
                     #
-                    # XXX: We should assert this constraint in the parser.
+                    # TODO: We should assert this constraint in the parser.
                     target, slash, tail = content.target.rpartition('/')
                     if slash != '/' and tail != '':
                         raise ValueError(
@@ -342,14 +281,14 @@ class ClassicBuilder(State):
                     os.makedirs(dst, exist_ok=True)
                     for filename in os.listdir(src):
                         sub_src = os.path.join(src, filename)
-                        dst = os.path.join(target_dir, target, filename)
+                        dst = os.path.join(volume.bootfs, target, filename)
                         if os.path.isdir(sub_src):
                             shutil.copytree(sub_src, dst, symlinks=True,
                                             ignore_dangling_symlinks=True)
                         else:
                             shutil.copy(sub_src, dst)
                 else:
-                    # XXX: If this is a directory instead of a file, give
+                    # TODO: If this is a directory instead of a file, give
                     # a useful error message instead of a traceback.
                     os.makedirs(os.path.dirname(dst), exist_ok=True)
                     shutil.copy(src, dst)
@@ -359,7 +298,7 @@ class ClassicBuilder(State):
             self._populate_one_bootfs(name, volume)
         self._next.append(self.prepare_filesystems)
 
-    def _prepare_one_volume(self, i, name, volume):
+    def _prepare_one_volume(self, volume_index, name, volume):
         volume.part_images = []
         farthest_offset = 0
         for partnum, part in enumerate(volume.structures):
@@ -385,18 +324,18 @@ class ClassicBuilder(State):
                 if part.filesystem is FileSystemType.vfat:
                     label_option = (
                         '-n {}'.format(part.filesystem_label)
-                        # XXX I think this could be None or the empty string,
+                        # TODO: I think this could be None or the empty string,
                         # but this needs verification.
                         if part.filesystem_label
                         else '')
-                    # XXX: hard-coding of sector size.
+                    # TODO: hard-coding of sector size.
                     run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                         label_option, part_img))
             volume.part_images.append(part_img)
             farthest_offset = max(farthest_offset, (part.offset + part.size))
         # Calculate or check the final image size.
         #
-        # XXX: Hard-codes last 34 512-byte sectors for backup GPT,
+        # TODO: Hard-codes last 34 512-byte sectors for backup GPT,
         # empirically derived from sgdisk behavior.
         calculated = ceil(farthest_offset / 1024 + 17) * 1024
         if self.args.image_size is None:
@@ -407,15 +346,15 @@ class ClassicBuilder(State):
                 _logger.warning(
                     'Ignoring image size smaller '
                     'than minimum required size: vol[{}]:{} '
-                    '{} < {}'.format(
-                        i, name, self.args.given_image_size, calculated))
+                    '{} < {}'.format(volume_index, name,
+                                     self.args.given_image_size, calculated))
                 volume.image_size = calculated
             else:
                 volume.image_size = self.args.image_size
         else:
             # The --image-size arguments are a dictionary, so look up the
             # one used for this volume.
-            size_by_index = self.args.image_size.get(i)
+            size_by_index = self.args.image_size.get(volume_index)
             size_by_name = self.args.image_size.get(name)
             if size_by_index is not None and size_by_name is not None:
                 _logger.warning(
@@ -429,8 +368,9 @@ class ClassicBuilder(State):
                     _logger.warning(
                         'Ignoring image size smaller '
                         'than minimum required size: vol[{}]:{} '
-                        '{} < {}'.format(
-                            i, name, self.args.given_image_size, calculated))
+                        '{} < {}'.format(volume_index, name,
+                                         self.args.given_image_size,
+                                         calculated))
                     volume.image_size = calculated
                 else:
                     volume.image_size = image_size
@@ -438,8 +378,8 @@ class ClassicBuilder(State):
     def prepare_filesystems(self):
         self.images = os.path.join(self.workdir, '.images')
         os.makedirs(self.images)
-        for i, (name, volume) in enumerate(self.gadget.volumes.items()):
-            self._prepare_one_volume(i, name, volume)
+        for index, (name, volume) in enumerate(self.gadget.volumes.items()):
+            self._prepare_one_volume(index, name, volume)
         self._next.append(self.populate_filesystems)
 
     def _populate_one_volume(self, name, volume):
@@ -455,14 +395,14 @@ class ClassicBuilder(State):
                 image = Image(part_img, part.size)
                 offset = 0
                 for content in part.content:
-                    src = os.path.join(self.workdir, content.image)
+                    src = os.path.join(self.gadget_tree, content.image)
                     file_size = os.path.getsize(src)
                     assert content.size is None or content.size >= file_size, (
                         'Spec size {} < actual size {} of: {}'.format(
                             content.size, file_size, content.image))
                     if content.size is not None:
                         file_size = content.size
-                    # XXX: We need to check for overlapping images.
+                    # TODO: We need to check for overlapping images.
                     if content.offset is not None:
                         offset = content.offset
                     end = offset + file_size
@@ -521,7 +461,7 @@ class ClassicBuilder(State):
             elif (volume.schema is VolumeSchema.gpt and
                     part.role is StructureRole.system_data and
                     part.name is None):
-                part.name = 'writable'
+                part.name = DEFAULT_fS_LABEL
             image.partition(part.offset, part.size, part.name, activate)
         # Now since we're done, we need to do a second pass to copy the data
         # and set all the partition types.  This needs to be done like this as
@@ -569,7 +509,7 @@ class ClassicBuilder(State):
         # lowest permissible offset.  We should not have any overlapping
         # partitions, the parser should have already rejected such as invalid.
         #
-        # XXX: The parser should sort these partitions for us in disk order as
+        # TODO: The parser should sort these partitions for us in disk order as
         # part of checking for overlaps, so we should not need to sort them
         # here.
         for name, volume in self.gadget.volumes.items():
@@ -581,10 +521,12 @@ class ClassicBuilder(State):
 
     def generate_manifests(self):
         # After the images are built, we would also like to have some image
-        # manifests exported so that one can easily check what packages
-        # have been installed on the rootfs.
-        # We utilize dpkg-query tool to generate the manifest file.
-
+        # manifests exported so that one can easily check what packages have
+        # been installed on the rootfs. We utilize dpkg-query tool to generate
+        # the manifest file for classic image. Packages like casper which is
+        # only useful in a live CD/DVD are removed.
+        # The deprecated words can be found below:
+        # https://help.ubuntu.com/community/MakeALiveCD/DVD/BootableFlashFromHarddiskInstall
         deprecated_words = ['ubiquity', 'casper']
         manifest_path = os.path.join(self.output_dir, 'filesystem.manifest')
         tmpfile_path = os.path.join(gettempdir(), 'filesystem.manifest')

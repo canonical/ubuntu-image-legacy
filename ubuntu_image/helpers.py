@@ -3,8 +3,8 @@
 import os
 import re
 import shutil
-import sys
 import logging
+import pwd
 
 from contextlib import ExitStack, contextmanager
 from parted import Device
@@ -131,9 +131,18 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
 
 
 def live_build(root_dir, env):
+    """live_build for generating a single rootfs from ubuntu archive.
+
+    This method call external command to generate a single rootfs
+    with the build scripts provided by livecd-rootfs.
+    """
     # First, setup the build tools and workspace.
-    config_dir = os.path.join(root_dir, 'auto')
-    shutil.copytree('/usr/share/livecd-rootfs/live-build/auto', config_dir)
+    # query the system to locate livecd-rootfs auto script installation path
+    proc = run('dpkg -L livecd-rootfs | grep "auto$"', shell=True,
+               env=os.environ)
+    auto_src = proc.stdout.strip()
+    auto_dst = os.path.join(root_dir, 'auto')
+    shutil.copytree(auto_src, auto_dst)
 
     # Change the current working directory
     old_working_dir = os.getcwd()
@@ -154,13 +163,6 @@ def live_build(root_dir, env):
 
     # Back to previous working directory
     os.chdir(old_working_dir)
-
-
-def fetch_bootloader_bits():
-    apt_cmd = ['sudo', 'apt', 'install', 'shim-signed',
-               'grub-pc-bin', 'grub-efi-amd64-signed']
-
-    run(apt_cmd, stdout=None, stderr=None, env=os.environ)
 
 
 def sparse_copy(src, dst, *, follow_symlinks=True):
@@ -216,11 +218,10 @@ def get_default_sector_size():
         return Device(fp.name).sectorSize
 
 
-def check_root_priviledge():
+def check_root_privilege():
     if os.geteuid() != 0:
-        print("You must have root privileges to build classic "
-              "image. Please try again with 'sudo'.", file=sys.stderr)
-        exit(1)
+        current_user = pwd.getpwuid(os.geteuid())[0]
+        raise PrivilegeError(current_user)
 
 
 class DoesNotFit(ExpectedError):
@@ -230,3 +231,9 @@ class DoesNotFit(ExpectedError):
         self.part_number = part_number
         self.part_path = part_path
         self.overage = overage
+
+
+class PrivilegeError(ExpectedError):
+    """Exception raised whenever this tool has not granted root permission."""
+    def __init__(self, user_name):
+        self.user_name = user_name

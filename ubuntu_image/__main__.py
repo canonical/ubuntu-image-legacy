@@ -11,7 +11,8 @@ from ubuntu_image import __version__
 from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
 from ubuntu_image.helpers import (
-     as_size, get_host_arch, get_host_distro, DoesNotFit)
+    as_size, get_host_arch, get_host_distro, DoesNotFit,
+    PrivilegeError)
 from ubuntu_image.hooks import HookError
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
@@ -285,17 +286,6 @@ def parseargs(argv=None):
         default=None, action='append',
         help=_("""Extra ppas to install. This is passed through to
         livecd-rootfs."""))
-    '''
-    One option to support seeding in clasic if we add an argument
-    for classic subcommand to specify seeds dir. i.e:
-    $ ubuntu_image classic --seed-dir seeding gadget_tree
-
-    classic_cmd.add_argument(
-        '--seeding-dir',
-        default=None, metavar='SEEDING-DIR',
-        help=_("""A directory holds a variety of snaps for seeding in classic
-        image."""))
-    '''
 
     args = parser.parse_args(argv)
 
@@ -374,6 +364,11 @@ def main(argv=None):
             '{}. Output of stderr:\n{}'.format(
                 error.hook_path, error.hook_name, error.hook_retcode,
                 error.hook_stderr))
+        return 1
+    except PrivilegeError as error:
+        _logger.error('Current user({}) does not have root privileges to build'
+                      'classic image. Please run ubuntu_image with sudo.'
+                      .format(error.user_name))
         return 1
     except:
         _logger.exception('Crash in state machine')
