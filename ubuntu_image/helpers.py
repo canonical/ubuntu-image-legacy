@@ -1,10 +1,12 @@
 """Useful helper functions."""
 
+import contextlib
 import os
 import re
 import shutil
 import logging
 import pwd
+
 
 from contextlib import ExitStack, contextmanager
 from parted import Device
@@ -144,25 +146,21 @@ def live_build(root_dir, env):
     auto_dst = os.path.join(root_dir, 'auto')
     shutil.copytree(auto_src, auto_dst)
 
-    # Change the current working directory
-    old_working_dir = os.getcwd()
-    os.chdir(root_dir)
+    with save_cwd():
+        os.chdir(root_dir)
 
-    # Environment variables list
-    env_list = ['%s=%s' % (key, value) for (key, value) in env.items()]
+        # Environment variables list
+        env_list = ['%s=%s' % (key, value) for (key, value) in env.items()]
 
-    config_cmd = ['sudo']
-    config_cmd.extend(env_list)
-    config_cmd.extend(['lb', 'config'])
-    run(config_cmd, stdout=None, stderr=None, env=os.environ)
+        config_cmd = ['sudo']
+        config_cmd.extend(env_list)
+        config_cmd.extend(['lb', 'config'])
+        run(config_cmd, stdout=None, stderr=None, env=os.environ)
 
-    build_cmd = ['sudo']
-    build_cmd.extend(env_list)
-    build_cmd.extend(['lb', 'build'])
-    run(build_cmd, stdout=None, stderr=None, env=os.environ)
-
-    # Back to previous working directory
-    os.chdir(old_working_dir)
+        build_cmd = ['sudo']
+        build_cmd.extend(env_list)
+        build_cmd.extend(['lb', 'build'])
+        run(build_cmd, stdout=None, stderr=None, env=os.environ)
 
 
 def sparse_copy(src, dst, *, follow_symlinks=True):
@@ -222,6 +220,16 @@ def check_root_privilege():
     if os.geteuid() != 0:
         current_user = pwd.getpwuid(os.geteuid())[0]
         raise PrivilegeError(current_user)
+
+
+@contextlib.contextmanager
+def save_cwd():
+    """Save current working directory and restore it out of context."""
+    curdir = os.getcwd()
+    try:
+        yield
+    finally:
+        os.chdir(curdir)
 
 
 class DoesNotFit(ExpectedError):

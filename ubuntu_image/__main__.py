@@ -278,10 +278,6 @@ def parseargs(argv=None):
         help=_("""Proposed repo to install, This is passed through to
         livecd-rootfs."""))
     classic_cmd.add_argument(
-        '--image-format',
-        default='img',
-        help=_("""Image format to be specified to livecd-rootfs."""))
-    classic_cmd.add_argument(
         '--extra-ppas',
         default=None, action='append',
         help=_("""Extra ppas to install. This is passed through to

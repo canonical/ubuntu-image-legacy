@@ -10,7 +10,7 @@ from subprocess import CalledProcessError
 from tempfile import gettempdir, TemporaryDirectory
 from ubuntu_image.helpers import (
      DoesNotFit, MiB, mkfs_ext4, check_root_privilege,
-     live_build, run)
+     live_build, run, save_cwd)
 from ubuntu_image.hooks import HookManager
 from ubuntu_image.image import Image
 from ubuntu_image.state import State
@@ -114,7 +114,27 @@ class ClassicBuilder(State):
 
         os.makedirs(self.rootfs)
 
-        self._next.append(self.prepare_image)
+        self._next.append(self.prepare_gadget_tree)
+
+    def prepare_gadget_tree(self):
+        try:
+            gadget_dst = os.path.join(self.unpackdir,
+                                      os.path.basename(self.gadget_tree))
+            shutil.copytree(self.gadget_tree, gadget_dst)
+            # generate unpacked gadget snap
+            with save_cwd():
+                os.chdir(gadget_dst)
+                run('snapcraft prime')
+            shutil.copytree(os.path.join(gadget_dst, 'prime'),
+                            os.path.join(self.unpackdir, 'gadget'))
+
+        except CalledProcessError:
+            if self.args.debug:
+                _logger.exception('Full debug traceback follows')
+            self.exitcode = 1
+            # Stop the state machine right here by not appending a next step.
+        else:
+            self._next.append(self.prepare_image)
 
     def prepare_image(self):
         # It's required to run ubuntu-image as root to build classic image.
@@ -135,11 +155,6 @@ class ClassicBuilder(State):
                 env['SUBARCH'] = self.args.subarch
             if self.args.with_proposed is not None:
                 env['PROPOSED'] = self.args.with_proposed
-            if (self.args.image_format is not None and
-                    self.args.image_format != 'ubuntu-image'):
-                # Unset image_format if image_format == ubuntu-image
-                # as we call livecd-rootfs re-entrantly to build classic image
-                env['IMAGEFORMAT'] = self.args.image_format
             if self.args.extra_ppas is not None:
                 env['EXTRA_PPAS'] = self.args.extra_ppas
 
@@ -155,10 +170,10 @@ class ClassicBuilder(State):
             self._next.append(self.load_gadget_yaml)
 
     def load_gadget_yaml(self):
-        # The layout for gadget_tree is pretty much the same with the one for
-        # unpacked gadget snap. And a piece of gadget.yaml is located at
-        # gadget_tree/meta folder.
-        yaml_file = os.path.join(self.gadget_tree, 'meta', 'gadget.yaml')
+        # The gadget_tree has the same layout as the unpacked gadget snap.
+        # And a piece of gadget.yaml is located at gadget_tree/meta folder.
+        gadget_dir = os.path.join(self.unpackdir, 'gadget')
+        yaml_file = os.path.join(gadget_dir, 'meta', 'gadget.yaml')
         # Preserve the gadget.yaml in the working dir.
         shutil.copy(yaml_file, self.workdir)
         with open(yaml_file, 'r', encoding='utf-8') as fp:
@@ -257,8 +272,9 @@ class ClassicBuilder(State):
                                 volume.bootloader))
             if part.filesystem is FileSystemType.none:
                 continue
+            gadget_dir = os.path.join(self.unpackdir, 'gadget')
             for content in part.content:
-                src = os.path.join(self.gadget_tree, content.source)
+                src = os.path.join(gadget_dir, content.source)
                 dst = os.path.join(target_dir, content.target)
                 if content.source.endswith('/'):
                     # This is a directory copy specification.  The target
@@ -395,7 +411,7 @@ class ClassicBuilder(State):
                 image = Image(part_img, part.size)
                 offset = 0
                 for content in part.content:
-                    src = os.path.join(self.gadget_tree, content.image)
+                    src = os.path.join(self.unpackdir, 'gadget', content.image)
                     file_size = os.path.getsize(src)
                     assert content.size is None or content.size >= file_size, (
                         'Spec size {} < actual size {} of: {}'.format(
