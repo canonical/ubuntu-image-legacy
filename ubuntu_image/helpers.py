@@ -225,6 +225,7 @@ def check_root_privilege():
 @contextlib.contextmanager
 def save_cwd():
     """Save current working directory and restore it out of context."""
+
     curdir = os.getcwd()
     try:
         yield
@@ -243,5 +244,6 @@ class DoesNotFit(ExpectedError):
 
 class PrivilegeError(ExpectedError):
     """Exception raised whenever this tool has not granted root permission."""
+
     def __init__(self, user_name):
         self.user_name = user_name

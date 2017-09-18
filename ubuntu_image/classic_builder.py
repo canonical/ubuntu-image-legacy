@@ -1,5 +1,6 @@
 """Flow for building a ubuntu classic disk image."""
 
+import git
 import os
 import logging
 import shutil
@@ -8,6 +9,7 @@ from math import ceil
 from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import gettempdir, TemporaryDirectory
+from urllib.parse import urlparse
 from ubuntu_image.helpers import (
      DoesNotFit, MiB, mkfs_ext4, check_root_privilege,
      live_build, run, save_cwd)
@@ -22,6 +24,13 @@ from ubuntu_image.parser import (
 DEFAULT_fS_LABEL = 'writable'
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
+
+
+class GitProgress(git.remote.RemoteProgress):
+    """Show progress information during git clone."""
+
+    def update(self, op_code, cur_count, max_count=None, message=''):
+        print(self._cur_line)
 
 
 class ClassicBuilder(State):
@@ -118,13 +127,16 @@ class ClassicBuilder(State):
 
     def prepare_gadget_tree(self):
         try:
-            gadget_dst = os.path.join(self.unpackdir,
-                                      os.path.basename(self.gadget_tree))
-            shutil.copytree(self.gadget_tree, gadget_dst)
+            gadget_dst = os.path.join(self.unpackdir, 'gadget_repo')
+            if urlparse(self.gadget_tree).scheme != "":
+                git.Repo.clone_from(self.gadget_tree, gadget_dst,
+                                    progress=GitProgress())
+            else:
+                shutil.copytree(self.gadget_tree, gadget_dst)
             # generate unpacked gadget snap
             with save_cwd():
                 os.chdir(gadget_dst)
-                run('snapcraft prime')
+                run(['snapcraft', 'prime'], env=os.environ)
             shutil.copytree(os.path.join(gadget_dst, 'prime'),
                             os.path.join(self.unpackdir, 'gadget'))
 
