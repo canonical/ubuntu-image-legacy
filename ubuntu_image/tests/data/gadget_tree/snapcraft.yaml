@@ -1,0 +1,19 @@
+name: pc
+version: '16.04-0.9'
+type: gadget
+summary: PC gadget for generic devices
+description: |
+    This gadget enables generic pc devices to work with Ubuntu Core
+grade: stable
+confinement: strict
+icon: icon.png
+
+parts:
+  grub:
+    source: .
+    plugin: make
+    build-packages:
+      - grub-efi-amd64-signed
+      - grub-pc-bin
+      - shim-signed
+        

@@ -1,9 +1,9 @@
 """Flow for building a ubuntu classic disk image."""
 
-import git
 import os
-import logging
+import git
 import shutil
+import logging
 
 from math import ceil
 from pathlib import Path

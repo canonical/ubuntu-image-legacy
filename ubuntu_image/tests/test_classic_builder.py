@@ -52,6 +52,89 @@ class TestClassicBuilder(TestCase):
 
     @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
             'Cannot run this test without network access')
+    def test_prepare_gadget_tree_locally(self):
+        # Run the action classic builder through the steps needed to
+        # at least call `snapcraft prime`.
+        # To create pc-boot.img and pc-core.img, we need to fetch
+        # packages like grub-pc-bin, shim-signed from ubuntu archive,
+        # even if gadget tree is placed locally on the machine.
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        args = SimpleNamespace(
+            project='ubuntu-cpc',
+            suite='xenial',
+            arch='amd64',
+            image_format='img',
+            output=None,
+            subproject=None,
+            subarch=None,
+            output_dir=None,
+            workdir=workdir,
+            cloud_init=None,
+            with_proposed=None,
+            extra_ppas=None,
+            hooks_directory=[],
+            gadget_tree=self.gadget_tree,
+            )
+        state = self._resources.enter_context(XXXClassicBuilder(args))
+        gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
+        state.run_thru('prepare_gadget_tree')
+        files = [
+            '{gadget_dir}/grub-cpc.cfg',
+            '{gadget_dir}/grubx64.efi',
+            '{gadget_dir}/pc-boot.img',
+            '{gadget_dir}/pc-core.img',
+            '{gadget_dir}/shim.efi.signed',
+            '{gadget_dir}/meta/gadget.yaml',
+            ]
+        # Check if all needed bootloader bits are in place.
+        for filename in files:
+            path = filename.format(
+                gadget_dir=gadget_dir,
+                )
+            self.assertTrue(os.path.exists(path), path)
+
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
+    def test_prepare_gadget_tree_remotely(self):
+        # Hosting a project under https://github.com/snapcore instead of
+        # a personal repository sounds more reasonable.
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        args = SimpleNamespace(
+            project='ubuntu-cpc',
+            suite='xenial',
+            arch='amd64',
+            image_format='img',
+            output=None,
+            subproject=None,
+            subarch=None,
+            output_dir=None,
+            workdir=workdir,
+            cloud_init=None,
+            with_proposed=None,
+            extra_ppas=None,
+            hooks_directory=[],
+            gadget_tree='https://github.com/adglkh/pc-amd64-gadget-cpc',
+            )
+        state = self._resources.enter_context(XXXClassicBuilder(args))
+        gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
+        state.run_thru('prepare_gadget_tree')
+        files = [
+            '{gadget_dir}/grub-cpc.cfg',
+            '{gadget_dir}/grubx64.efi',
+            '{gadget_dir}/pc-boot.img',
+            '{gadget_dir}/pc-core.img',
+            '{gadget_dir}/shim.efi.signed',
+            '{gadget_dir}/meta/gadget.yaml',
+            ]
+        # Check if all needed bootloader bits are in place.
+        for filename in files:
+            path = filename.format(
+                gadget_dir=gadget_dir,
+                )
+            self.assertTrue(os.path.exists(path), path)
+
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
     def test_fs_contents(self):
         # Run the action classic builder through the steps needed to
         # at least call `lb config && lb build`.
@@ -146,7 +229,7 @@ class TestClassicBuilder(TestCase):
             state._next.append(state.populate_rootfs_contents)
             next(state)
             # The seed metadata should exist.
-			# And the filesystem label should be modified to 'writable'
+            # And the filesystem label should be modified to 'writable'
             fstab_data = os.path.join(state.rootfs, 'etc', 'fstab')
             with open(fstab_data, 'r', encoding='utf-8') as fp:
                 self.assertEqual(fp.read(), 'LABEL=writable   '
@@ -282,6 +365,7 @@ class TestClassicBuilder(TestCase):
                 suite='xenial',
                 arch='amd64',
                 image_format='img',
+                unpackdir=unpackdir,
                 workdir=workdir,
                 cloud_init=None,
                 output=None,
@@ -305,8 +389,8 @@ class TestClassicBuilder(TestCase):
                 target='at.dat',
                 )
             contents2 = SimpleNamespace(
-                source='bs2/',
-                target='bt2/',
+                source='bs/',
+                target='bt/',
                 )
             part = SimpleNamespace(
                 role=None,
@@ -326,13 +410,15 @@ class TestClassicBuilder(TestCase):
             state.unpackdir = unpackdir
             prep_state(state, workdir)
             # Run the method, the testable effects of which copy all the files
-            # in the source directory (i.e. gadget_tree/<source>) into
+            # in the source directory (i.e. <unpackdir>/gadget/<source>) into
             # the target directory (i.e. <workdir>/part0).  So put some
             # contents into the source locations.
-            src = os.path.join(self.gadget_tree, 'as.dat')
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            src = os.path.join(gadget_dir, 'as.dat')
             with open(src, 'wb') as fp:
                 fp.write(b'01234')
-            src = os.path.join(self.gadget_tree, 'bs2')
+            src = os.path.join(gadget_dir, 'bs')
             os.makedirs(src)
             # Put a couple of files and a directory in the source, since
             # directories are copied recursively.
@@ -348,9 +434,9 @@ class TestClassicBuilder(TestCase):
             dstbase = os.path.join(workdir, 'volumes', 'volume1', 'part0')
             with open(os.path.join(dstbase, 'at.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'01234')
-            with open(os.path.join(dstbase, 'bt2', 'c.dat'), 'rb') as fp:
+            with open(os.path.join(dstbase, 'bt', 'c.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'56789')
-            with open(os.path.join(dstbase, 'bt2', 'd', 'e.dat'), 'rb') as fp:
+            with open(os.path.join(dstbase, 'bt', 'd', 'e.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'0abcd')
 
     def test_bootloader_options_invalid(self):
@@ -410,12 +496,14 @@ class TestClassicBuilder(TestCase):
         # If a content source ends in a slash, so must the target.
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
                 image_format='img',
+                unpackdir=unpackdir,
                 workdir=workdir,
                 debug=None,
                 cloud_init=None,
@@ -436,9 +524,9 @@ class TestClassicBuilder(TestCase):
             # are differentiated by whether the source ends in a slash or not.
             # In that case, the target must also end in a slash.
             content1 = SimpleNamespace(
-                source='bs1/',
+                source='bs/',
                 # No slash!
-                target='bt1',
+                target='bt',
                 )
             part = SimpleNamespace(
                 role=StructureRole.system_boot,
@@ -452,6 +540,9 @@ class TestClassicBuilder(TestCase):
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
                 )
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
             prep_state(state, workdir)
             # Run the state machine.  Don't blat to stderr.
             resources.enter_context(patch('ubuntu_image.state.log'))
@@ -464,12 +555,14 @@ class TestClassicBuilder(TestCase):
         # We do a bit-wise copy when the file system has no type.
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
                 image_format='img',
+                unpackdir=unpackdir,
                 workdir=workdir,
                 debug=None,
                 cloud_init=None,
@@ -487,6 +580,7 @@ class TestClassicBuilder(TestCase):
             state._next.pop()
             state._next.append(state.populate_filesystems)
             # Set up expected state.
+            state.unpackdir = unpackdir
             state.images = os.path.join(workdir, '.images')
             os.makedirs(state.images)
             part0_img = os.path.join(state.images, 'part0.img')
@@ -525,17 +619,19 @@ class TestClassicBuilder(TestCase):
                 volumes=dict(volume1=volume),
                 )
             prep_state(state, workdir, [part0_img])
-            # They all are placed # in gadget_tree in advance.
-            with open(os.path.join(self.gadget_tree, 'image1.img'),
+            # The source image.
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            with open(os.path.join(gadget_dir, 'image1.img'),
                       'wb') as fp:
                 fp.write(b'\1' * 47)
-            with open(os.path.join(self.gadget_tree, 'image2.img'),
+            with open(os.path.join(gadget_dir, 'image2.img'),
                       'wb') as fp:
                 fp.write(b'\2' * 19)
-            with open(os.path.join(self.gadget_tree, 'image3.img'),
+            with open(os.path.join(gadget_dir, 'image3.img'),
                       'wb') as fp:
                 fp.write(b'\3' * 51)
-            with open(os.path.join(self.gadget_tree, 'image4.img'),
+            with open(os.path.join(gadget_dir, 'image4.img'),
                       'wb') as fp:
                 fp.write(b'\4' * 11)
             # Mock out the mkfs.ext4 call, and we'll just test the contents

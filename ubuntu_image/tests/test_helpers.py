@@ -8,7 +8,7 @@ from collections import OrderedDict
 from contextlib import ExitStack
 from pkg_resources import resource_filename
 from shutil import copytree
-from subprocess import run as subprocess_run
+from subprocess import PIPE, run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
@@ -92,6 +92,24 @@ class MountMocker:
             # above, copy the entire contents of the mount point directory to
             # a results tempdir that we can check below for a passing grade.
             copytree(self.mountpoint, self.results_dir)
+
+
+class LiveBuildMocker:
+    def __init__(self):
+        self.call_args_list = []
+
+    def run(self, command, *args, **kws):
+        if ['lb', 'config'] == command[-2:] or ['lb', 'build'] == command[-2:]:
+            self.call_args_list.append(command)
+            return SimpleNamespace(returncode=1)
+        elif command.startswith('dpkg -L'):
+            stdout = kws.pop('stdout', PIPE)
+            stderr = kws.pop('stderr', PIPE)
+            return subprocess_run(
+                command,
+                stdout=stdout, stderr=stderr,
+                universal_newlines=True,
+                **kws)
 
 
 class TestHelpers(TestCase):
@@ -241,9 +259,9 @@ class TestHelpers(TestCase):
     def test_live_build(self):
         with ExitStack() as resources:
             resources.enter_context(LogCapture())
-            mock = resources.enter_context(
-                patch('ubuntu_image.helpers.subprocess_run',
-                      return_value=FakeProc()))
+            mock = LiveBuildMocker()
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
             tmpdir = resources.enter_context(TemporaryDirectory())
             root_dir = os.path.join(tmpdir, 'root_dir')
             env = OrderedDict()
@@ -252,15 +270,13 @@ class TestHelpers(TestCase):
             env['ARCH'] = 'amd64'
             live_build(root_dir, env)
             self.assertEqual(len(mock.call_args_list), 2)
-            args, kws = mock.call_args_list[0]
             self.assertEqual(
-                args[0],
+                mock.call_args_list[0],
                 ['sudo',
                  'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=amd64',
                  'lb', 'config'])
-            args, kws = mock.call_args_list[1]
             self.assertEqual(
-                args[0],
+                mock.call_args_list[1],
                 ['sudo',
                  'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=amd64',
                  'lb', 'build'])
@@ -268,9 +284,9 @@ class TestHelpers(TestCase):
     def test_live_build_with_full_args(self):
         with ExitStack() as resources:
             resources.enter_context(LogCapture())
-            mock = resources.enter_context(
-                patch('ubuntu_image.helpers.subprocess_run',
-                      return_value=FakeProc()))
+            mock = LiveBuildMocker()
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
             tmpdir = resources.enter_context(TemporaryDirectory())
             root_dir = os.path.join(tmpdir, 'root_dir')
             env = OrderedDict()
@@ -284,17 +300,15 @@ class TestHelpers(TestCase):
             env['EXTRA_PPAS'] = 'foo1/bar1 foo2'
             live_build(root_dir, env)
             self.assertEqual(len(mock.call_args_list), 2)
-            args, kws = mock.call_args_list[0]
             self.assertEqual(
-                args[0],
+                mock.call_args_list[0],
                 ['sudo',
                  'PROJECT=ubuntu-cpc', 'SUITE=xenial', 'ARCH=amd64',
                  'SUBPROJECT=live', 'SUBARCH=ubuntu-cpc', 'PROPOSED=true',
                  'IMAGEFORMAT=ext4', 'EXTRA_PPAS=foo1/bar1 foo2',
                  'lb', 'config'])
-            args, kws = mock.call_args_list[1]
             self.assertEqual(
-                args[0],
+                mock.call_args_list[1],
                 ['sudo',
                  'PROJECT=ubuntu-cpc', 'SUITE=xenial', 'ARCH=amd64',
                  'SUBPROJECT=live', 'SUBARCH=ubuntu-cpc', 'PROPOSED=true',

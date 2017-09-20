@@ -36,6 +36,7 @@ parts:
       - python3-debian
       - python3-parted
       - util-linux
+      - GitPython
     install: |
       cd $SNAPCRAFT_PART_INSTALL/usr/lib/
       ln -s *-linux-gnu* lib-arch

@@ -1,12 +1,11 @@
 """Useful helper functions."""
 
-import contextlib
 import os
 import re
+import pwd
 import shutil
 import logging
-import pwd
-
+import contextlib
 
 from contextlib import ExitStack, contextmanager
 from parted import Device
