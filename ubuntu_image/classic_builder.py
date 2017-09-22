@@ -345,7 +345,7 @@ class ClassicBuilder(State):
                 # to populate it at the same time.  See mkfs.ext4(8) for
                 # details.
                 Path(part_img).touch()
-                os.truncate(part_img, self.rootfs_size)
+                os.truncate(part_img, part.size)
             else:
                 run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
                     part_img, part.size))
