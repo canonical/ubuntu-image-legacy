@@ -235,6 +235,60 @@ class TestClassicBuilder(TestCase):
                 self.assertEqual(fp.read(), 'LABEL=writable   '
                                             '/    ext4   defaults    0 0')
 
+    def test_populate_rootfs_contents_empty_fstab_entry(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            args = SimpleNamespace(
+                project='ubuntu-cpc',
+                suite='xenial',
+                arch='amd64',
+                image_format='img',
+                workdir=workdir,
+                output=None,
+                subproject=None,
+                subarch=None,
+                output_dir=None,
+                cloud_init=None,
+                proposed=None,
+                extra_ppas=None,
+                hooks_directory=[],
+                gadget_tree=self.gadget_tree,
+                )
+            state = resources.enter_context(XXXClassicBuilder(args))
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.
+            part = SimpleNamespace(
+                role=StructureRole.system_data,
+                filesystem_label='writable',
+                filesystem=FileSystemType.none,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.grub,
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir)
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            etc_path = os.path.join(state.unpackdir, 'chroot', 'etc')
+            os.makedirs(etc_path)
+            with open(os.path.join(etc_path, 'fstab'), 'w') as fp:
+                pass
+
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # And the filesystem label should be inserted if it doesn't exist.
+            fstab_data = os.path.join(state.rootfs, 'etc', 'fstab')
+            with open(fstab_data, 'r', encoding='utf-8') as fp:
+                self.assertEqual(fp.read(), 'LABEL=writable   '
+                                            '/    ext4   defaults    0 0')
+
     def test_populate_rootfs_contents_without_cloud_init(self):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())

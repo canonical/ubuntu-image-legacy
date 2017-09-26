@@ -1,6 +1,7 @@
 """Flow for building a ubuntu classic disk image."""
 
 import os
+import re
 import git
 import shutil
 import logging
@@ -20,6 +21,7 @@ from ubuntu_image.parser import (
     parse as parse_yaml)
 
 
+DEFAULT_fS = 'ext4'
 DEFAULT_fS_LABEL = 'writable'
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
@@ -244,9 +246,14 @@ class ClassicBuilder(State):
         fstab_path = os.path.join(dst, 'etc', 'fstab')
         if os.path.exists(fstab_path):
             with open(fstab_path, 'r') as fstab:
-                new_content = fstab.read().replace(
-                    'LABEL=cloudimg-rootfs',
-                    'LABEL={}'.format(DEFAULT_fS_LABEL))
+                new_content = re.sub(r'(LABEL=)\S+',
+                                     r'\1{}'.format(DEFAULT_fS_LABEL),
+                                     fstab.read())
+            # Insert LABEL entry if it's not found at fstab
+            fs_label = 'LABEL={}'.format(DEFAULT_fS_LABEL)
+            if fs_label not in new_content:
+                new_content += 'LABEL={}   /    {}   defaults    0 0'.format(
+                       DEFAULT_fS_LABEL, DEFAULT_fS)
             with open(fstab_path, 'w') as fstab:
                 fstab.write(new_content)
 
