@@ -11,8 +11,7 @@ from ubuntu_image import __version__
 from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
 from ubuntu_image.helpers import (
-    as_size, get_host_arch, get_host_distro, DoesNotFit,
-    PrivilegeError)
+    as_size, get_host_arch, get_host_distro, DoesNotFit)
 from ubuntu_image.hooks import HookError
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
@@ -360,11 +359,6 @@ def main(argv=None):
             '{}. Output of stderr:\n{}'.format(
                 error.hook_path, error.hook_name, error.hook_retcode,
                 error.hook_stderr))
-        return 1
-    except PrivilegeError as error:
-        _logger.error('Current user({}) does not have root privileges to build'
-                      'classic image. Please run ubuntu_image with sudo.'
-                      .format(error.user_name))
         return 1
     except:
         _logger.exception('Crash in state machine')

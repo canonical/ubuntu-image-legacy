@@ -2,7 +2,6 @@
 
 import os
 import re
-import pwd
 import shutil
 import logging
 import contextlib
@@ -215,12 +214,6 @@ def get_default_sector_size():
         return Device(fp.name).sectorSize
 
 
-def check_root_privilege():
-    if os.geteuid() != 0:
-        current_user = pwd.getpwuid(os.geteuid())[0]
-        raise PrivilegeError(current_user)
-
-
 @contextlib.contextmanager
 def save_cwd():
     """Save current working directory and restore it out of context."""
@@ -239,10 +232,3 @@ class DoesNotFit(ExpectedError):
         self.part_number = part_number
         self.part_path = part_path
         self.overage = overage
-
-
-class PrivilegeError(ExpectedError):
-    """Exception raised whenever this tool has not granted root permission."""
-
-    def __init__(self, user_name):
-        self.user_name = user_name
