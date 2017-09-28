@@ -12,7 +12,8 @@ from subprocess import CalledProcessError
 from tempfile import gettempdir, TemporaryDirectory
 from urllib.parse import urlparse
 from ubuntu_image.helpers import (
-     DoesNotFit, MiB, mkfs_ext4, live_build, run, save_cwd)
+     DoesNotFit, MiB, mkfs_ext4, check_root_privilege,
+     live_build, run, save_cwd)
 from ubuntu_image.hooks import HookManager
 from ubuntu_image.image import Image
 from ubuntu_image.state import State
@@ -118,6 +119,9 @@ class ClassicBuilder(State):
             super()._log_exception(name)
 
     def make_temporary_directories(self):
+        # It's required to run ubuntu-image as root to build classic image.
+        check_root_privilege()
+
         self.rootfs = os.path.join(self.workdir, 'root')
         self.unpackdir = os.path.join(self.workdir, 'unpack')
         self.volumedir = os.path.join(self.workdir, 'volumes')
@@ -200,37 +204,9 @@ class ClassicBuilder(State):
             os.makedirs(volume.basedir)
         self._next.append(self.populate_rootfs_contents)
 
-    @staticmethod
-    def _change_rootfs_ownership(path, user):
-        # Change the rootfs's ownership and preserve files' setuid, setgid,
-        # and sticky bits. The reason here is that the chown command sometimes
-        # clears the set-user-ID or set-group-ID permission bits. Also So we
-        # can easily execute the test case with tox and don't bother by the
-        # insufficient permission.
-
-        # set-user-ID on execute bit, 04000.
-        cmd = ('sudo find {} ! -type l -perm -04000 -exec chown {} '
-               '{{}} + -exec chmod u+s {{}} +').format(path, user)
-        run(cmd, check=False)
-        # set-group-ID on execute bit, 02000.
-        cmd = ('sudo find {} ! -type l -perm -02000 -exec chown {} '
-               '{{}} + -exec chmod g+s {{}} +').format(path, user)
-        run(cmd, check=False)
-        # sticky bit, 01000.
-        cmd = ('sudo find {} ! -type l -perm -01000 -exec chown {} '
-               '{{}} + -exec chmod +t {{}} +').format(path, user)
-        run(cmd, check=False)
-        # change others direclty to the requested user.
-        cmd = ('sudo find {} ! -user {} -exec chown -h {} {{}} +'
-               ).format(path, user, user)
-        run(cmd, check=False)
-
     def populate_rootfs_contents(self):
         src = os.path.join(self.unpackdir, 'chroot')
         dst = self.rootfs
-
-        user = os.environ['USER']
-        self._change_rootfs_ownership(src, user)
 
         for subdir in os.listdir(src):
             shutil.move(os.path.join(src, subdir), os.path.join(dst, subdir))
@@ -450,7 +426,8 @@ class ClassicBuilder(State):
                 # The root partition needs to be ext4, which may or may not be
                 # populated at creation time, depending on the version of
                 # e2fsprogs.
-                mkfs_ext4(part_img, self.rootfs, part.filesystem_label)
+                mkfs_ext4(part_img, self.rootfs, part.filesystem_label,
+                          preserve_ownership=True)
             elif part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0

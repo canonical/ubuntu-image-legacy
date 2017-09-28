@@ -11,7 +11,8 @@ from ubuntu_image import __version__
 from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
 from ubuntu_image.helpers import (
-    as_size, get_host_arch, get_host_distro, DoesNotFit)
+    as_size, get_host_arch, get_host_distro, DoesNotFit,
+    PrivilegeError)
 from ubuntu_image.hooks import HookError
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
@@ -249,7 +250,8 @@ def parseargs(argv=None):
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
         help=_("""Gadget tree.  This is a tree equivalent to an unpacked
-        gadget snap at core image build time."""))
+        gadget snap at core image build time. It could be either a local
+        snap project or a snap-based git repository."""))
     classic_cmd.add_argument(
         '-p', '--project',
         default='ubuntu-cpc', metavar='PROJECT',
@@ -359,6 +361,11 @@ def main(argv=None):
             '{}. Output of stderr:\n{}'.format(
                 error.hook_path, error.hook_name, error.hook_retcode,
                 error.hook_stderr))
+        return 1
+    except PrivilegeError as error:
+        _logger.error('Current user({}) does not have root privilege to build'
+                      ' classic image. Please run ubuntu-image as root.'
+                      .format(error.user_name))
         return 1
     except:
         _logger.exception('Crash in state machine')

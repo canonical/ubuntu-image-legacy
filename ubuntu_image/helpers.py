@@ -2,6 +2,7 @@
 
 import os
 import re
+import pwd
 import shutil
 import logging
 import contextlib
@@ -179,7 +180,8 @@ def mount(img):
         yield mountpoint
 
 
-def mkfs_ext4(img_file, contents_dir, label='writable'):
+def mkfs_ext4(img_file, contents_dir, label='writable',
+              preserve_ownership=False):
     """Encapsulate the `mkfs.ext4` invocation.
 
     As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
@@ -201,8 +203,12 @@ def mkfs_ext4(img_file, contents_dir, label='writable'):
         return
     with mount(img_file) as mountpoint:
         # fixme: everything is terrible.
-        run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
-            contents_dir, mountpoint), shell=True)
+        preserve_flags = 'mode,timestamps'
+        if preserve_ownership:
+            preserve_flags += ',ownership'
+        run('sudo cp -dR --preserve={} {}/* {}'.format(
+            preserve_flags, contents_dir, mountpoint), shell=True)
+
 
 
 def get_default_sector_size():
@@ -212,6 +218,12 @@ def get_default_sector_size():
         os.truncate(fp.name, 0)
         os.truncate(fp.name, MiB(1))
         return Device(fp.name).sectorSize
+
+
+def check_root_privilege():
+    if os.geteuid() != 0:
+        current_user = pwd.getpwuid(os.geteuid())[0]
+        raise PrivilegeError(current_user)
 
 
 @contextlib.contextmanager
@@ -232,3 +244,10 @@ class DoesNotFit(ExpectedError):
         self.part_number = part_number
         self.part_path = part_path
         self.overage = overage
+
+
+class PrivilegeError(ExpectedError):
+    """Exception raised whenever this tool has not granted root permission."""
+
+    def __init__(self, user_name):
+        self.user_name = user_name
