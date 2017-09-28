@@ -8,14 +8,15 @@ from collections import OrderedDict
 from contextlib import ExitStack
 from pkg_resources import resource_filename
 from shutil import copytree
-from subprocess import PIPE, run as subprocess_run
+from subprocess import run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
      GiB, MiB, as_bool, as_size,
      get_host_arch, get_host_distro, live_build,
      mkfs_ext4, run, snap, sparse_copy)
-from ubuntu_image.testing.helpers import LogCapture
+from ubuntu_image.testing.helpers import (
+     LiveBuildMocker, LogCapture)
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -92,24 +93,6 @@ class MountMocker:
             # above, copy the entire contents of the mount point directory to
             # a results tempdir that we can check below for a passing grade.
             copytree(self.mountpoint, self.results_dir)
-
-
-class LiveBuildMocker:
-    def __init__(self):
-        self.call_args_list = []
-
-    def run(self, command, *args, **kws):
-        if ['lb', 'config'] == command[-2:] or ['lb', 'build'] == command[-2:]:
-            self.call_args_list.append(command)
-            return SimpleNamespace(returncode=1)
-        elif command.startswith('dpkg -L'):
-            stdout = kws.pop('stdout', PIPE)
-            stderr = kws.pop('stderr', PIPE)
-            return subprocess_run(
-                command,
-                stdout=stdout, stderr=stderr,
-                universal_newlines=True,
-                **kws)
 
 
 class TestHelpers(TestCase):
@@ -258,12 +241,12 @@ class TestHelpers(TestCase):
 
     def test_live_build(self):
         with ExitStack() as resources:
-            resources.enter_context(LogCapture())
-            mock = LiveBuildMocker()
-            resources.enter_context(
-                patch('ubuntu_image.helpers.run', mock.run))
             tmpdir = resources.enter_context(TemporaryDirectory())
             root_dir = os.path.join(tmpdir, 'root_dir')
+            mock = LiveBuildMocker(root_dir)
+            resources.enter_context(LogCapture())
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
             env = OrderedDict()
             env['PROJECT'] = 'ubuntu-server'
             env['SUITE'] = 'xenial'
@@ -283,12 +266,12 @@ class TestHelpers(TestCase):
 
     def test_live_build_with_full_args(self):
         with ExitStack() as resources:
-            resources.enter_context(LogCapture())
-            mock = LiveBuildMocker()
-            resources.enter_context(
-                patch('ubuntu_image.helpers.run', mock.run))
             tmpdir = resources.enter_context(TemporaryDirectory())
             root_dir = os.path.join(tmpdir, 'root_dir')
+            mock = LiveBuildMocker(root_dir)
+            resources.enter_context(LogCapture())
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
             env = OrderedDict()
             env['PROJECT'] = 'ubuntu-cpc'
             env['SUITE'] = 'xenial'

@@ -10,7 +10,8 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema)
-from ubuntu_image.testing.helpers import XXXClassicBuilder
+from ubuntu_image.testing.helpers import (
+     DIRS_UNDER_ROOTFS, LiveBuildMocker, XXXClassicBuilder)
 from unittest import TestCase, skipIf
 from unittest.mock import patch
 
@@ -77,6 +78,9 @@ class TestClassicBuilder(TestCase):
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
         gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
+        # Mock out the check_root_privilege call
+        self._resources.enter_context(
+            patch('ubuntu_image.classic_builder.check_root_privilege'))
         state.run_thru('prepare_gadget_tree')
         files = [
             '{gadget_dir}/grub-cpc.cfg',
@@ -117,6 +121,9 @@ class TestClassicBuilder(TestCase):
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
         gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
+        # Mock out the check_root_privilege call
+        self._resources.enter_context(
+            patch('ubuntu_image.classic_builder.check_root_privilege'))
         state.run_thru('prepare_gadget_tree')
         files = [
             '{gadget_dir}/grub-cpc.cfg',
@@ -133,12 +140,13 @@ class TestClassicBuilder(TestCase):
                 )
             self.assertTrue(os.path.exists(path), path)
 
-    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
-            'Cannot run this test without network access')
     def test_fs_contents(self):
         # Run the action classic builder through the steps needed to
         # at least call `lb config && lb build`.
         output = self._resources.enter_context(NamedTemporaryFile())
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        unpackdir = os.path.join(workdir, 'unpack')
+        mock = LiveBuildMocker(unpackdir)
         args = SimpleNamespace(
             project='ubuntu-cpc',
             suite='xenial',
@@ -148,7 +156,7 @@ class TestClassicBuilder(TestCase):
             subproject=None,
             subarch=None,
             output_dir=None,
-            workdir=None,
+            workdir=workdir,
             cloud_init=None,
             with_proposed=None,
             extra_ppas=None,
@@ -156,6 +164,14 @@ class TestClassicBuilder(TestCase):
             gadget_tree=self.gadget_tree,
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
+
+        # Mock out the check_root_privilege call
+        self._resources.enter_context(
+            patch('ubuntu_image.classic_builder.check_root_privilege'))
+        # Mock out rootfs generation `live_build`
+        # and create dummy top-level filesystem layout.
+        self._resources.enter_context(
+            patch('ubuntu_image.helpers.run', mock.run))
         state.run_thru('populate_bootfs_contents')
         # How does the root and boot file systems look?
         files = [
@@ -171,13 +187,9 @@ class TestClassicBuilder(TestCase):
                 )
             self.assertTrue(os.path.exists(path), path)
 
-        # Simply check if all top-level file and folders exist.
-        dirs_under_rootfs = ['bin', 'boot', 'dev', 'etc', 'home', 'initrd.img',
-                             'lib', 'lib64', 'media', 'mnt', 'opt', 'proc',
-                             'root', 'run', 'sbin', 'snap', 'srv', 'sys',
-                             'tmp', 'usr', 'var', 'vmlinuz']
-        for dirname in dirs_under_rootfs:
-            path = os.path.join(state.rootfs,  dirname)
+        # Simply check if all top-level files and folders exist.
+        for dirname in DIRS_UNDER_ROOTFS:
+            path = os.path.join(state.rootfs, dirname)
             self.assertTrue(os.path.exists(path), path)
 
     def test_populate_rootfs_contents_fstab_label(self):

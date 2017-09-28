@@ -6,9 +6,17 @@ import logging
 
 from contextlib import ExitStack, contextmanager
 from pkg_resources import resource_filename
+from subprocess import PIPE, run as subprocess_run
+from types import SimpleNamespace
 from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
 from unittest.mock import patch
+
+
+DIRS_UNDER_ROOTFS = ['bin', 'boot', 'dev', 'etc', 'home', 'lib',
+                     'lib64', 'media', 'initrd.img', 'mnt', 'opt',
+                     'proc', 'root', 'run', 'sbin', 'snap', 'srv',
+                     'sys', 'tmp', 'usr', 'var', 'vmlinuz']
 
 
 class XXXModelAssertionBuilder(ModelAssertionBuilder):
@@ -92,6 +100,33 @@ class LogCapture:
         self._resources.close()
         # Don't suppress any exceptions.
         return False
+
+
+class LiveBuildMocker:
+    def __init__(self, root_dir):
+        self.call_args_list = []
+        self.root_dir = root_dir
+
+    def run(self, command, *args, **kws):
+        if ['lb', 'config'] == command[-2:]:
+            self.call_args_list.append(command)
+            return SimpleNamespace(returncode=1)
+        if ['lb', 'build'] == command[-2:]:
+            self.call_args_list.append(command)
+            # Create dummy top-level filesystem layout.
+            chroot_dir = os.path.join(self.root_dir, 'chroot')
+            for dir_name in DIRS_UNDER_ROOTFS:
+                os.makedirs(os.path.join(chroot_dir, dir_name))
+
+            return SimpleNamespace(returncode=1)
+        elif command.startswith('dpkg -L'):
+            stdout = kws.pop('stdout', PIPE)
+            stderr = kws.pop('stderr', PIPE)
+            return subprocess_run(
+                command,
+                stdout=stdout, stderr=stderr,
+                universal_newlines=True,
+                **kws)
 
 
 @contextmanager
