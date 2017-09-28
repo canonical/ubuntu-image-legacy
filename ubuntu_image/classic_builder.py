@@ -9,17 +9,17 @@ import logging
 from math import ceil
 from pathlib import Path
 from subprocess import CalledProcessError
-from tempfile import gettempdir, TemporaryDirectory
-from urllib.parse import urlparse
+from tempfile import TemporaryDirectory, gettempdir
 from ubuntu_image.helpers import (
-     DoesNotFit, MiB, mkfs_ext4, check_root_privilege,
-     live_build, run, save_cwd)
+     DoesNotFit, MiB, check_root_privilege, live_build,
+     mkfs_ext4, run, save_cwd)
 from ubuntu_image.hooks import HookManager
 from ubuntu_image.image import Image
-from ubuntu_image.state import State
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema,
     parse as parse_yaml)
+from ubuntu_image.state import State
+from urllib.parse import urlparse
 
 
 DEFAULT_fS = 'ext4'

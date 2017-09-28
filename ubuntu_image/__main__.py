@@ -11,8 +11,8 @@ from ubuntu_image import __version__
 from ubuntu_image.builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
 from ubuntu_image.helpers import (
-    as_size, get_host_arch, get_host_distro, DoesNotFit,
-    PrivilegeError)
+    DoesNotFit, PrivilegeError, as_size, get_host_arch,
+    get_host_distro)
 from ubuntu_image.hooks import HookError
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError

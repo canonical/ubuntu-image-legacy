@@ -210,7 +210,6 @@ def mkfs_ext4(img_file, contents_dir, label='writable',
             preserve_flags, contents_dir, mountpoint), shell=True)
 
 
-
 def get_default_sector_size():
     with NamedTemporaryFile() as fp:
         # Truncate to zero, so that extending the size in the next call
