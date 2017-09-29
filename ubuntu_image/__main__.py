@@ -40,7 +40,6 @@ class SimpleHelpFormatter(argparse.HelpFormatter):
                      '\n  {prog} COMMAND --help').format(prog=PROGRAM)
         else:
             usage = ('{prog} ').format(prog=PROGRAM)
-
         return super(SimpleHelpFormatter, self).add_usage(
             usage, actions, groups, prefix)
 
@@ -51,7 +50,6 @@ class SimpleHelpFormatter(argparse.HelpFormatter):
             invocations = [self._format_action_invocation(a)
                            for a in subactions]
             self._subcommand_max_length = max(len(i) for i in invocations)
-
         if type(action) == argparse._SubParsersAction._ChoicesPseudoAction:
             # format subcommand help line
             subcommand = self._format_action_invocation(action)
@@ -171,7 +169,6 @@ def add_common_args(subcommand):
         disk image file.  If not given, the image will be put in a file called
         disk.img in the working directory (in which case, you probably want to
         specify -w)."""))
-
     # State machine options.
     inclusive_state_group = subcommand.add_argument_group(
         _('State machine options'),
@@ -216,7 +213,6 @@ def parseargs(argv=None):
     parser.add_argument(
         '--version', action='version',
         version='{} {}'.format(PROGRAM, __version__))
-
     # create two subcommands, "snap" and "classic"
     subparser = parser.add_subparsers(title=_('Command'), dest='cmd')
     snap_cmd = subparser.add_parser(
@@ -226,10 +222,8 @@ def parseargs(argv=None):
             'classic',
             help=_("""Create debian-based Ubuntu Classic image."""))
     argv = get_modified_args(subparser, 'snap', argv)
-
     snap_cmd = add_common_args(snap_cmd)
     classic_cmd = add_common_args(classic_cmd)
-
     # Snap-based image options.
     snap_cmd.add_argument(
         'model_assertion', nargs='?',
@@ -245,7 +239,6 @@ def parseargs(argv=None):
         '-c', '--channel',
         default=None,
         help=_('The snap channel to use'))
-
     # Classic-based image options.
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
@@ -283,9 +276,8 @@ def parseargs(argv=None):
         default=None, action='append',
         help=_("""Extra ppas to install. This is passed through to
         livecd-rootfs."""))
-
+    # Perform the actual argument parsing.
     args = parser.parse_args(argv)
-
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
     # The model assertion argument is required unless --resume is given, in
@@ -300,7 +292,6 @@ def parseargs(argv=None):
             parser.error('gadget tree is not allowed with --resume')
         if not args.resume and args.gadget_tree is None:
             parser.error('gadget tree is required')
-
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
     # --until and --thru can take an int.
@@ -321,13 +312,14 @@ def parseargs(argv=None):
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
-
     args = parseargs(argv)
     if args.workdir:
         os.makedirs(args.workdir, exist_ok=True)
         pickle_file = os.path.join(args.workdir, '.ubuntu-image.pck')
     else:
         pickle_file = None
+    # Check if we're resuming an existing run or running new snap or classic
+    # image builds.
     if args.resume:
         with open(pickle_file, 'rb') as fp:
             state_machine = load(fp)
@@ -336,7 +328,6 @@ def main(argv=None):
         state_machine = ModelAssertionBuilder(args)
     else:
         state_machine = ClassicBuilder(args)
-
     # Run the state machine, either to the end or thru/until the named state.
     try:
         if args.thru:

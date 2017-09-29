@@ -38,7 +38,6 @@ class GitProgress(git.remote.RemoteProgress):
 class ClassicBuilder(State):
     def __init__(self, args):
         super().__init__()
-
         # The working directory will contain several bits as we stitch
         # everything together.  It will contain the final disk image file
         # (unless output is given).  It will contain an unpack/ directory
@@ -121,13 +120,10 @@ class ClassicBuilder(State):
     def make_temporary_directories(self):
         # It's required to run ubuntu-image as root to build classic image.
         check_root_privilege()
-
         self.rootfs = os.path.join(self.workdir, 'root')
         self.unpackdir = os.path.join(self.workdir, 'unpack')
         self.volumedir = os.path.join(self.workdir, 'volumes')
-
         os.makedirs(self.rootfs)
-
         self._next.append(self.prepare_gadget_tree)
 
     def prepare_gadget_tree(self):
@@ -144,7 +140,6 @@ class ClassicBuilder(State):
                 run(['snapcraft', 'prime'], env=os.environ)
             shutil.copytree(os.path.join(gadget_dst, 'prime'),
                             os.path.join(self.unpackdir, 'gadget'))
-
         except CalledProcessError:
             if self.args.debug:
                 _logger.exception('Full debug traceback follows')
@@ -171,7 +166,6 @@ class ClassicBuilder(State):
                 env['PROPOSED'] = self.args.with_proposed
             if self.args.extra_ppas is not None:
                 env['EXTRA_PPAS'] = self.args.extra_ppas
-
             # Only genereate a single rootfs tree for classic image creation.
             env['GENERATE_ROOTFS_ONLY'] = '1'
             live_build(self.unpackdir, env)
@@ -207,16 +201,13 @@ class ClassicBuilder(State):
     def populate_rootfs_contents(self):
         src = os.path.join(self.unpackdir, 'chroot')
         dst = self.rootfs
-
         for subdir in os.listdir(src):
             shutil.move(os.path.join(src, subdir), os.path.join(dst, subdir))
-
         # Remove default grub bootloader settings as we ship bootloader bits
         # (binary blobs and grub.cfg) to a generated rootfs locally.
         grub_folder = os.path.join(dst, 'boot', 'grub')
         if os.path.exists(grub_folder):
             shutil.rmtree(grub_folder, ignore_errors=True)
-
         # Replace pre-defined LABEL in /etc/fstab with the one
         # we're using 'LABEL=writable' in grub.cfg.
         fstab_path = os.path.join(dst, 'etc', 'fstab')
@@ -232,7 +223,6 @@ class ClassicBuilder(State):
                        DEFAULT_fS_LABEL, DEFAULT_fS)
             with open(fstab_path, 'w') as fstab:
                 fstab.write(new_content)
-
         if self.cloud_init is not None:
             # LP: #1633232 - Only write out meta-data when the --cloud-init
             # parameter is given.
@@ -576,7 +566,6 @@ class ClassicBuilder(State):
                 for line in tmpfile:
                     if not any(word in line for word in deprecated_words):
                         manifest.write(line)
-
         self._next.append(self.finish)
 
     def finish(self):

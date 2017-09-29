@@ -144,18 +144,17 @@ def live_build(root_dir, env):
     auto_src = proc.stdout.strip()
     auto_dst = os.path.join(root_dir, 'auto')
     shutil.copytree(auto_src, auto_dst)
-
+    # Create the commands and run config and build steps.
     with save_cwd():
         os.chdir(root_dir)
-
         # Environment variables list
         env_list = ['%s=%s' % (key, value) for (key, value) in env.items()]
-
+        # Config
         config_cmd = ['sudo']
         config_cmd.extend(env_list)
         config_cmd.extend(['lb', 'config'])
         run(config_cmd, stdout=None, stderr=None, env=os.environ)
-
+        # Build
         build_cmd = ['sudo']
         build_cmd.extend(env_list)
         build_cmd.extend(['lb', 'build'])
@@ -228,7 +227,6 @@ def check_root_privilege():
 @contextlib.contextmanager
 def save_cwd():
     """Save current working directory and restore it out of context."""
-
     curdir = os.getcwd()
     try:
         yield

@@ -164,7 +164,6 @@ class TestClassicBuilder(TestCase):
             gadget_tree=self.gadget_tree,
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
-
         # Mock out the check_root_privilege call
         self._resources.enter_context(
             patch('ubuntu_image.classic_builder.check_root_privilege'))
@@ -186,7 +185,6 @@ class TestClassicBuilder(TestCase):
                 boot=state.gadget.volumes['pc'].bootfs,
                 )
             self.assertTrue(os.path.exists(path), path)
-
         # Simply check if all top-level files and folders exist.
         for dirname in DIRS_UNDER_ROOTFS:
             path = os.path.join(state.rootfs, dirname)
@@ -234,7 +232,6 @@ class TestClassicBuilder(TestCase):
             os.makedirs(etc_path)
             with open(os.path.join(etc_path, 'fstab'), 'w') as fp:
                 fp.write('LABEL=cloudimg-rootfs   /    ext4   defaults    0 0')
-
             state.rootfs = resources.enter_context(TemporaryDirectory())
             # Jump right to the state method we're trying to test.
             state._next.pop()
@@ -289,7 +286,6 @@ class TestClassicBuilder(TestCase):
             os.makedirs(etc_path)
             with open(os.path.join(etc_path, 'fstab'), 'w') as fp:
                 pass
-
             state.rootfs = resources.enter_context(TemporaryDirectory())
             # Jump right to the state method we're trying to test.
             state._next.pop()
