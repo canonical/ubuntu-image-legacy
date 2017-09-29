@@ -8,8 +8,11 @@ import argparse
 from contextlib import suppress
 from pickle import dump, load
 from ubuntu_image import __version__
-from ubuntu_image.builder import DoesNotFit, ModelAssertionBuilder
-from ubuntu_image.helpers import as_size, get_host_arch, get_host_distro
+from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.classic_builder import ClassicBuilder
+from ubuntu_image.helpers import (
+    DoesNotFit, PrivilegeError, as_size, get_host_arch,
+    get_host_distro)
 from ubuntu_image.hooks import HookError
 from ubuntu_image.i18n import _
 from ubuntu_image.parser import GadgetSpecificationError
@@ -144,6 +147,10 @@ def add_common_args(subcommand):
         help=_("""Print to this file, a list of the file system paths to
         all the disk images created by the command, if any."""))
     common_group.add_argument(
+        '--cloud-init',
+        default=None, metavar='USER-DATA-FILE',
+        help=_('cloud-config data to be copied to the image'))
+    common_group.add_argument(
         '--hooks-directory',
         default=[], metavar='DIRECTORY',
         help=_("""Path or comma-separated list of paths of directories in which
@@ -235,10 +242,6 @@ def parseargs(argv=None):
         help=_("""Extra snaps to install.  This is passed through to `snap
         prepare-image`."""))
     snap_cmd.add_argument(
-        '--cloud-init',
-        default=None, metavar='USER-DATA-FILE',
-        help=_('cloud-config data to be copied to the image'))
-    snap_cmd.add_argument(
         '-c', '--channel',
         default=None,
         help=_('The snap channel to use'))
@@ -247,7 +250,8 @@ def parseargs(argv=None):
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
         help=_("""Gadget tree.  This is a tree equivalent to an unpacked
-        gadget snap at core image build time."""))
+        gadget snap at core image build time. It could be either a local
+        snap project or a snap-based git repository."""))
     classic_cmd.add_argument(
         '-p', '--project',
         default='ubuntu-cpc', metavar='PROJECT',
@@ -275,10 +279,6 @@ def parseargs(argv=None):
         help=_("""Proposed repo to install, This is passed through to
         livecd-rootfs."""))
     classic_cmd.add_argument(
-        '--image-format',
-        default='img',
-        help=_("""Image format to be specified to livecd-rootfs."""))
-    classic_cmd.add_argument(
         '--extra-ppas',
         default=None, action='append',
         help=_("""Extra ppas to install. This is passed through to
@@ -290,11 +290,16 @@ def parseargs(argv=None):
         logging.basicConfig(level=logging.DEBUG)
     # The model assertion argument is required unless --resume is given, in
     # which case it cannot be given.
-    # if args.cmd == 'snap':
-    if args.resume and args.model_assertion:
-        parser.error('model assertion is not allowed with --resume')
-    if not args.resume and args.model_assertion is None:
-        parser.error('model assertion is required')
+    if args.cmd == 'snap':
+        if args.resume and args.model_assertion:
+            parser.error('model assertion is not allowed with --resume')
+        if not args.resume and args.model_assertion is None:
+            parser.error('model assertion is required')
+    else:
+        if args.resume and args.gadget_tree:
+            parser.error('gadget tree is not allowed with --resume')
+        if not args.resume and args.gadget_tree is None:
+            parser.error('gadget tree is required')
 
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
@@ -327,9 +332,10 @@ def main(argv=None):
         with open(pickle_file, 'rb') as fp:
             state_machine = load(fp)
         state_machine.workdir = args.workdir
-    else:
+    elif args.cmd == 'snap':
         state_machine = ModelAssertionBuilder(args)
-    # elif args.cmd == 'classic':
+    else:
+        state_machine = ClassicBuilder(args)
 
     # Run the state machine, either to the end or thru/until the named state.
     try:
@@ -355,6 +361,11 @@ def main(argv=None):
             '{}. Output of stderr:\n{}'.format(
                 error.hook_path, error.hook_name, error.hook_retcode,
                 error.hook_stderr))
+        return 1
+    except PrivilegeError as error:
+        _logger.error('Current user({}) does not have root privilege to build'
+                      ' classic image. Please run ubuntu-image as root.'
+                      .format(error.user_name))
         return 1
     except:
         _logger.exception('Crash in state machine')

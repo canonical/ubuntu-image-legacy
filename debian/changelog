@@ -1,7 +1,11 @@
-ubuntu-image (1.2+17.10ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (1.2+17.10ubuntu2) UNRELEASED; urgency=medium
 
+  [ Łukasz 'sil2100' Zemczak ]
   * Add a generic hook mechanism and add our first supported snap-image hook:
     post-populate-rootfs. (LP: #1672436)
+
+  [ Gary Wang ]
+  * Add classic image creation support.
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 31 Jul 2017 15:54:06 +0200
 
