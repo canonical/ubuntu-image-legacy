@@ -8,7 +8,7 @@ from contextlib import ExitStack, contextmanager
 from pkg_resources import resource_filename
 from subprocess import PIPE, run as subprocess_run
 from types import SimpleNamespace
-from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.assertion_builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
 from unittest.mock import patch
 
@@ -30,6 +30,7 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
     def load_gadget_yaml(self):
         gadget_dir = os.path.join(self.unpackdir, 'gadget')
         meta_dir = os.path.join(gadget_dir, 'meta')
+        self.yaml_file_path = os.path.join(meta_dir, 'gadget.yaml')
         os.makedirs(meta_dir, exist_ok=True)
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', self.gadget_yaml),
@@ -70,6 +71,14 @@ class DoNothingBuilder(XXXModelAssertionBuilder):
 
 
 class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):
+    def prepare_image(self):
+        # Similar to above, but leave a trace that this method ran, so that we
+        # have something to positively test.
+        with open(os.path.join(self.workdir, 'success'), 'w'):
+            pass
+
+
+class EarlyExitLeaveATraceClassicBuilder(XXXClassicBuilder):
     def prepare_image(self):
         # Similar to above, but leave a trace that this method ran, so that we
         # have something to positively test.

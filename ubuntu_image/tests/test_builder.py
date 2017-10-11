@@ -12,8 +12,7 @@ from struct import unpack
 from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
-from ubuntu_image.builder import DoesNotFit
-from ubuntu_image.helpers import MiB, run
+from ubuntu_image.helpers import DoesNotFit, MiB, run
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema)
 from ubuntu_image.testing.helpers import (
@@ -553,7 +552,8 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\4' * 11)
             # Mock out the mkfs.ext4 call, and we'll just test the contents
             # directory (i.e. what would go in the ext4 file system).
-            resources.enter_context(patch('ubuntu_image.builder.mkfs_ext4'))
+            resources.enter_context(
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
             next(state)
             # Check the contents of the part0 image file.
             with open(part0_img, 'rb') as fp:
@@ -622,7 +622,7 @@ class TestModelAssertionBuilder(TestCase):
             # Mock out the mkfs.ext4 call, and we'll just test the contents
             # directory (i.e. what would go in the ext4 file system).
             mock = resources.enter_context(
-                patch('ubuntu_image.builder.mkfs_ext4'))
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
             next(state)
             # Check that mkfs.ext4 got called with the expected values.  It
             # actually got called twice, but it's only the first call
@@ -729,7 +729,7 @@ class TestModelAssertionBuilder(TestCase):
             prep_state(state, workdir)
             # Set up the short-circuit.
             mock = resources.enter_context(
-                patch('ubuntu_image.builder.Image',
+                patch('ubuntu_image.common_builder.Image',
                       side_effect=RuntimeError))
             # Don't blat to stderr.
             resources.enter_context(patch('ubuntu_image.state.log'))
@@ -1332,7 +1332,8 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             # Mock the run() call to prove that we never call dd.
-            mock = resources.enter_context(patch('ubuntu_image.builder.run'))
+            mock = resources.enter_context(
+                patch('ubuntu_image.common_builder.run'))
             next(state)
             # There should be only one call to run() and that's for the dd.
             self.assertEqual(len(mock.call_args_list), 1)
@@ -1540,7 +1541,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             self.assertEqual(state.gadget.volumes['volume1'].image_size,
                              2114560)
@@ -1627,7 +1628,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             # The actual image size is 6MiB + 17KiB.  The former value comes
             # from the farthest out structure (part1 at offset 4MiB + 1MiB
@@ -1691,7 +1692,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             self.assertEqual(state.gadget.volumes['volume1'].image_size,
                              2114560)
@@ -1748,7 +1749,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             self.assertEqual(state.gadget.volumes['volume1'].image_size,
                              2114560)
@@ -1892,7 +1893,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(
@@ -2205,7 +2206,7 @@ class TestModelAssertionBuilder(TestCase):
             outputdir = resources.enter_context(TemporaryDirectory())
             disk_img = os.path.join(outputdir, 'disk.img')
             getcwd_mock = resources.enter_context(
-                patch('ubuntu_image.builder.os.getcwd'))
+                patch('ubuntu_image.assertion_builder.os.getcwd'))
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
@@ -2225,7 +2226,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             resources.enter_context(patch.object(state, '_make_one_disk'))
             log_mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             posargs, kwargs = log_mock.call_args_list[0]
             self.assertEqual(
@@ -2241,7 +2242,7 @@ class TestModelAssertionBuilder(TestCase):
         with ExitStack() as resources:
             cwd = resources.enter_context(TemporaryDirectory())
             getcwd_mock = resources.enter_context(
-                patch('ubuntu_image.builder.os.getcwd',
+                patch('ubuntu_image.assertion_builder.os.getcwd',
                       return_value=cwd))
             args = SimpleNamespace(
                 channel='edge',

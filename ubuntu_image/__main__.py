@@ -8,7 +8,7 @@ import argparse
 from contextlib import suppress
 from pickle import dump, load
 from ubuntu_image import __version__
-from ubuntu_image.builder import ModelAssertionBuilder
+from ubuntu_image.assertion_builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
 from ubuntu_image.helpers import (
     DoesNotFit, PrivilegeError, as_size, get_host_arch,
@@ -318,18 +318,18 @@ def main(argv=None):
         pickle_file = os.path.join(args.workdir, '.ubuntu-image.pck')
     else:
         pickle_file = None
-    # Check if we're resuming an existing run or running new snap or classic
-    # image builds.
-    if args.resume:
-        with open(pickle_file, 'rb') as fp:
-            state_machine = load(fp)
-        state_machine.workdir = args.workdir
-    elif args.cmd == 'snap':
-        state_machine = ModelAssertionBuilder(args)
-    else:
-        state_machine = ClassicBuilder(args)
-    # Run the state machine, either to the end or thru/until the named state.
     try:
+        # Check if we're resuming an existing run or running new snap or classic
+        # image builds.
+        if args.resume:
+            with open(pickle_file, 'rb') as fp:
+                state_machine = load(fp)
+            state_machine.workdir = args.workdir
+        elif args.cmd == 'snap':
+            state_machine = ModelAssertionBuilder(args)
+        else:
+            state_machine = ClassicBuilder(args)
+        # Run the state machine, either to the end or thru/until the named state.
         if args.thru:
             state_machine.run_thru(args.thru)
         elif args.until:
