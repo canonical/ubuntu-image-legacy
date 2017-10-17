@@ -140,6 +140,8 @@ class TestClassicBuilder(TestCase):
                 )
             self.assertTrue(os.path.exists(path), path)
 
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
     def test_fs_contents(self):
         # Run the action classic builder through the steps needed to
         # at least call `lb config && lb build`.
