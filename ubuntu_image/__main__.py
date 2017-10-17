@@ -319,8 +319,8 @@ def main(argv=None):
     else:
         pickle_file = None
     try:
-        # Check if we're resuming an existing run or running new snap or classic
-        # image builds.
+        # Check if we're resuming an existing run or running new snap or
+        # classic image builds.
         if args.resume:
             with open(pickle_file, 'rb') as fp:
                 state_machine = load(fp)
@@ -329,7 +329,8 @@ def main(argv=None):
             state_machine = ModelAssertionBuilder(args)
         else:
             state_machine = ClassicBuilder(args)
-        # Run the state machine, either to the end or thru/until the named state.
+        # Run the state machine, either to the end or thru/until the named
+        # state.
         if args.thru:
             state_machine.run_thru(args.thru)
         elif args.until:

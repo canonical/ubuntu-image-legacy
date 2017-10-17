@@ -6,6 +6,7 @@ import logging
 
 from math import ceil
 from pathlib import Path
+from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import (
      DoesNotFit, MiB, mkfs_ext4, run)
@@ -160,9 +161,8 @@ class AbstractImageBuilderState(State):
         # more accruate way to calculate size of dir which
         # contains hard or soft links
         total = 0
-        proc = run('du -s -B1 {}'.format(path), check=False)
-        if proc.returncode == 0:
-            total = int(proc.stdout.strip().split()[0])
+        proc = run('du -s -B1 {}'.format(path))
+        total = int(proc.stdout.strip().split()[0])
         # Fudge factor for incidentals.
         total *= 1.5
         return ceil(total)
@@ -172,8 +172,15 @@ class AbstractImageBuilderState(State):
         #
         # On a 100MiB filesystem, ext4 takes a little over 7MiB for the
         # metadata.  Use 8MiB as a minimum padding here.
-        self.rootfs_size = self._calculate_dirsize(self.rootfs) + MiB(8)
-        self._next.append(self.pre_populate_bootfs_contents)
+        try:
+            self.rootfs_size = self._calculate_dirsize(self.rootfs) + MiB(8)
+        except CalledProcessError:
+            if self.args.debug:
+                _logger.exception('Full debug traceback follows')
+            self.exitcode = 1
+            # Stop the state machine right here by not appending a next step.
+        else:
+            self._next.append(self.pre_populate_bootfs_contents)
 
     def pre_populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():

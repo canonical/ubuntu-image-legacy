@@ -958,6 +958,50 @@ class TestClassicBuilder(TestCase):
                 ('IMAGINE THE TRACEBACK HERE'),
                 ])
 
+    def test_live_build_pass_arguments(self):
+        with ExitStack() as resources:
+            argstoenv = {
+                'project': 'PROJECT',
+                'suite': 'SUITE',
+                'arch': 'ARCH',
+                'subproject': 'SUBPROJECT',
+                'subarch': 'SUBARCH',
+                'with_proposed': 'PROPOSED',
+                'extra_ppas': 'EXTRA_PPAS',
+                }
+            kwargs_skel = {
+                'workdir': '/tmp',
+                'output_dir': '/tmp',
+                'hooks_directory': '/tmp',
+                'output': None,
+                'cloud_init': None,
+                'gadget_tree': None,
+                'unpackdir': None,
+                'debug': None,
+                'project': None,
+                'suite': None,
+                'arch': None,
+                'subproject': None,
+                'subarch': None,
+                'with_proposed': None,
+                'extra_ppas': None,
+                }
+            for arg, env in argstoenv.items():
+                kwargs = dict(kwargs_skel)
+                kwargs[arg] = 'test'
+                args = SimpleNamespace(**kwargs)
+                # Jump right to the method under test.
+                state = resources.enter_context(XXXClassicBuilder(args))
+                state._next.pop()
+                state._next.append(state.prepare_image)
+                mock = resources.enter_context(patch(
+                    'ubuntu_image.classic_builder.live_build'))
+                next(state)
+                self.assertEqual(len(mock.call_args_list), 1)
+                posargs, kwargs = mock.call_args_list[0]
+                self.assertIn(env, posargs[1])
+                self.assertEqual(posargs[1][env], 'test')
+
     def test_generate_manifests_exclude(self):
         # This is not a full test of the manifest generation process as this
         # requires more preparation.  Here we try to see if deprecated words
