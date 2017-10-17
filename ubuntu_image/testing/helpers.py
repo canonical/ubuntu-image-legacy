@@ -79,6 +79,11 @@ class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):
 
 
 class EarlyExitLeaveATraceClassicBuilder(XXXClassicBuilder):
+    def prepare_gadget_tree(self):
+        # We're skipping the gadget tree build as we're leaving early and will
+        # not use it for the tests.
+        self._next.append(self.prepare_image)
+
     def prepare_image(self):
         # Similar to above, but leave a trace that this method ran, so that we
         # have something to positively test.
