@@ -1,15 +1,19 @@
 """Test classic image building."""
 
 import os
+import json
 import logging
 
 from contextlib import ExitStack
 # from itertools import product
+from os import stat
 from pkg_resources import resource_filename
+from pwd import getpwuid
 from subprocess import CalledProcessError, PIPE
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from textwrap import dedent
 from types import SimpleNamespace
+from ubuntu_image.helpers import MiB, run
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema)
 from ubuntu_image.testing.helpers import (
@@ -958,6 +962,99 @@ class TestClassicBuilder(TestCase):
                 ('IMAGINE THE TRACEBACK HERE'),
                 ])
 
+    def test_make_disk_with_proper_file_owner(self):
+        # Write all the parts to the disk at the proper offset.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=outputdir,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                gadget_tree=self.gadget_tree,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXClassicBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.rootfs_size = MiB(1)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part2 = SimpleNamespace(
+                name='gamma',
+                type='mbr',
+                role=StructureRole.mbr,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part3 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=state.rootfs_size,
+                offset=MiB(5),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order.
+                structures=[part2, part3],
+                schema=VolumeSchema.gpt,
+                image_size=MiB(10),
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part2_img = os.path.join(state.images, 'part2.img')
+            with open(part2_img, 'wb') as fp:
+                fp.write(b'\3' * 13)
+            root_img = os.path.join(state.images, 'part3.img')
+            with open(root_img, 'wb') as fp:
+                fp.write(b'\4' * 14)
+            prep_state(state, workdir,
+                       [part2_img, root_img])
+            # Mock out the SUDO_USER by using the login user(USER)
+            # to ease the test.
+            resources.enter_context(
+                    patch.dict(os.environ, {'SUDO_USER': os.environ['USER']}))
+            # Create the disk.
+            next(state)
+            # Verify some parts of the disk.img's content.  First, that we've
+            # written the part offsets at the right place.y
+            disk_img = os.path.join(outputdir, 'volume1.img')
+            with open(disk_img, 'rb') as fp:
+                # Part 2's image is an MBR so it must live at offset 0.
+                fp.seek(0)
+                self.assertEqual(fp.read(15), b'\3' * 13 + b'\0' * 2)
+                # The root file system lives at the end, which in this case is
+                # at the 5MiB location (e.g. the farthest out non-mbr
+                # partition is at 4MiB and has 1MiB in size.
+                fp.seek(MiB(5))
+                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
+            # Verify the disk image's partition table.
+            proc = run('sfdisk --json {}'.format(disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'] if 'name' in part else None, part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            self.assertEqual(partitions[0], ('writable', 10240))
+            # check the file's owner
+            file_owner = getpwuid(stat(disk_img).st_uid).pw_name
+            self.assertTrue(os.environ['SUDO_USER'], file_owner)
+
     def test_generate_manifests_exclude(self):
         # This is not a full test of the manifest generation process as this
         # requires more preparation.  Here we try to see if deprecated words
@@ -989,6 +1086,10 @@ class TestClassicBuilder(TestCase):
             state = resources.enter_context(XXXClassicBuilder(args))
             state._next.pop()
             state._next.append(state.generate_manifests)
+            # Mock out the SUDO_USER by using the login user(USER)
+            # to ease the test.
+            resources.enter_context(
+                    patch.dict(os.environ, {'SUDO_USER': os.environ['USER']}))
             # Set up expected state.
             state.rootfs = os.path.join(workdir, 'root')
             test_output = dedent("""\
@@ -1000,15 +1101,21 @@ class TestClassicBuilder(TestCase):
                                  """)
 
             def run_script(command, *, check=True, **args):
-                stdout = args.pop('stdout', PIPE)
-                stdout.write(test_output)
-                stdout.flush()
+                if 'chroot' in command:
+                    stdout = args.pop('stdout', PIPE)
+                    stdout.write(test_output)
+                    stdout.flush()
+                else:
+                    pass
             resources.enter_context(patch(
                 'ubuntu_image.classic_builder.run',
                 side_effect=run_script))
             next(state)
             manifest_path = os.path.join(outputdir, 'filesystem.manifest')
             self.assertTrue(os.path.exists(manifest_path))
+            # check the file's owner
+            file_owner = getpwuid(stat(manifest_path).st_uid).pw_name
+            self.assertTrue(os.environ['SUDO_USER'], file_owner)
             with open(manifest_path) as f:
                 self.assertEqual(
                     f.read(),

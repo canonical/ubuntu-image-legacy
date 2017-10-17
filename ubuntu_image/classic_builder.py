@@ -192,6 +192,12 @@ class ClassicBuilder(AbstractImageBuilderState):
             self._populate_one_bootfs(name, volume)
         super().populate_bootfs_contents()
 
+    def make_disk(self):
+        super().make_disk()
+        user = os.environ['SUDO_USER']
+        run('chown {}:{} {}/*.img'.format(user, user, self.output_dir),
+            shell=True, check=False)
+
     def generate_manifests(self):
         # After the images are built, we would also like to have some image
         # manifests exported so that one can easily check what packages have
@@ -212,4 +218,7 @@ class ClassicBuilder(AbstractImageBuilderState):
                 for line in tmpfile:
                     if not any(word in line for word in deprecated_words):
                         manifest.write(line)
+        user = os.environ['SUDO_USER']
+        run('chown {}:{} {}'.format(user, user, manifest_path),
+            check=False)
         super().generate_manifests()
