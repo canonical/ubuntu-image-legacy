@@ -90,7 +90,7 @@ class ClassicBuilder(AbstractImageBuilderState):
             if self.args.extra_ppas is not None:
                 env['EXTRA_PPAS'] = self.args.extra_ppas
             # Only genereate a single rootfs tree for classic image creation.
-            env['GENERATE_ROOTFS_ONLY'] = '1'
+            env['IMAGEFORMAT'] = 'none'
             live_build(self.unpackdir, env)
         except CalledProcessError:
             if self.args.debug:
