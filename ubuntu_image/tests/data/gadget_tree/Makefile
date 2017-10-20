@@ -57,7 +57,7 @@ GRUB_MODULES = \
 all:
 	dd if=$(SNAPCRAFT_STAGE)/usr/lib/grub/i386-pc/boot.img of=pc-boot.img bs=440 count=1
 	/bin/echo -n -e '\x90\x90' | dd of=pc-boot.img seek=102 bs=1 conv=notrunc
-	grub-mkimage -O i386-pc -o pc-core.img -p '(,gpt2)/EFI/ubuntu' $(GRUB_MODULES)
+	grub-mkimage -d $(SNAPCRAFT_STAGE)/usr/lib/grub/i386-pc/ -O i386-pc -o pc-core.img -p '(,gpt2)/EFI/ubuntu' $(GRUB_MODULES)
 	# The first sector of the core image requires an absolute pointer to the
 	# second sector of the image.  Since this is always hard-coded, it means our
 	# BIOS boot partition must be defined with an absolute offset.  The
