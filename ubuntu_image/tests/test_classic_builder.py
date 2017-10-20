@@ -126,7 +126,7 @@ class TestClassicBuilder(TestCase):
         gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
         state.run_thru('prepare_gadget_tree')
         files = [
-            '{gadget_dir}/grub.cfg',
+            '{gadget_dir}/grub-cpc.cfg',
             '{gadget_dir}/grubx64.efi',
             '{gadget_dir}/pc-boot.img',
             '{gadget_dir}/pc-core.img',
