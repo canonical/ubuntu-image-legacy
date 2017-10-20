@@ -120,13 +120,13 @@ class TestClassicBuilder(TestCase):
             with_with_proposed=None,
             extra_ppas=None,
             hooks_directory=[],
-            gadget_tree='https://github.com/adglkh/pc-amd64-gadget-cpc',
+            gadget_tree='https://github.com/sil2100/pc-amd64-gadget',
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
         gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
         state.run_thru('prepare_gadget_tree')
         files = [
-            '{gadget_dir}/grub-cpc.cfg',
+            '{gadget_dir}/grub.cfg',
             '{gadget_dir}/grubx64.efi',
             '{gadget_dir}/pc-boot.img',
             '{gadget_dir}/pc-core.img',
