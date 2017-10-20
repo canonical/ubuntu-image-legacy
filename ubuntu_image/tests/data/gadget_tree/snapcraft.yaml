@@ -9,11 +9,17 @@ confinement: strict
 icon: icon.png
 
 parts:
-  grub:
-    source: .
-    plugin: make
-    build-packages:
+  grub-prepare:
+    plugin: nil
+    stage-packages:
       - grub-efi-amd64-signed
       - grub-pc-bin
       - shim-signed
-        
+    prime: [ -* ]
+  grub:
+    source: .
+    build-packages:
+      - grub-common
+    plugin: make
+    after: [grub-prepare]
+
