@@ -323,7 +323,7 @@ def main(argv=None):
         # classic image builds.
         if args.resume:
             with open(pickle_file, 'rb') as fp:
-                state_machine = load(fp)
+                state_machine = load(fp)         # pragma: no branch
             state_machine.workdir = args.workdir
         elif args.cmd == 'snap':
             state_machine = ModelAssertionBuilder(args)
