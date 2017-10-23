@@ -1,6 +1,7 @@
 """Test the helpers."""
 
 import os
+import re
 import errno
 import logging
 
@@ -12,8 +13,8 @@ from subprocess import run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
-     GiB, MiB, as_bool, as_size,
-     get_host_arch, get_host_distro, live_build,
+     GiB, MiB, PrivilegeError, as_bool, as_size,
+     check_root_privilege, get_host_arch, get_host_distro, live_build,
      mkfs_ext4, run, snap, sparse_copy)
 from ubuntu_image.testing.helpers import (
      LiveBuildMocker, LogCapture)
@@ -66,6 +67,7 @@ class MountMocker:
     def __init__(self, results_dir):
         self.mountpoint = None
         self.results_dir = results_dir
+        self.preserves_ownership = False
 
     def run(self, command, *args, **kws):
         if 'mkfs.ext4' in command:
@@ -93,6 +95,11 @@ class MountMocker:
             # above, copy the entire contents of the mount point directory to
             # a results tempdir that we can check below for a passing grade.
             copytree(self.mountpoint, self.results_dir)
+            # We also want to somehow test if, when requested, the cp call has
+            # the --preserve=ownership flag present.  There's no other nice
+            # way of mocking this as everything else would require root.
+            if re.search(r'--preserve=[^ ]*ownership', command):
+                self.preserves_ownership = True
 
 
 class TestHelpers(TestCase):
@@ -337,3 +344,42 @@ class TestHelpers(TestCase):
             # the mock's shutil.copytree() was also never called, therefore
             # the results_dir was never created.
             self.assertFalse(os.path.exists(results_dir))
+
+    def test_mkfs_ext4_preserve_ownership(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            results_dir = os.path.join(tmpdir, 'results')
+            mock = MountMocker(results_dir)
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            # Create a temporary directory and populate it with some stuff.
+            contents_dir = resources.enter_context(TemporaryDirectory())
+            with open(os.path.join(contents_dir, 'a.dat'), 'wb') as fp:
+                fp.write(b'01234')
+            # And a fake image file.
+            img_file = resources.enter_context(NamedTemporaryFile())
+            mkfs_ext4(img_file, contents_dir, preserve_ownership=True)
+            with open(os.path.join(mock.results_dir, 'a.dat'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'01234')
+            self.assertTrue(mock.preserves_ownership)
+
+    def test_check_root_privilege(self):
+        with ExitStack() as resources:
+            mock_geteuid = resources.enter_context(
+                patch('os.geteuid', return_value=0))
+            resources.enter_context(
+                patch('pwd.getpwuid', return_value=['test']))
+            check_root_privilege()
+            mock_geteuid.assert_called_with()
+
+    def test_check_root_privilege_non_root(self):
+        with ExitStack() as resources:
+            mock_geteuid = resources.enter_context(
+                patch('os.geteuid', return_value=1))
+            resources.enter_context(
+                patch('pwd.getpwuid', return_value=['test']))
+            with self.assertRaises(PrivilegeError) as cm:
+                check_root_privilege()
+            mock_geteuid.assert_called_with()
+            self.assertEqual(
+                cm.exception.user_name, 'test')

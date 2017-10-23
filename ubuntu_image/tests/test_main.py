@@ -17,8 +17,9 @@ from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.hooks import supported_hooks
 from ubuntu_image.testing.helpers import (
     CrashingModelAssertionBuilder, DoNothingBuilder,
-    EarlyExitLeaveATraceAssertionBuilder, EarlyExitModelAssertionBuilder,
-    LogCapture, XXXModelAssertionBuilder, envar)
+    EarlyExitLeaveATraceAssertionBuilder, EarlyExitLeaveATraceClassicBuilder,
+    EarlyExitModelAssertionBuilder, LogCapture, XXXModelAssertionBuilder,
+    envar)
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
@@ -313,7 +314,7 @@ class TestMain(TestCase):
               lines[0])
 
 
-class TestMainWithModel(TestCase):
+class TestMainWithGadget(TestCase):
     def setUp(self):
         super().setUp()
         self._resources = ExitStack()
@@ -331,6 +332,8 @@ class TestMainWithModel(TestCase):
             patch('ubuntu_image.__main__.logging.basicConfig'))
         self.model_assertion = resource_filename(
             'ubuntu_image.tests.data', 'model.assertion')
+        self.classic_gadget_tree = resource_filename(
+            'ubuntu_image.tests.data', 'gadget_tree')
 
     def test_output_without_subcommand(self):
         self._resources.enter_context(patch(
@@ -456,6 +459,16 @@ class TestMainWithModel(TestCase):
             main(('--resume',))
         self.assertEqual(cm.exception.code, 2)
 
+    def test_resume_and_gadget_tree(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('classic', '--resume', self.classic_gadget_tree))
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_no_resume_and_no_gadget_tree(self):
+        with self.assertRaises(SystemExit) as cm:
+            main(('classic', '--until', 'whatever'))
+        self.assertEqual(cm.exception.code, 2)
+
     @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
             'Cannot run this test without network access')
     def test_save_resume(self):
@@ -506,7 +519,7 @@ class TestMainWithModel(TestCase):
         self.assertEqual(
             pickle_state['state'], ['populate_rootfs_contents_hooks'])
 
-    def test_resume_loads_pickle(self):
+    def test_resume_loads_pickle_snap(self):
         workdir = self._resources.enter_context(TemporaryDirectory())
         self._resources.enter_context(patch(
             'ubuntu_image.__main__.ModelAssertionBuilder',
@@ -514,6 +527,20 @@ class TestMainWithModel(TestCase):
         main(('snap', '--until', 'prepare_image',
               '--workdir', workdir,
               self.model_assertion))
+        self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
+        main(('--workdir', workdir, '--resume'))
+        self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))
+
+    def test_resume_loads_pickle_classic(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ClassicBuilder',
+            EarlyExitLeaveATraceClassicBuilder))
+        self._resources.enter_context(
+            patch('ubuntu_image.classic_builder.check_root_privilege'))
+        main(('classic', '--until', 'prepare_image',
+              '--workdir', workdir,
+              self.classic_gadget_tree))
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
         main(('--workdir', workdir, '--resume'))
         self.assertTrue(os.path.exists(os.path.join(workdir, 'success')))
@@ -538,6 +565,26 @@ class TestMainWithModel(TestCase):
             mock.call_args_list[-1],
             call('Volume contents do not fit (72B over): '
                  'volumes:<pc>:structure:<mbr> [#0]'))
+
+    def test_classic_not_privileged(self):
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ClassicBuilder',
+            EarlyExitLeaveATraceClassicBuilder))
+        self._resources.enter_context(
+            patch('os.geteuid', return_value=1))
+        self._resources.enter_context(
+            patch('pwd.getpwuid', return_value=['test']))
+        mock = self._resources.enter_context(patch(
+            'ubuntu_image.__main__._logger.error'))
+        code = main(('classic', '--workdir', workdir,
+                     self.classic_gadget_tree))
+        self.assertEqual(code, 1)
+        self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
+        self.assertEqual(
+            mock.call_args_list[-1],
+            call('Current user(test) does not have root privilege to build '
+                 'classic image. Please run ubuntu-image as root.'))
 
     def test_hook_fired(self):
         # For the purpose of testing, we will be using the post-populate-rootfs
@@ -680,7 +727,7 @@ class TestMainWithBadGadget(TestCase):
               self.model_assertion))
         self.assertEqual(log.logs, [
             (logging.ERROR, 'uncaught exception in state machine step: '
-                            '[2] load_gadget_yaml'),
+                            '[3] load_gadget_yaml'),
             'IMAGINE THE TRACEBACK HERE',
             (logging.ERROR, 'gadget.yaml parse error'),
             'IMAGINE THE TRACEBACK HERE',
