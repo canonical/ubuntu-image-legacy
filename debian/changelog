@@ -3,6 +3,8 @@ ubuntu-image (1.2+17.10ubuntu1) UNRELEASED; urgency=medium
   [ Łukasz 'sil2100' Zemczak ]
   * Add a generic hook mechanism and add our first supported snap-image hook:
     post-populate-rootfs.  (LP: #1672436)
+  * Document the newly added hook API in the ubuntu-image manpage.
+    (LP: #1715849)
   * Make sure ubuntu-image has 100% code-coverage after getting the classic image
     support added.
 
