@@ -184,6 +184,33 @@ class TestParseArgs(TestCase):
         self.assertListEqual(
             args.hooks_directory, ['/foo/bar', '/foo/baz', '~/bar'])
 
+    def test_classic_gadget_tree_required(self):
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['classic'])
+        line = stderr.getvalue()
+        self.assertIn('gadget tree is required', line)
+
+    def test_classic_project_required(self):
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['classic', 'tree_url'])
+        line = stderr.getvalue()
+        self.assertIn('project is required', line)
+
+    def test_classic_resume_gadget_tree(self):
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['classic', '--resume', 'tree_url'])
+        line = stderr.getvalue()
+        self.assertIn('gadget tree is not allowed with --resume', line)
+
 
 class TestMain(TestCase):
     def setUp(self):
@@ -540,6 +567,7 @@ class TestMainWithGadget(TestCase):
             patch('ubuntu_image.classic_builder.check_root_privilege'))
         main(('classic', '--until', 'prepare_image',
               '--workdir', workdir,
+              '--project', 'ubuntu-cpc',
               self.classic_gadget_tree))
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
         main(('--workdir', workdir, '--resume'))
@@ -578,6 +606,7 @@ class TestMainWithGadget(TestCase):
         mock = self._resources.enter_context(patch(
             'ubuntu_image.__main__._logger.error'))
         code = main(('classic', '--workdir', workdir,
+                     '--project', 'ubuntu-cpc',
                      self.classic_gadget_tree))
         self.assertEqual(code, 1)
         self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
