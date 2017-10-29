@@ -243,11 +243,11 @@ def parseargs(argv=None):
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
         help=_("""Gadget tree.  This is a tree equivalent to an unpacked
-        gadget snap at core image build time. It could be either a local
+        gadget snap at core image build time.  It could be either a local
         snap project or a snap-based git repository."""))
     classic_cmd.add_argument(
         '-p', '--project',
-        default='ubuntu-cpc', metavar='PROJECT',
+        default=None, metavar='PROJECT',
         help=_("""Project name to be specified to livecd-rootfs."""))
     classic_cmd.add_argument(
         '-s', '--suite',
@@ -290,8 +290,11 @@ def parseargs(argv=None):
     else:
         if args.resume and args.gadget_tree:
             parser.error('gadget tree is not allowed with --resume')
-        if not args.resume and args.gadget_tree is None:
-            parser.error('gadget tree is required')
+        if not args.resume:   # pragma: no branch
+            if args.gadget_tree is None:
+                parser.error('gadget tree is required')
+            elif args.project is None:
+                parser.error('project is required')
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
     # --until and --thru can take an int.
