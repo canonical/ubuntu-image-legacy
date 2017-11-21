@@ -1,4 +1,4 @@
-ubuntu-image (1.2+17.10ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (1.2+18.04ubuntu1) bionic; urgency=medium
 
   [ Łukasz 'sil2100' Zemczak ]
   * Add a generic hook mechanism and add our first supported snap-image hook:
