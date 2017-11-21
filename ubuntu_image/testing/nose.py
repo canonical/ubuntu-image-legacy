@@ -49,7 +49,8 @@ def mock_run(command, *, check=True, **args):
 class MockerBase:
     def __init__(self, tmpdir):
         self._tmpdir = tmpdir
-        self.patcher = patch('ubuntu_image.builder.snap', self.snap_mock)
+        self.patcher = patch(
+            'ubuntu_image.assertion_builder.snap', self.snap_mock)
 
     def snap_mock(self, model_assertion, root_dir,
                   channel=None, extra_snaps=None):

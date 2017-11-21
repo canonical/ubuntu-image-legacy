@@ -12,8 +12,7 @@ from struct import unpack
 from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
-from ubuntu_image.builder import DoesNotFit
-from ubuntu_image.helpers import MiB, run
+from ubuntu_image.helpers import DoesNotFit, MiB, run
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema)
 from ubuntu_image.testing.helpers import (
@@ -78,6 +77,7 @@ class TestModelAssertionBuilder(TestCase):
             output=output.name,
             output_dir=None,
             workdir=None,
+            hooks_directory=[],
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
         state.run_thru('populate_bootfs_contents')
@@ -142,6 +142,7 @@ class TestModelAssertionBuilder(TestCase):
                 output=None,
                 output_dir=None,
                 workdir=None,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -179,6 +180,7 @@ class TestModelAssertionBuilder(TestCase):
                 output=None,
                 output_dir=None,
                 workdir=None,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -215,6 +217,7 @@ class TestModelAssertionBuilder(TestCase):
                 output=None,
                 output_dir=None,
                 workdir=None,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -261,6 +264,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -319,6 +323,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -363,6 +368,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -438,6 +444,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -486,6 +493,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -544,7 +552,8 @@ class TestModelAssertionBuilder(TestCase):
                 fp.write(b'\4' * 11)
             # Mock out the mkfs.ext4 call, and we'll just test the contents
             # directory (i.e. what would go in the ext4 file system).
-            resources.enter_context(patch('ubuntu_image.builder.mkfs_ext4'))
+            resources.enter_context(
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
             next(state)
             # Check the contents of the part0 image file.
             with open(part0_img, 'rb') as fp:
@@ -574,6 +583,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -612,7 +622,7 @@ class TestModelAssertionBuilder(TestCase):
             # Mock out the mkfs.ext4 call, and we'll just test the contents
             # directory (i.e. what would go in the ext4 file system).
             mock = resources.enter_context(
-                patch('ubuntu_image.builder.mkfs_ext4'))
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
             next(state)
             # Check that mkfs.ext4 got called with the expected values.  It
             # actually got called twice, but it's only the first call
@@ -639,6 +649,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -695,6 +706,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -717,7 +729,7 @@ class TestModelAssertionBuilder(TestCase):
             prep_state(state, workdir)
             # Set up the short-circuit.
             mock = resources.enter_context(
-                patch('ubuntu_image.builder.Image',
+                patch('ubuntu_image.common_builder.Image',
                       side_effect=RuntimeError))
             # Don't blat to stderr.
             resources.enter_context(patch('ubuntu_image.state.log'))
@@ -743,6 +755,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -869,6 +882,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -953,6 +967,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1081,6 +1096,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1149,6 +1165,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1227,6 +1244,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1279,6 +1297,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1313,7 +1332,8 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             # Mock the run() call to prove that we never call dd.
-            mock = resources.enter_context(patch('ubuntu_image.builder.run'))
+            mock = resources.enter_context(
+                patch('ubuntu_image.common_builder.run'))
             next(state)
             # There should be only one call to run() and that's for the dd.
             self.assertEqual(len(mock.call_args_list), 1)
@@ -1334,6 +1354,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1383,6 +1404,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1432,6 +1454,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1483,6 +1506,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1517,7 +1541,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             self.assertEqual(state.gadget.volumes['volume1'].image_size,
                              2114560)
@@ -1547,6 +1571,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1603,7 +1628,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             # The actual image size is 6MiB + 17KiB.  The former value comes
             # from the farthest out structure (part1 at offset 4MiB + 1MiB
@@ -1632,6 +1657,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1666,7 +1692,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             self.assertEqual(state.gadget.volumes['volume1'].image_size,
                              2114560)
@@ -1688,6 +1714,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1722,7 +1749,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             self.assertEqual(state.gadget.volumes['volume1'].image_size,
                              2114560)
@@ -1752,6 +1779,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 unpackdir=unpackdir,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1830,6 +1858,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1864,7 +1893,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             posargs, kwargs = mock.call_args_list[0]
             self.assertEqual(
@@ -1886,6 +1915,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1950,6 +1980,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2015,6 +2046,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 unpackdir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2088,6 +2120,7 @@ class TestModelAssertionBuilder(TestCase):
                 output=None,
                 output_dir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2136,6 +2169,7 @@ class TestModelAssertionBuilder(TestCase):
                 output=None,
                 output_dir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2164,6 +2198,81 @@ class TestModelAssertionBuilder(TestCase):
                 ('IMAGINE THE TRACEBACK HERE'),
                 ])
 
+    def test_du_command_fails(self):
+        with ExitStack() as resources:
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=False,
+                extra_snaps=[],
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.rootfs = '/tmp'
+            state._next.pop()
+            state._next.append(state.calculate_rootfs_size)
+            resources.enter_context(patch(
+                'ubuntu_image.helpers.subprocess_run',
+                return_value=SimpleNamespace(
+                    returncode=1,
+                    stdout='command stdout',
+                    stderr='command stderr',
+                    check_returncode=check_returncode,
+                    )))
+            log_capture = resources.enter_context(LogCapture())
+            next(state)
+            self.assertEqual(state.exitcode, 1)
+            # Note that there is no traceback in the output.
+            self.assertEqual(log_capture.logs, [
+                (logging.ERROR, 'COMMAND FAILED: du -s -B1 /tmp'),
+                (logging.ERROR, 'command stdout'),
+                (logging.ERROR, 'command stderr'),
+                ])
+
+    def test_du_command_fails_debug(self):
+        with ExitStack() as resources:
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=True,
+                extra_snaps=[],
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.rootfs = '/tmp'
+            state._next.pop()
+            state._next.append(state.calculate_rootfs_size)
+            resources.enter_context(patch(
+                'ubuntu_image.helpers.subprocess_run',
+                return_value=SimpleNamespace(
+                    returncode=1,
+                    stdout='command stdout',
+                    stderr='command stderr',
+                    check_returncode=check_returncode,
+                    )))
+            log_capture = resources.enter_context(LogCapture())
+            next(state)
+            self.assertEqual(state.exitcode, 1)
+            self.assertEqual(log_capture.logs, [
+                (logging.ERROR, 'COMMAND FAILED: du -s -B1 /tmp'),
+                (logging.ERROR, 'command stdout'),
+                (logging.ERROR, 'command stderr'),
+                (logging.ERROR, 'Full debug traceback follows'),
+                ('IMAGINE THE TRACEBACK HERE'),
+                ])
+
     def test_multivolume_dash_o(self):
         # -o/--output is ignored when multiple volumes are specified in the
         # gadget.yaml file.  When -O/--output-dir is also not given, then the
@@ -2172,7 +2281,7 @@ class TestModelAssertionBuilder(TestCase):
             outputdir = resources.enter_context(TemporaryDirectory())
             disk_img = os.path.join(outputdir, 'disk.img')
             getcwd_mock = resources.enter_context(
-                patch('ubuntu_image.builder.os.getcwd'))
+                patch('ubuntu_image.assertion_builder.os.getcwd'))
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
@@ -2181,6 +2290,7 @@ class TestModelAssertionBuilder(TestCase):
                 output=disk_img,
                 output_dir=outputdir,
                 workdir=None,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -2191,7 +2301,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             resources.enter_context(patch.object(state, '_make_one_disk'))
             log_mock = resources.enter_context(
-                patch('ubuntu_image.builder._logger.warning'))
+                patch('ubuntu_image.assertion_builder._logger.warning'))
             next(state)
             posargs, kwargs = log_mock.call_args_list[0]
             self.assertEqual(
@@ -2207,7 +2317,7 @@ class TestModelAssertionBuilder(TestCase):
         with ExitStack() as resources:
             cwd = resources.enter_context(TemporaryDirectory())
             getcwd_mock = resources.enter_context(
-                patch('ubuntu_image.builder.os.getcwd',
+                patch('ubuntu_image.assertion_builder.os.getcwd',
                       return_value=cwd))
             args = SimpleNamespace(
                 channel='edge',
@@ -2217,6 +2327,7 @@ class TestModelAssertionBuilder(TestCase):
                 output=None,
                 output_dir=None,
                 workdir=None,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -2240,6 +2351,7 @@ class TestModelAssertionBuilder(TestCase):
                 output=None,
                 output_dir=None,
                 workdir=workdir,
+                hooks_directory=[],
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state.unpackdir = resources.enter_context(TemporaryDirectory())

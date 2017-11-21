@@ -11,3 +11,5 @@ stage
 coverage.xml
 diffcov.html
 demo/model.assertion
+*.model
+.tox

@@ -2,12 +2,16 @@
 
 import os
 import re
+import pwd
+import shutil
 import logging
+import contextlib
 
 from contextlib import ExitStack, contextmanager
 from parted import Device
 from subprocess import PIPE, run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from ubuntu_image.state import ExpectedError
 
 
 __all__ = [
@@ -78,6 +82,16 @@ def as_size(size, min=0, max=None):
     return value
 
 
+def get_host_arch():
+    proc = run('dpkg --print-architecture', check=False)
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def get_host_distro():
+    proc = run('lsb_release -c -s', check=False)
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
 def run(command, *, check=True, **args):
     runnable_command = (
         command.split() if isinstance(command, str) and 'shell' not in args
@@ -117,6 +131,36 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
     run(cmd, stdout=None, stderr=None, env=os.environ)
 
 
+def live_build(root_dir, env):
+    """live_build for generating a single rootfs from ubuntu archive.
+
+    This method call external command to generate a single rootfs
+    with the build scripts provided by livecd-rootfs.
+    """
+    # First, setup the build tools and workspace.
+    # query the system to locate livecd-rootfs auto script installation path
+    proc = run('dpkg -L livecd-rootfs | grep "auto$"', shell=True,
+               env=os.environ)
+    auto_src = proc.stdout.strip()
+    auto_dst = os.path.join(root_dir, 'auto')
+    shutil.copytree(auto_src, auto_dst)
+    # Create the commands and run config and build steps.
+    with save_cwd():
+        os.chdir(root_dir)
+        # Environment variables list
+        env_list = ['%s=%s' % (key, value) for (key, value) in env.items()]
+        # Config
+        config_cmd = ['sudo']
+        config_cmd.extend(env_list)
+        config_cmd.extend(['lb', 'config'])
+        run(config_cmd, stdout=None, stderr=None, env=os.environ)
+        # Build
+        build_cmd = ['sudo']
+        build_cmd.extend(env_list)
+        build_cmd.extend(['lb', 'build'])
+        run(build_cmd, stdout=None, stderr=None, env=os.environ)
+
+
 def sparse_copy(src, dst, *, follow_symlinks=True):
     args = ['cp', '--sparse=always', src, dst]
     if not follow_symlinks:
@@ -135,7 +179,8 @@ def mount(img):
         yield mountpoint
 
 
-def mkfs_ext4(img_file, contents_dir, label='writable'):
+def mkfs_ext4(img_file, contents_dir, label='writable',
+              preserve_ownership=False):
     """Encapsulate the `mkfs.ext4` invocation.
 
     As of e2fsprogs 1.43.1, mkfs.ext4 supports a -d option which allows
@@ -157,8 +202,11 @@ def mkfs_ext4(img_file, contents_dir, label='writable'):
         return
     with mount(img_file) as mountpoint:
         # fixme: everything is terrible.
-        run('sudo cp -dR --preserve=mode,timestamps {}/* {}'.format(
-            contents_dir, mountpoint), shell=True)
+        preserve_flags = 'mode,timestamps'
+        if preserve_ownership:
+            preserve_flags += ',ownership'
+        run('sudo cp -dR --preserve={} {}/* {}'.format(
+            preserve_flags, contents_dir, mountpoint), shell=True)
 
 
 def get_default_sector_size():
@@ -168,3 +216,35 @@ def get_default_sector_size():
         os.truncate(fp.name, 0)
         os.truncate(fp.name, MiB(1))
         return Device(fp.name).sectorSize
+
+
+def check_root_privilege():
+    if os.geteuid() != 0:
+        current_user = pwd.getpwuid(os.geteuid())[0]
+        raise PrivilegeError(current_user)
+
+
+@contextlib.contextmanager
+def save_cwd():
+    """Save current working directory and restore it out of context."""
+    curdir = os.getcwd()
+    try:
+        yield
+    finally:
+        os.chdir(curdir)
+
+
+class DoesNotFit(ExpectedError):
+    """A part's content does not fit in the structure."""
+
+    def __init__(self, part_number, part_path, overage):
+        self.part_number = part_number
+        self.part_path = part_path
+        self.overage = overage
+
+
+class PrivilegeError(ExpectedError):
+    """Exception raised whenever this tool has not granted root permission."""
+
+    def __init__(self, user_name):
+        self.user_name = user_name

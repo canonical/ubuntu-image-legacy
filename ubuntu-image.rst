@@ -7,31 +7,32 @@ Generate a bootable disk image
 ------------------------------
 
 :Author: Barry Warsaw <barry@ubuntu.com>
-:Date: 2017-03-13
+:Date: 2017-10-27
 :Copyright: 2016-2017 Canonical Ltd.
-:Version: 1.0
+:Version: 1.2
 :Manual section: 1
 
 
 SYNOPSIS
 ========
 
-ubuntu-image [options] model.assertion
+ubuntu-image snap [options] model.assertion
+
+ubuntu-image classic [options] GADGET_TREE_URI
 
 
 DESCRIPTION
 ===========
 
 ``ubuntu-image`` is a program for generating a variety of bootable disk
-images.  Currently only snap_ based images are supported, but in the future,
-``ubuntu-image`` will support other use cases such as building Ubuntu classic
-images.
+images.  It currently supports building snap_ based and classic preinstalled
+Ubuntu images.
 
-Images are built from a *model assertion*, which is a YAML_ file describing a
-particular combination of core, kernel, and gadget snaps, along with other
-declarations, signed with a digital signature asserting its authenticity.  The
-assets defined in the model assertion uniquely describe the device for which
-the image is built.
+Snap-based images are built from a *model assertion*, which is a YAML_ file
+describing a particular combination of core, kernel, and gadget snaps, along
+with other declarations, signed with a digital signature asserting its
+authenticity.  The assets defined in the model assertion uniquely describe the
+device for which the image is built.
 
 As part of the model assertion, a `gadget snap`_ is specified.  The gadget
 contains a `gadget.yaml`_ file which contains the exact description of the
@@ -45,6 +46,17 @@ prepare-image`` subcommand.  The model assertion file is passed to ``snap
 prepare-image`` which handles downloading the appropriate gadget and any extra
 snaps.  See that command's documentation for additional details.
 
+Classic images are built from a `gadget tree`_ URI.  Currently the URI can be
+either a local path or a git remote URI.  The `gadget tree`_ is nothing more
+than a source tree for a regular `gadget snap`_, containing a `gadget.yaml`_
+file along with all the rules to build the gadget bits.  ``ubuntu-image`` then
+builds all the bootloader bits by running ``snapcraft prime`` on the tree and
+using the resulting binaries during the build process.
+
+The actual rootfs for a classic image is created by ``live-build`` with
+arguments passed as per the optional arguments to ``ubuntu-image``.  The
+``livecd-rootfs`` configuration from the host system is used.
+
 
 OPTIONS
 =======
@@ -54,6 +66,61 @@ OPTIONS
 
 --version
     Show the program's version number and exit.
+
+
+Snap command options
+--------------------
+
+These are the options for defining the contents of snap-based images.  Can only
+be used when the ``ubuntu-image snap`` command is used.
+
+model_assertion
+    Path to the model assertion file.  This positional argument must be given
+    for this mode of operation.
+
+--extra-snaps EXTRA_SNAPS
+    Extra snaps to install. This is passed through to ``snap prepare-image``.
+
+--cloud-init USER-DATA-FILE
+    ``cloud-config`` data to be copied to the image.
+
+-c CHANNEL, --channel CHANNEL
+    The snap channel to use.
+
+
+Classic command options
+-----------------------
+
+These are the options for defining the contents of classic preinstalled Ubuntu
+images.  Can only be used when the ``ubuntu-image classic`` command is used.
+
+GADGET_TREE_URI
+    An URI to the gadget tree to be used to build the image.  This positional
+    argument must be given for this mode of operation.  Can be either a local
+    path or an URL to any valid git branch.
+
+-p PROJECT, --project PROJECT
+    Project name to be passed on to ``livecd-rootfs``.
+
+-s SUITE, --suite SUITE
+    Distribution name to be passed on to ``livecd-rootfs``.
+
+-a CPU-ARCHITECTURE, --arch CPU-ARCHITECTURE
+    CPU architecture to be passed on to ``livecd-rootfs``.  Default value is
+    the architecture of the host.
+
+--subproject SUBPROJECT
+    Sub-project name to be passed on ``livecd-rootfs``.
+
+--subarch SUBARCH
+    Sub-architecture to be passed on to ``livecd-rootfs``.
+
+--with-proposed
+    Defines if the image should be built with -proposed enabled.  This is
+    passed through to ``livecd-rootfs``.
+
+--extra-ppas EXTRA_PPAS
+    Extra ppas to install. This is passed through to ``livecd-rootfs``.
 
 
 Common options
@@ -67,10 +134,6 @@ in this mode of operation.
 The second mode of operation is provided for debugging and testing purposes.
 It allows you to run the internal state machine step by step, and is described
 in more detail below.
-
-model_assertion
-    Path to the model assertion file.  This positional argument must be given
-    for this mode of operation.
 
 -d, --debug
     Enable debugging output.
@@ -118,21 +181,9 @@ model_assertion
     Print to ``FILENAME``, a list of the file system paths to all the disk
     images created by the command, if any.
 
-
-Image content options
----------------------
-
-These are some additional options for defining the contents of snap-based
-images.
-
---extra-snaps EXTRA_SNAPS
-    Extra snaps to install. This is passed through to ``snap prepare-image``.
-
---cloud-init USER-DATA-FILE
-    ``cloud-config`` data to be copied to the image.
-
--c CHANNEL, --channel CHANNEL
-    The snap channel to use.
+--hooks-directory DIRECTORY
+    Path or comma-separated list of paths of directories in which scripts for
+    build-time hooks will be located.
 
 
 State machine options
@@ -182,6 +233,9 @@ gadget.yaml
 model assertion
     https://developer.ubuntu.com/en/snappy/guides/prepare-image/
 
+gadget tree
+    https://github.com/snapcore/pc-amd64-gadget
+
 cloud-config
     https://help.ubuntu.com/community/CloudInit
 
@@ -210,6 +264,31 @@ There are a few other environment variables used for building and testing
 only.
 
 
+HOOKS
+=====
+
+During image build at certain stages of the build process the user can execute
+custom scripts modifying its contents or otherwise affecting the process
+itself.  Whenever a hook is to be fired, the directories as listed in the
+``--hooks-directory`` parameter are scanned for matching scripts.  There can be
+multiple scripts for a specific hook defined.  The ``HookManager`` will first
+look for executable files in ``<hookdir>/<name-of-the-hook>.d`` and execute
+them in an alphanumerical order.  Finally the ``<hookdir>/<name-of-the-hook>``
+file is executed if existing.
+
+Hook scripts can have various additional data passed onto them through
+environment variables depending on the hook being fired.
+
+Currently supported hooks:
+
+post-populate-rootfs
+    Executed after the rootfs directory has been populated, allowing
+    custom modification of its contents.  Added in version 1.2.  Environment
+    variables present:
+        ``UBUNTU_IMAGE_HOOK_ROOTFS``
+            Includes the absolute path to the rootfs contents.
+
+
 SEE ALSO
 ========
 
@@ -227,4 +306,5 @@ FOOTNOTES
 .. _snap: http://snapcraft.io/
 .. _YAML: https://developer.ubuntu.com/en/snappy/guides/prepare-image/
 .. _`gadget snap`: https://github.com/snapcore/snapd/wiki/Gadget-snap
+.. _`gadget tree`: Example: https://github.com/snapcore/pc-amd64-gadget
 .. _`gadget.yaml`: https://github.com/snapcore/snapd/wiki/Gadget-snap#gadget.yaml

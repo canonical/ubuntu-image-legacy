@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 1.1+snap3
+version: 1.2+snap1
 grade: stable
 confinement: classic
 
@@ -34,6 +34,7 @@ parts:
       - fakeroot
       - mtools
       - python3-debian
+      - python3-git
       - python3-parted
       - util-linux
     install: |
