@@ -6,8 +6,17 @@ import logging
 
 from contextlib import ExitStack, contextmanager
 from pkg_resources import resource_filename
-from ubuntu_image.builder import ModelAssertionBuilder
+from subprocess import PIPE, run as subprocess_run
+from types import SimpleNamespace
+from ubuntu_image.assertion_builder import ModelAssertionBuilder
+from ubuntu_image.classic_builder import ClassicBuilder
 from unittest.mock import patch
+
+
+DIRS_UNDER_ROOTFS = ['bin', 'boot', 'dev', 'etc', 'home', 'lib',
+                     'lib64', 'media', 'initrd.img', 'mnt', 'opt',
+                     'proc', 'root', 'run', 'sbin', 'snap', 'srv',
+                     'sys', 'tmp', 'usr', 'var', 'vmlinuz']
 
 
 class XXXModelAssertionBuilder(ModelAssertionBuilder):
@@ -21,6 +30,7 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
     def load_gadget_yaml(self):
         gadget_dir = os.path.join(self.unpackdir, 'gadget')
         meta_dir = os.path.join(gadget_dir, 'meta')
+        self.yaml_file_path = os.path.join(meta_dir, 'gadget.yaml')
         os.makedirs(meta_dir, exist_ok=True)
         shutil.copy(
             resource_filename('ubuntu_image.tests.data', self.gadget_yaml),
@@ -32,6 +42,10 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
             resource_filename('ubuntu_image.tests.data', 'shim.efi.signed'),
             os.path.join(gadget_dir, 'shim.efi.signed'))
         super().load_gadget_yaml()
+
+
+class XXXClassicBuilder(ClassicBuilder):
+        pass
 
 
 class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
@@ -50,13 +64,26 @@ class DoNothingBuilder(XXXModelAssertionBuilder):
         self._next.append(self.load_gadget_yaml)
 
     def populate_rootfs_contents(self):
-        self._next.append(self.calculate_rootfs_size)
+        self._next.append(self.populate_rootfs_contents_hooks)
 
     def populate_bootfs_contents(self):
         self._next.append(self.prepare_filesystems)
 
 
 class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):
+    def prepare_image(self):
+        # Similar to above, but leave a trace that this method ran, so that we
+        # have something to positively test.
+        with open(os.path.join(self.workdir, 'success'), 'w'):
+            pass
+
+
+class EarlyExitLeaveATraceClassicBuilder(XXXClassicBuilder):
+    def prepare_gadget_tree(self):
+        # We're skipping the gadget tree build as we're leaving early and will
+        # not use it for the tests.
+        self._next.append(self.prepare_image)
+
     def prepare_image(self):
         # Similar to above, but leave a trace that this method ran, so that we
         # have something to positively test.
@@ -87,6 +114,33 @@ class LogCapture:
         self._resources.close()
         # Don't suppress any exceptions.
         return False
+
+
+class LiveBuildMocker:
+    def __init__(self, root_dir):
+        self.call_args_list = []
+        self.root_dir = root_dir
+
+    def run(self, command, *args, **kws):
+        if ['lb', 'config'] == command[-2:]:
+            self.call_args_list.append(command)
+            return SimpleNamespace(returncode=1)
+        if ['lb', 'build'] == command[-2:]:
+            self.call_args_list.append(command)
+            # Create dummy top-level filesystem layout.
+            chroot_dir = os.path.join(self.root_dir, 'chroot')
+            for dir_name in DIRS_UNDER_ROOTFS:
+                os.makedirs(os.path.join(chroot_dir, dir_name))
+
+            return SimpleNamespace(returncode=1)
+        elif command.startswith('dpkg -L'):
+            stdout = kws.pop('stdout', PIPE)
+            stderr = kws.pop('stderr', PIPE)
+            return subprocess_run(
+                command,
+                stdout=stdout, stderr=stderr,
+                universal_newlines=True,
+                **kws)
 
 
 @contextmanager
