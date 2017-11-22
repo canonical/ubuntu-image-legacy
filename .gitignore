@@ -13,3 +13,5 @@ diffcov.html
 demo/model.assertion
 *.model
 .tox
+snap
+*.snap
