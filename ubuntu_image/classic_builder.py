@@ -50,7 +50,13 @@ class ClassicBuilder(AbstractImageBuilderState):
         try:
             gadget_dst = os.path.join(self.unpackdir, 'gadget_repo')
             if urlparse(self.gadget_tree).scheme != "":
-                git.Repo.clone_from(self.gadget_tree, gadget_dst,
+                segments = self.gadget_tree.split('#')
+                if len(segments) > 2:
+                    raise ValueError('Invalid remote gadget tree: {}'.format(
+                        self.gadget_tree))
+                branch = 'master' if len(segments) == 1 else segments[1]
+                git.Repo.clone_from(segments[0], gadget_dst,
+                                    branch=branch,
                                     progress=GitProgress())
             else:
                 shutil.copytree(self.gadget_tree, gadget_dst)

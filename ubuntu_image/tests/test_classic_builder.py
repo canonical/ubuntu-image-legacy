@@ -142,6 +142,77 @@ class TestClassicBuilder(TestCase):
 
     @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
             'Cannot run this test without network access')
+    def test_prepare_gadget_tree_remotely_with_a_specific_branch(self):
+        # Hosting a project under https://github.com/snapcore instead of
+        # a personal repository sounds more reasonable.
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        args = SimpleNamespace(
+            project='ubuntu-cpc',
+            suite='xenial',
+            arch='amd64',
+            image_format='img',
+            output=None,
+            subproject=None,
+            subarch=None,
+            output_dir=None,
+            workdir=workdir,
+            cloud_init=None,
+            with_with_proposed=None,
+            extra_ppas=None,
+            hooks_directory=[],
+            gadget_tree='https://github.com/adglkh/pc-amd64-gadget-cpc'
+                        '#code_coverage',
+            )
+        state = self._resources.enter_context(XXXClassicBuilder(args))
+        gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
+        state.run_thru('prepare_gadget_tree')
+        files = [
+            '{gadget_dir}/grub-cpc.cfg',
+            '{gadget_dir}/grubx64.efi',
+            '{gadget_dir}/pc-boot.img',
+            '{gadget_dir}/pc-core.img',
+            '{gadget_dir}/shim.efi.signed',
+            '{gadget_dir}/meta/gadget.yaml',
+            ]
+        # Check if all needed bootloader bits are in place.
+        for filename in files:
+            path = filename.format(
+                gadget_dir=gadget_dir,
+                )
+            self.assertTrue(os.path.exists(path), path)
+
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
+    def test_prepare_gadget_tree_remotely_with_an_invalid_url(self):
+        # Hosting a project under https://github.com/snapcore instead of
+        # a personal repository sounds more reasonable.
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        args = SimpleNamespace(
+            project='ubuntu-cpc',
+            suite='xenial',
+            arch='amd64',
+            image_format='img',
+            output=None,
+            subproject=None,
+            subarch=None,
+            output_dir=None,
+            workdir=workdir,
+            cloud_init=None,
+            with_with_proposed=None,
+            extra_ppas=None,
+            hooks_directory=[],
+            gadget_tree='https://github.com/adglkh/pc-amd64-gadget-cpc'
+                        '#code_coverage#extra_bits',
+            )
+        state = self._resources.enter_context(XXXClassicBuilder(args))
+        with self.assertRaises(ValueError) as cm:
+            state.run_thru('prepare_gadget_tree')
+        self.assertEqual(
+            str(cm.exception),
+            'Invalid remote gadget tree: {}'.format(args.gadget_tree))
+
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without network access')
     def test_fs_contents(self):
         # Run the action classic builder through the steps needed to
         # at least call `lb config && lb build`.
