@@ -48,10 +48,10 @@ class ClassicBuilder(AbstractImageBuilderState):
 
     def prepare_gadget_tree(self):
         try:
-            git_ssh_identity_file = os.path.expanduser('~/.ssh/id_rsa')
-            git_ssh_cmd = 'ssh -i {}'.format(git_ssh_identity_file)
             gadget_dst = os.path.join(self.unpackdir, 'gadget_repo')
             if urlparse(self.gadget_tree).scheme != "":
+                git_ssh_identity_file = os.path.expanduser('~/.ssh/id_rsa')
+                git_ssh_cmd = 'ssh -i {}'.format(git_ssh_identity_file)
                 git.Repo.clone_from(self.gadget_tree, gadget_dst,
                                     progress=GitProgress(),
                                     env=dict(GIT_SSH_COMMAND=git_ssh_cmd))
