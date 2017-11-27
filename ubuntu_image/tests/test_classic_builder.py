@@ -56,8 +56,6 @@ class TestClassicBuilder(TestCase):
         self.gadget_tree = resource_filename(
             'ubuntu_image.tests.data', 'gadget_tree')
 
-    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
-            'Cannot run this test without network access')
     def test_prepare_gadget_tree_locally(self):
         # Run the action classic builder through the steps needed to
         # at least call `snapcraft prime`.
@@ -83,7 +81,6 @@ class TestClassicBuilder(TestCase):
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
         gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
-
         state.run_thru('prepare_gadget_tree')
         files = [
             '{gadget_dir}/grub-cpc.cfg',
@@ -100,48 +97,6 @@ class TestClassicBuilder(TestCase):
                 )
             self.assertTrue(os.path.exists(path), path)
 
-    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
-            'Cannot run this test without network access')
-    def test_prepare_gadget_tree_remotely(self):
-        # Hosting a project under https://github.com/snapcore instead of
-        # a personal repository sounds more reasonable.
-        workdir = self._resources.enter_context(TemporaryDirectory())
-        args = SimpleNamespace(
-            project='ubuntu-cpc',
-            suite='xenial',
-            arch='amd64',
-            image_format='img',
-            output=None,
-            subproject=None,
-            subarch=None,
-            output_dir=None,
-            workdir=workdir,
-            cloud_init=None,
-            with_with_proposed=None,
-            extra_ppas=None,
-            hooks_directory=[],
-            gadget_tree='https://github.com/sil2100/pc-amd64-gadget',
-            )
-        state = self._resources.enter_context(XXXClassicBuilder(args))
-        gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
-        state.run_thru('prepare_gadget_tree')
-        files = [
-            '{gadget_dir}/grub-cpc.cfg',
-            '{gadget_dir}/grubx64.efi',
-            '{gadget_dir}/pc-boot.img',
-            '{gadget_dir}/pc-core.img',
-            '{gadget_dir}/shim.efi.signed',
-            '{gadget_dir}/meta/gadget.yaml',
-            ]
-        # Check if all needed bootloader bits are in place.
-        for filename in files:
-            path = filename.format(
-                gadget_dir=gadget_dir,
-                )
-            self.assertTrue(os.path.exists(path), path)
-
-    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
-            'Cannot run this test without network access')
     def test_fs_contents(self):
         # Run the action classic builder through the steps needed to
         # at least call `lb config && lb build`.
@@ -769,100 +724,6 @@ class TestClassicBuilder(TestCase):
                 b'\4' * 11 +
                 # 150 (image size) - 138 (written byte count)
                 b'\0' * 12)
-
-    def test_gadget_priming_command_fails(self):
-        with ExitStack() as resources:
-            workdir = resources.enter_context(TemporaryDirectory())
-            unpackdir = resources.enter_context(TemporaryDirectory())
-            # Fast forward a state machine to the method under test.
-            args = SimpleNamespace(
-                project='ubuntu-cpc',
-                suite='xenial',
-                arch='amd64',
-                image_format='img',
-                unpackdir=unpackdir,
-                workdir=workdir,
-                debug=False,
-                cloud_init=None,
-                output=None,
-                subproject=None,
-                subarch=None,
-                output_dir=None,
-                with_proposed=None,
-                extra_ppas=None,
-                hooks_directory=[],
-                gadget_tree=self.gadget_tree,
-                )
-            # Jump right to the method under test.
-            state = resources.enter_context(XXXClassicBuilder(args))
-            state.unpackdir = unpackdir
-            state._next.pop()
-            state._next.append(state.prepare_gadget_tree)
-            resources.enter_context(patch(
-                'ubuntu_image.helpers.subprocess_run',
-                return_value=SimpleNamespace(
-                    returncode=1,
-                    stdout='command stdout',
-                    stderr='command stderr',
-                    check_returncode=check_returncode,
-                    )))
-            log_capture = resources.enter_context(LogCapture())
-            next(state)
-            self.assertEqual(state.exitcode, 1)
-            # Note that there is no traceback in the output.
-            self.assertEqual(log_capture.logs, [
-                (logging.ERROR, "COMMAND FAILED: ['snapcraft', 'prime']"),
-                (logging.ERROR, 'command stdout'),
-                (logging.ERROR, 'command stderr'),
-                ])
-
-    def test_gadget_priming_command_fails_debug(self):
-        with ExitStack() as resources:
-            workdir = resources.enter_context(TemporaryDirectory())
-            unpackdir = resources.enter_context(TemporaryDirectory())
-            # Fast forward a state machine to the method under test.
-            args = SimpleNamespace(
-                project='ubuntu-cpc',
-                suite='xenial',
-                arch='amd64',
-                image_format='img',
-                unpackdir=unpackdir,
-                workdir=workdir,
-                debug=True,
-                cloud_init=None,
-                output=None,
-                subproject=None,
-                subarch=None,
-                output_dir=None,
-                with_proposed=None,
-                extra_ppas=None,
-                hooks_directory=[],
-                gadget_tree=self.gadget_tree,
-                )
-            # Jump right to the method under test.
-            state = resources.enter_context(XXXClassicBuilder(args))
-            state.unpackdir = unpackdir
-            state._next.pop()
-            state._next.append(state.prepare_gadget_tree)
-            resources.enter_context(patch(
-                'ubuntu_image.helpers.subprocess_run',
-                return_value=SimpleNamespace(
-                    returncode=1,
-                    stdout='command stdout',
-                    stderr='command stderr',
-                    check_returncode=check_returncode,
-                    )))
-            log_capture = resources.enter_context(LogCapture())
-            next(state)
-            self.assertEqual(state.exitcode, 1)
-            # Note that there is traceback in the output now.
-            self.assertEqual(log_capture.logs, [
-                (logging.ERROR, "COMMAND FAILED: ['snapcraft', 'prime']"),
-                (logging.ERROR, 'command stdout'),
-                (logging.ERROR, 'command stderr'),
-                (logging.ERROR, 'Full debug traceback follows'),
-                ('IMAGINE THE TRACEBACK HERE'),
-                ])
 
     def test_live_build_command_fails(self):
         with ExitStack() as resources:
