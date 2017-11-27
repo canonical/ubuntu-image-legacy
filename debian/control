@@ -1,7 +1,7 @@
 Source: ubuntu-image
 Section: utils
 Priority: optional
-Maintainer: Barry Warsaw <barry@ubuntu.com>
+Maintainer: Lukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>
 Build-Depends: debhelper (>= 9),
                dh-python,
                dosfstools,
