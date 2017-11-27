@@ -14,7 +14,7 @@ from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema)
 from ubuntu_image.testing.helpers import (
      DIRS_UNDER_ROOTFS, LiveBuildMocker, LogCapture, XXXClassicBuilder)
-from unittest import TestCase, skipIf
+from unittest import TestCase
 from unittest.mock import patch
 
 

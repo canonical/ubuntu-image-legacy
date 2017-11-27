@@ -9,10 +9,9 @@ from subprocess import CalledProcessError
 from tempfile import gettempdir
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import (
-     check_root_privilege, live_build, run, save_cwd)
+     check_root_privilege, live_build, run)
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole)
-from urllib.parse import urlparse
 
 
 DEFAULT_FS = 'ext4'
