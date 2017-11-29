@@ -125,15 +125,15 @@ class LiveBuildMocker:
         if ['lb', 'config'] == command[-2:]:
             self.call_args_list.append(command)
             return SimpleNamespace(returncode=1)
-        if ['lb', 'build'] == command[-2:]:
+        elif ['lb', 'build'] == command[-2:]:
             self.call_args_list.append(command)
             # Create dummy top-level filesystem layout.
             chroot_dir = os.path.join(self.root_dir, 'chroot')
             for dir_name in DIRS_UNDER_ROOTFS:
                 os.makedirs(os.path.join(chroot_dir, dir_name))
-
             return SimpleNamespace(returncode=1)
         elif command.startswith('dpkg -L'):
+            self.call_args_list.append(command)
             stdout = kws.pop('stdout', PIPE)
             stderr = kws.pop('stderr', PIPE)
             return subprocess_run(

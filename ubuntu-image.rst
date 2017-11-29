@@ -259,6 +259,13 @@ The following environment variables are recognized by ``ubuntu-image``.
     ``<workdir>/unpack`` directory after the ``snap prepare-image`` subcommand
     has run will be copied here.
 
+``UBUNTU_IMAGE_LIVECD_ROOTFS_AUTO_PATH``
+    ``ubuntu-image`` uses ``livecd-rootfs`` configuration files for its
+    ``live-build`` runs.  If this variable is set, ``ubuntu-image`` will use
+    the configuration files from the selected path for its auto configuration.
+    Otherwise it will attempt to localize ``livecd-rootfs`` through a call to
+    ``dpkg``.
+
 There are a few other environment variables used for building and testing
 only.
 

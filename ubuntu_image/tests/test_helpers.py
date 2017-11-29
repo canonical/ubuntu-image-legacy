@@ -17,7 +17,7 @@ from ubuntu_image.helpers import (
      check_root_privilege, get_host_arch, get_host_distro, live_build,
      mkfs_ext4, run, snap, sparse_copy)
 from ubuntu_image.testing.helpers import (
-     LiveBuildMocker, LogCapture)
+     LiveBuildMocker, LogCapture, envar)
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -259,14 +259,14 @@ class TestHelpers(TestCase):
             env['SUITE'] = 'xenial'
             env['ARCH'] = 'amd64'
             live_build(root_dir, env)
-            self.assertEqual(len(mock.call_args_list), 2)
+            self.assertEqual(len(mock.call_args_list), 3)
             self.assertEqual(
-                mock.call_args_list[0],
+                mock.call_args_list[1],
                 ['sudo',
                  'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=amd64',
                  'lb', 'config'])
             self.assertEqual(
-                mock.call_args_list[1],
+                mock.call_args_list[2],
                 ['sudo',
                  'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=amd64',
                  'lb', 'build'])
@@ -289,21 +289,57 @@ class TestHelpers(TestCase):
             env['IMAGEFORMAT'] = 'ext4'
             env['EXTRA_PPAS'] = 'foo1/bar1 foo2'
             live_build(root_dir, env)
-            self.assertEqual(len(mock.call_args_list), 2)
-            self.assertEqual(
-                mock.call_args_list[0],
-                ['sudo',
-                 'PROJECT=ubuntu-cpc', 'SUITE=xenial', 'ARCH=amd64',
-                 'SUBPROJECT=live', 'SUBARCH=ubuntu-cpc', 'PROPOSED=true',
-                 'IMAGEFORMAT=ext4', 'EXTRA_PPAS=foo1/bar1 foo2',
-                 'lb', 'config'])
+            self.assertEqual(len(mock.call_args_list), 3)
             self.assertEqual(
                 mock.call_args_list[1],
                 ['sudo',
                  'PROJECT=ubuntu-cpc', 'SUITE=xenial', 'ARCH=amd64',
                  'SUBPROJECT=live', 'SUBARCH=ubuntu-cpc', 'PROPOSED=true',
                  'IMAGEFORMAT=ext4', 'EXTRA_PPAS=foo1/bar1 foo2',
+                 'lb', 'config'])
+            self.assertEqual(
+                mock.call_args_list[2],
+                ['sudo',
+                 'PROJECT=ubuntu-cpc', 'SUITE=xenial', 'ARCH=amd64',
+                 'SUBPROJECT=live', 'SUBARCH=ubuntu-cpc', 'PROPOSED=true',
+                 'IMAGEFORMAT=ext4', 'EXTRA_PPAS=foo1/bar1 foo2',
                  'lb', 'build'])
+
+    def test_live_build_env_livecd(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            auto_dir = os.path.join(tmpdir, 'auto')
+            os.mkdir(auto_dir)
+            with open(os.path.join(auto_dir, 'config'), 'w') as fp:
+                fp.write('DUMMY')
+            root_dir = os.path.join(tmpdir, 'root_dir')
+            mock = LiveBuildMocker(root_dir)
+            resources.enter_context(LogCapture())
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            resources.enter_context(
+                envar('UBUNTU_IMAGE_LIVECD_ROOTFS_AUTO_PATH', auto_dir))
+            env = OrderedDict()
+            env['PROJECT'] = 'ubuntu-server'
+            env['SUITE'] = 'xenial'
+            env['ARCH'] = 'amd64'
+            live_build(root_dir, env)
+            # Make sure that we had no dpkg -L call made.
+            self.assertEqual(len(mock.call_args_list), 2)
+            self.assertEqual(
+                mock.call_args_list[0],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=amd64',
+                 'lb', 'config'])
+            self.assertEqual(
+                mock.call_args_list[1],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=amd64',
+                 'lb', 'build'])
+            config_path = os.path.join(root_dir, 'auto', 'config')
+            self.assertTrue(os.path.exists(config_path))
+            with open(os.path.join(config_path), 'r') as fp:
+                self.assertEqual(fp.read(), 'DUMMY')
 
     def test_mkfs_ext4(self):
         with ExitStack() as resources:
