@@ -7,9 +7,9 @@ Generate a bootable disk image
 ------------------------------
 
 :Author: Barry Warsaw <barry@ubuntu.com>
-:Date: 2017-10-27
+:Date: 2017-11-27
 :Copyright: 2016-2017 Canonical Ltd.
-:Version: 1.2
+:Version: 1.3
 :Manual section: 1
 
 
@@ -46,12 +46,12 @@ prepare-image`` subcommand.  The model assertion file is passed to ``snap
 prepare-image`` which handles downloading the appropriate gadget and any extra
 snaps.  See that command's documentation for additional details.
 
-Classic images are built from a `gadget tree`_ URI.  Currently the URI can be
-either a local path or a git remote URI.  The `gadget tree`_ is nothing more
-than a source tree for a regular `gadget snap`_, containing a `gadget.yaml`_
-file along with all the rules to build the gadget bits.  ``ubuntu-image`` then
-builds all the bootloader bits by running ``snapcraft prime`` on the tree and
-using the resulting binaries during the build process.
+Classic images are built from a local `gadget tree`_ path.  The `gadget tree`_
+is nothing more than a primed `gadget snap`_, containing a `gadget.yaml`_ file
+in the meta directory and all the necessary bootloader gadget bits built.
+For instance a `gadget tree`_ can be easily prepared by fetching a specially
+tailored `gadget snap`_ source and running ``snapcraft prime`` on it, with the
+resulting tree ending up in the ``prime/`` directory.
 
 The actual rootfs for a classic image is created by ``live-build`` with
 arguments passed as per the optional arguments to ``ubuntu-image``.  The
@@ -96,8 +96,7 @@ images.  Can only be used when the ``ubuntu-image classic`` command is used.
 
 GADGET_TREE_URI
     An URI to the gadget tree to be used to build the image.  This positional
-    argument must be given for this mode of operation.  Can be either a local
-    path or an URL to any valid git branch.
+    argument must be given for this mode of operation.  Must be a local path.
 
 -p PROJECT, --project PROJECT
     Project name to be passed on to ``livecd-rootfs``.
@@ -259,6 +258,13 @@ The following environment variables are recognized by ``ubuntu-image``.
     directory will be created under this directory.  The full contents of the
     ``<workdir>/unpack`` directory after the ``snap prepare-image`` subcommand
     has run will be copied here.
+
+``UBUNTU_IMAGE_LIVECD_ROOTFS_AUTO_PATH``
+    ``ubuntu-image`` uses ``livecd-rootfs`` configuration files for its
+    ``live-build`` runs.  If this variable is set, ``ubuntu-image`` will use
+    the configuration files from the selected path for its auto configuration.
+    Otherwise it will attempt to localize ``livecd-rootfs`` through a call to
+    ``dpkg``.
 
 There are a few other environment variables used for building and testing
 only.
