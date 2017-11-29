@@ -1,4 +1,4 @@
-ubuntu-image (1.3+18.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (1.3+18.04ubuntu1) bionic; urgency=medium
 
   * Remove the snapcraft dependency by moving the gadget tree priming step away
     from ubuntu-image.  (LP: #1734655)
