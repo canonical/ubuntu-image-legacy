@@ -139,9 +139,11 @@ def live_build(root_dir, env):
     """
     # First, setup the build tools and workspace.
     # query the system to locate livecd-rootfs auto script installation path
-    proc = run('dpkg -L livecd-rootfs | grep "auto$"', shell=True,
-               env=os.environ)
-    auto_src = proc.stdout.strip()
+    auto_src = os.environ.get('UBUNTU_IMAGE_LIVECD_ROOTFS_AUTO_PATH')
+    if auto_src is None:
+        proc = run('dpkg -L livecd-rootfs | grep "auto$"', shell=True,
+                   env=os.environ)
+        auto_src = proc.stdout.strip()
     auto_dst = os.path.join(root_dir, 'auto')
     shutil.copytree(auto_src, auto_dst)
     # Create the commands and run config and build steps.

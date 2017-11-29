@@ -2,7 +2,6 @@
 
 import os
 import re
-import git
 import shutil
 import logging
 
@@ -10,22 +9,14 @@ from subprocess import CalledProcessError
 from tempfile import gettempdir
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import (
-     check_root_privilege, live_build, run, save_cwd)
+     check_root_privilege, live_build, run)
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole)
-from urllib.parse import urlparse
 
 
 DEFAULT_FS = 'ext4'
 DEFAULT_FS_LABEL = 'writable'
 _logger = logging.getLogger('ubuntu-image')
-
-
-class GitProgress(git.remote.RemoteProgress):
-    """Show progress information during git clone."""
-
-    def update(self, op_code, cur_count, max_count=None, message=''):
-        print(self._cur_line)
 
 
 class ClassicBuilder(AbstractImageBuilderState):
@@ -47,29 +38,14 @@ class ClassicBuilder(AbstractImageBuilderState):
         self.gadget_tree = state['gadget_tree']
 
     def prepare_gadget_tree(self):
-        try:
-            gadget_dst = os.path.join(self.unpackdir, 'gadget_repo')
-            if urlparse(self.gadget_tree).scheme != "":
-                git.Repo.clone_from(self.gadget_tree, gadget_dst,
-                                    progress=GitProgress())
-            else:
-                shutil.copytree(self.gadget_tree, gadget_dst)
-            # generate unpacked gadget snap
-            with save_cwd():
-                os.chdir(gadget_dst)
-                run(['snapcraft', 'prime'], env=os.environ)
-            shutil.copytree(os.path.join(gadget_dst, 'prime'),
-                            os.path.join(self.unpackdir, 'gadget'))
-        except CalledProcessError:
-            if self.args.debug:
-                _logger.exception('Full debug traceback follows')
-            self.exitcode = 1
-            # Stop the state machine right here by not appending a next step.
-        else:
-            gadget_dir = os.path.join(self.unpackdir, 'gadget')
-            self.yaml_file_path = os.path.join(
-                gadget_dir, 'meta', 'gadget.yaml')
-            super().prepare_gadget_tree()
+        gadget_dir = os.path.join(self.unpackdir, 'gadget')
+        shutil.copytree(self.gadget_tree, gadget_dir)
+        # We assume the gadget tree was built from a gadget source tree using
+        # snapcraft prime so the gadget.yaml file is expected in the meta/
+        # directory.
+        self.yaml_file_path = os.path.join(
+            gadget_dir, 'meta', 'gadget.yaml')
+        super().prepare_gadget_tree()
 
     def prepare_image(self):
         try:

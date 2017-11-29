@@ -243,8 +243,7 @@ def parseargs(argv=None):
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
         help=_("""Gadget tree.  This is a tree equivalent to an unpacked
-        gadget snap at core image build time.  It could be either a local
-        snap project or a snap-based git repository."""))
+        and primed gadget snap at core image build time."""))
     classic_cmd.add_argument(
         '-p', '--project',
         default=None, metavar='PROJECT',
