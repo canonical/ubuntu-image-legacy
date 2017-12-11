@@ -1,3 +1,13 @@
+ubuntu-image (1.3+16.04ubuntu2) xenial; urgency=medium
+
+  * Work-around build-time test_hook_fired issues due to the unavailability of
+    sudo on builders.  This is xenial-specific as for all other series sudo is
+    not used because of a newer mkfs.ext4 available.  Use the
+    UBUNTU_IMAGE_TESTS_NO_NETWORK flag to skip this test build-time (the test
+    is run as part of autopkgtests anyway).
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 11 Dec 2017 13:36:27 +0100
+
 ubuntu-image (1.3+16.04ubuntu1) xenial; urgency=medium
 
   * Remove the snapcraft dependency by moving the gadget tree priming step away

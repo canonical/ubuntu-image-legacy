@@ -615,6 +615,8 @@ class TestMainWithGadget(TestCase):
             call('Current user(test) does not have root privilege to build '
                  'classic image. Please run ubuntu-image as root.'))
 
+    @skipIf('UBUNTU_IMAGE_TESTS_NO_NETWORK' in os.environ,
+            'Cannot run this test without sudo access (builder environment)')
     def test_hook_fired(self):
         # For the purpose of testing, we will be using the post-populate-rootfs
         # hook as we made sure it's still executed as part of of the
