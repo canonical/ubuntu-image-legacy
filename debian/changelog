@@ -1,4 +1,4 @@
-ubuntu-image (1.3+18.04ubuntu2) UNRELEASED; urgency=medium
+ubuntu-image (1.3+18.04ubuntu2) bionic; urgency=medium
 
   * Ignore the E722 error on our bare-except statements as those are intended,
     it's a way for us to clean up on errors.  (LP: #1741246)
