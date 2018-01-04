@@ -361,7 +361,7 @@ def main(argv=None):
                       ' classic image. Please run ubuntu-image as root.'
                       .format(error.user_name))
         return 1
-    except:
+    except:  # noqa: E722
         _logger.exception('Crash in state machine')
         return 1
     # It's possible that the state machine didn't crash, but it still didn't

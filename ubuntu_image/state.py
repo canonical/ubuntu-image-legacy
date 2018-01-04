@@ -111,7 +111,7 @@ class State:
                 break
             try:
                 step()
-            except:
+            except:  # noqa: E722
                 self.close()
                 raise
             try:
@@ -146,7 +146,7 @@ class State:
                 break
             try:
                 step()
-            except:
+            except:  # noqa: E722
                 self.close()
                 raise
             self._debug_step += 1
