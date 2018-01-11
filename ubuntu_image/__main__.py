@@ -114,8 +114,8 @@ def get_modified_args(subparser, default_subcommand, argv):
                 break
         else:
             # if `snap` subcommand is not given.
-            print('Warning: for backwards compatibility, `ubuntu-image` '
-                  'fallbacks to `ubuntu-image snap` if no subcommand is given',
+            print('Warning: for backwards compatibility, `ubuntu-image` falls '
+                  'back to `ubuntu-image snap` if no subcommand is given',
                   file=sys.stderr)
             new_argv = list(argv)
             new_argv.insert(0, default_subcommand)
