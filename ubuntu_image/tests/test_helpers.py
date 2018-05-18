@@ -14,7 +14,8 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
      GiB, MiB, PrivilegeError, as_bool, as_size,
-     check_root_privilege, get_host_arch, get_host_distro, live_build,
+     check_root_privilege, get_host_arch, get_host_distro,
+     get_qemu_static_for_arch, live_build,
      mkfs_ext4, run, snap, sparse_copy)
 from ubuntu_image.testing.helpers import (
      LiveBuildMocker, LogCapture, envar)
@@ -174,6 +175,17 @@ class TestHelpers(TestCase):
     def test_get_host_distro(self):
         self.assertIsNotNone(get_host_distro())
 
+    def test_get_qemu_static_for_arch(self):
+        executables = {
+            'armhf': 'qemu-arm-static',
+            'arm64': 'qemu-aarch64-static',
+            'ppc64el': 'qemu-ppc64le-static',
+            'i386': 'qemu-i386-static',
+            'foo': 'qemu-foo-static',
+            }
+        for arch, static in executables.items():
+            self.assertEqual(get_qemu_static_for_arch(arch), static)
+
     def test_sparse_copy(self):
         with ExitStack() as resources:
             tmpdir = resources.enter_context(TemporaryDirectory())
@@ -254,6 +266,9 @@ class TestHelpers(TestCase):
             resources.enter_context(LogCapture())
             resources.enter_context(
                 patch('ubuntu_image.helpers.run', mock.run))
+            resources.enter_context(
+                patch('ubuntu_image.helpers.get_host_arch',
+                      return_value='amd64'))
             env = OrderedDict()
             env['PROJECT'] = 'ubuntu-server'
             env['SUITE'] = 'xenial'
@@ -279,6 +294,9 @@ class TestHelpers(TestCase):
             resources.enter_context(LogCapture())
             resources.enter_context(
                 patch('ubuntu_image.helpers.run', mock.run))
+            resources.enter_context(
+                patch('ubuntu_image.helpers.get_host_arch',
+                      return_value='amd64'))
             env = OrderedDict()
             env['PROJECT'] = 'ubuntu-cpc'
             env['SUITE'] = 'xenial'
@@ -318,6 +336,9 @@ class TestHelpers(TestCase):
             resources.enter_context(
                 patch('ubuntu_image.helpers.run', mock.run))
             resources.enter_context(
+                patch('ubuntu_image.helpers.get_host_arch',
+                      return_value='amd64'))
+            resources.enter_context(
                 envar('UBUNTU_IMAGE_LIVECD_ROOTFS_AUTO_PATH', auto_dir))
             env = OrderedDict()
             env['PROJECT'] = 'ubuntu-server'
@@ -340,6 +361,105 @@ class TestHelpers(TestCase):
             self.assertTrue(os.path.exists(config_path))
             with open(os.path.join(config_path), 'r') as fp:
                 self.assertEqual(fp.read(), 'DUMMY')
+
+    def test_live_build_cross_build(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            root_dir = os.path.join(tmpdir, 'root_dir')
+            mock = LiveBuildMocker(root_dir)
+            resources.enter_context(LogCapture())
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            resources.enter_context(
+                patch('ubuntu_image.helpers.get_host_arch',
+                      return_value='amd64'))
+            resources.enter_context(
+                patch('distutils.spawn.find_executable',
+                      return_value='/usr/bin/qemu-arm-static'))
+            env = OrderedDict()
+            env['PROJECT'] = 'ubuntu-server'
+            env['SUITE'] = 'xenial'
+            env['ARCH'] = 'armhf'
+            live_build(root_dir, env)
+            self.assertEqual(len(mock.call_args_list), 3)
+            self.assertEqual(
+                mock.call_args_list[1],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=armhf',
+                 'lb', 'config',
+                 '--bootstrap-qemu-arch', 'armhf',
+                 '--bootstrap-qemu-static', '/usr/bin/qemu-arm-static',
+                 '--architectures', 'armhf'])
+            self.assertEqual(
+                mock.call_args_list[2],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=armhf',
+                 'lb', 'build'])
+
+    def test_live_build_cross_build_env_path(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            root_dir = os.path.join(tmpdir, 'root_dir')
+            mock = LiveBuildMocker(root_dir)
+            resources.enter_context(LogCapture())
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            resources.enter_context(
+                patch('ubuntu_image.helpers.get_host_arch',
+                      return_value='amd64'))
+            resources.enter_context(
+                patch('distutils.spawn.find_executable',
+                      return_value='/usr/bin/qemu-arm-static'))
+            resources.enter_context(
+                envar('UBUNTU_IMAGE_QEMU_USER_STATIC_PATH',
+                      '/opt/qemu-arm-static'))
+            env = OrderedDict()
+            env['PROJECT'] = 'ubuntu-server'
+            env['SUITE'] = 'xenial'
+            env['ARCH'] = 'armhf'
+            live_build(root_dir, env)
+            self.assertEqual(len(mock.call_args_list), 3)
+            self.assertEqual(
+                mock.call_args_list[1],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=armhf',
+                 'lb', 'config',
+                 '--bootstrap-qemu-arch', 'armhf',
+                 '--bootstrap-qemu-static', '/opt/qemu-arm-static',
+                 '--architectures', 'armhf'])
+            self.assertEqual(
+                mock.call_args_list[2],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=armhf',
+                 'lb', 'build'])
+
+    def test_live_build_no_cross_build(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            root_dir = os.path.join(tmpdir, 'root_dir')
+            mock = LiveBuildMocker(root_dir)
+            resources.enter_context(LogCapture())
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            resources.enter_context(
+                patch('ubuntu_image.helpers.get_host_arch',
+                      return_value='amd64'))
+            resources.enter_context(
+                patch('distutils.spawn.find_executable',
+                      return_value='/usr/bin/qemu-arm-static'))
+            env = OrderedDict()
+            env['PROJECT'] = 'ubuntu-server'
+            env['SUITE'] = 'xenial'
+            env['ARCH'] = 'armhf'
+            live_build(root_dir, env, enable_cross_build=False)
+            # Make sure that if we explicity disable cross-building, no
+            # cross-build arguments are passed to lb config
+            self.assertEqual(len(mock.call_args_list), 3)
+            self.assertEqual(
+                mock.call_args_list[1],
+                ['sudo',
+                 'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=armhf',
+                 'lb', 'config'])
 
     def test_mkfs_ext4(self):
         with ExitStack() as resources:

@@ -122,17 +122,18 @@ class LiveBuildMocker:
         self.root_dir = root_dir
 
     def run(self, command, *args, **kws):
-        if ['lb', 'config'] == command[-2:]:
+        cmd_str = command if isinstance(command, str) else ' '.join(command)
+        if 'lb config' in cmd_str:
             self.call_args_list.append(command)
             return SimpleNamespace(returncode=1)
-        elif ['lb', 'build'] == command[-2:]:
+        elif 'lb build' in cmd_str:
             self.call_args_list.append(command)
             # Create dummy top-level filesystem layout.
             chroot_dir = os.path.join(self.root_dir, 'chroot')
             for dir_name in DIRS_UNDER_ROOTFS:
                 os.makedirs(os.path.join(chroot_dir, dir_name))
             return SimpleNamespace(returncode=1)
-        elif command.startswith('dpkg -L'):
+        elif cmd_str.startswith('dpkg -L'):
             self.call_args_list.append(command)
             stdout = kws.pop('stdout', PIPE)
             stderr = kws.pop('stderr', PIPE)
@@ -141,6 +142,9 @@ class LiveBuildMocker:
                 stdout=stdout, stderr=stderr,
                 universal_newlines=True,
                 **kws)
+        elif cmd_str.startswith('dpkg --print-architecture'):
+            self.call_args_list.append(command)
+            return SimpleNamespace(stdout='amd64', returncode=0)
 
 
 @contextmanager
