@@ -4,12 +4,12 @@ Depends: python3-ubuntu-image
 Test-Command: ubuntu-image --help
 Depends: ubuntu-image
 Features: test-name=help
-Restrictions: allow-stderr (LP: #1775085)
+Restrictions: allow-stderr # (LP: #1775085)
 
 Test-Command: ubuntu-image --version
 Depends: ubuntu-image
 Features: test-name=version
-Restrictions: allow-stderr (LP: #1775085)
+Restrictions: allow-stderr # (LP: #1775085)
 
 Test-Command: man ubuntu-image
 Depends: ubuntu-image, man-db
