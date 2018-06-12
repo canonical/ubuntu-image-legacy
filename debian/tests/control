@@ -39,7 +39,7 @@ Restrictions: needs-root, allow-stderr, isolation-machine
 Depends: @, qemu-system-x86
 
 Tests: haschangelog
-Depends: @, python3-github, python3-requests
+Depends: @, python3-requests
 
 Tests: snap.sh
 Restrictions: needs-root, allow-stderr
