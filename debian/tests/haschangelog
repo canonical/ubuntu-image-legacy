@@ -28,9 +28,11 @@ api_data = requests.get(URL_TEMPLATE.format(pr_number)).text
 pull = json.loads(api_data)
 if 'labels' not in pull:
     print('Skipping test, no valid pull request for branch.')
+    print('Got the following API response:')
+    print(api_data)
     sys.exit(0)
 try:
-    next(label for label in labels['labels'] if label.name == TRIVIAL_LABEL)
+    next(label for label in pull['labels'] if label.name == TRIVIAL_LABEL)
     print('The {} label found on the pull request, skipping check for '
           'changelog entries.'.format(TRIVIAL_LABEL))
     sys.exit(0)
