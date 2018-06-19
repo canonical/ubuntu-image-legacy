@@ -3,6 +3,8 @@ ubuntu-image (1.4+18.10ubuntu1) UNRELEASED; urgency=medium
   * Work-around the API rate limit exceeded failures from github in the
     haschangelog test case by re-writing it not to use python3-github anymore
     and instead check for the PR trivial label manually.  (LP: #1690081)
+  * Work-around Permission denied errors printing to stderr whenever parted is
+    imported, causing some of our basic autopkgtests failing.  (LP: #1775085)
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 12 Jun 2018 13:38:03 +0200
 
