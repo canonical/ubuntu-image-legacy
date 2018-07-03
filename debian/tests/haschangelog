@@ -6,11 +6,14 @@ import os
 import re
 import requests
 import sys
+import json
 
-from github import Github, UnknownObjectException
 
-
-TRIVIAL_LABEL = 'trivial'
+URL_TEMPLATE = \
+    'https://api.github.com/repos/CanonicalLtd/ubuntu-image/pulls/{}'
+URL_TEMPLATE_NOAPI = \
+    'https://github.com/CanonicalLtd/ubuntu-image/pull/{}'
+LABEL = 'trivial'
 
 
 # When the test is being run as part of a GH pull request, the infra sets the
@@ -22,30 +25,39 @@ if not pr_number:
     # Skip the test if we're not running in a git environment.
     print('Skipping test, not ran as part of a pull request.')
     sys.exit(0)
-pr_number = int(pr_number)
-gh = Github()
-# XXX: Maybe we should check with gh.get_api_status().status if we have
-#  internet connectivity and skip the test if we don't?
-remote = gh.get_repo('CanonicalLtd/ubuntu-image')
-try:
-    pull = remote.get_pull(pr_number)
-    # As per github docs, every pull request is actually a github issue.  And 
-    # only through the issues API we can fetch the list of available labels.
-    pr_issue = remote.get_issue(pr_number)
-except UnknownObjectException:
-    # Skip the test, the branch is not present in any pull-request.
-    print('Skipping test, no valid pull request for branch.')
-    sys.exit(0)
-try:
-    next(label for label in pr_issue.labels if label.name == TRIVIAL_LABEL)
+
+have_tag = False
+api_data = requests.get(URL_TEMPLATE.format(pr_number)).text
+# First try using the github API, but since we're using unauthenticated
+# requests there's a crazy low rate limit for given IPs (which for autopkgtests
+# can be depleted really fast).
+pull = json.loads(api_data)
+if 'labels' not in pull:
+    # In case it doesn't work, we fallback to a workaround of hand-parsing the
+    # HTML github PR. This can actually stop working at any time when the
+    # format of the label changes.
+    print('Got an incomplete response from the API call, this might mean API '
+          'rate limit exceeded.  Retrying with a HTML-parsing method.')
+    www_data = requests.get(URL_TEMPLATE_NOAPI.format(pr_number)).text
+    match = re.search(r'<a.*?title="{}".*?\/CanonicalLtd\/ubuntu-image\/'
+                      'labels\/{}.*?>'.format(LABEL, LABEL),
+                      www_data)
+    if match:
+        have_tag = True
+else:
+    try:
+        next(label for label in pull['labels'] if label['name'] == LABEL)
+        have_tag = True
+    except StopIteration:
+        pass
+if have_tag:
     print('The {} label found on the pull request, skipping check for '
-          'changelog entries.'.format(TRIVIAL_LABEL))
+          'changelog entries.'.format(LABEL))
     sys.exit(0)
-except StopIteration:
-    pass
 # No trivial label added, make sure the changelog has been touched and
 # that a LP bug has been attached to changelog entry.
-content = requests.get(pull.diff_url).text
+content = requests.get('{}.diff'.format(
+    URL_TEMPLATE_NOAPI.format(pr_number))).text
 has_changelog = False
 bug_linked = False
 bug_no = re.compile('^\+.*LP: \#\d+')

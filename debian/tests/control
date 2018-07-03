@@ -4,10 +4,12 @@ Depends: python3-ubuntu-image
 Test-Command: ubuntu-image --help
 Depends: ubuntu-image
 Features: test-name=help
+Restrictions: allow-stderr # (LP: #1775085)
 
 Test-Command: ubuntu-image --version
 Depends: ubuntu-image
 Features: test-name=version
+Restrictions: allow-stderr # (LP: #1775085)
 
 Test-Command: man ubuntu-image
 Depends: ubuntu-image, man-db
@@ -39,7 +41,7 @@ Restrictions: needs-root, allow-stderr, isolation-machine
 Depends: @, qemu-system-x86
 
 Tests: haschangelog
-Depends: @, python3-github, python3-requests
+Depends: @, python3-requests
 
 Tests: snap.sh
 Restrictions: needs-root, allow-stderr
