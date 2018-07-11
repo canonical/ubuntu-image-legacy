@@ -374,8 +374,8 @@ class TestHelpers(TestCase):
                 patch('ubuntu_image.helpers.get_host_arch',
                       return_value='amd64'))
             resources.enter_context(
-                patch('distutils.spawn.find_executable',
-                      return_value='/usr/bin/qemu-arm-static'))
+                patch('ubuntu_image.helpers.find_executable',
+                      return_value='/usr/bin/qemu-arm-static-fake'))
             env = OrderedDict()
             env['PROJECT'] = 'ubuntu-server'
             env['SUITE'] = 'xenial'
@@ -388,7 +388,7 @@ class TestHelpers(TestCase):
                  'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=armhf',
                  'lb', 'config',
                  '--bootstrap-qemu-arch', 'armhf',
-                 '--bootstrap-qemu-static', '/usr/bin/qemu-arm-static',
+                 '--bootstrap-qemu-static', '/usr/bin/qemu-arm-static-fake',
                  '--architectures', 'armhf'])
             self.assertEqual(
                 mock.call_args_list[2],
@@ -408,7 +408,7 @@ class TestHelpers(TestCase):
                 patch('ubuntu_image.helpers.get_host_arch',
                       return_value='amd64'))
             resources.enter_context(
-                patch('distutils.spawn.find_executable',
+                patch('ubuntu_image.helpers.find_executable',
                       return_value='/usr/bin/qemu-arm-static'))
             resources.enter_context(
                 envar('UBUNTU_IMAGE_QEMU_USER_STATIC_PATH',
@@ -445,7 +445,7 @@ class TestHelpers(TestCase):
                 patch('ubuntu_image.helpers.get_host_arch',
                       return_value='amd64'))
             resources.enter_context(
-                patch('distutils.spawn.find_executable',
+                patch('ubuntu_image.helpers.find_executable',
                       return_value='/usr/bin/qemu-arm-static'))
             env = OrderedDict()
             env['PROJECT'] = 'ubuntu-server'

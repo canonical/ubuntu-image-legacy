@@ -52,6 +52,7 @@ Depends: ca-certificates,
          python3-voluptuous,
          python3-yaml,
          snapd,
+         qemu-user-static,
          ${misc:Depends},
          ${python3:Depends},
 Description: toolkit for building Ubuntu images
