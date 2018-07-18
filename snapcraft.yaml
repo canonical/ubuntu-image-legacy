@@ -32,12 +32,14 @@ parts:
       - dosfstools
       - e2fsprogs
       - fakeroot
+      - libc6
       - mtools
       - python3-debian
       - python3-git
       - python3-parted
       - util-linux
-    install: |
+    override-build: |
+      snapcraftctl build
       cd $SNAPCRAFT_PART_INSTALL/usr/lib/
       ln -s *-linux-gnu* lib-arch
       cd $SNAPCRAFT_PART_INSTALL/lib/
