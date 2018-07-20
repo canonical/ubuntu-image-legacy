@@ -9,8 +9,9 @@ ubuntu-image (1.4+18.10ubuntu1) UNRELEASED; urgency=medium
     imported, causing some of our basic autopkgtests failing.  (LP: #1775085)
   * Fix some coverage and autopkgtest failures per changes in the environment.
     Switch to using deb-packaged voluptuous.  (LP: #1782313)
+  * Add the new connections: stanza to the gadget.yaml parser.  (LP: #1780217)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 18 Jul 2018 10:31:40 +0200
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 20 Jul 2018 16:43:51 +0200
 
 ubuntu-image (1.3+18.04ubuntu2) bionic; urgency=medium
 
