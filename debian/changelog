@@ -6,7 +6,7 @@ ubuntu-image (1.4+18.10ubuntu1) UNRELEASED; urgency=medium
   * Work-around Permission denied errors printing to stderr whenever parted is
     imported, causing some of our basic autopkgtests failing.  (LP: #1775085)
   * Fix some coverage and autopkgtest failures per changes in the environment.
-    (LP: #1782313)
+    Switch to using deb-packaged voluptuous.  (LP: #1782313)
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 18 Jul 2018 10:31:40 +0200
 
