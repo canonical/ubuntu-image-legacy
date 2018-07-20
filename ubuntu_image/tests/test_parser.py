@@ -52,6 +52,21 @@ volumes:
         self.assertIsNone(structure0.filesystem_label)
         self.assertEqual(len(structure0.content), 0)
 
+    def test_connections_supported(self):
+        gadget_spec = parse("""\
+connections:
+  - plug: aaaa:bbbb
+    slot: cccc:dddd
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 400M
+""")
+        # We're just making sure that the parser doesn't die when
+        # encountering the connections: stanza.
+
     def test_device_tree(self):
         gadget_spec = parse("""\
 device-tree-origin: kernel
