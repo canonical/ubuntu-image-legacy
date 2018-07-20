@@ -5,8 +5,10 @@ ubuntu-image (1.4+18.10ubuntu1) UNRELEASED; urgency=medium
     and instead check for the PR trivial label manually.  (LP: #1690081)
   * Work-around Permission denied errors printing to stderr whenever parted is
     imported, causing some of our basic autopkgtests failing.  (LP: #1775085)
+  * Fix some coverage and autopkgtest failures per changes in the environment.
+    Switch to using deb-packaged voluptuous.  (LP: #1782313)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 12 Jun 2018 13:38:03 +0200
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 18 Jul 2018 10:31:40 +0200
 
 ubuntu-image (1.3+18.04ubuntu2) bionic; urgency=medium
 
