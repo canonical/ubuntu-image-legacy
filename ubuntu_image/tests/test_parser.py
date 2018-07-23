@@ -53,7 +53,7 @@ volumes:
         self.assertEqual(len(structure0.content), 0)
 
     def test_connections_supported(self):
-        gadget_spec = parse("""\
+        parse("""\
 connections:
   - plug: aaaa:bbbb
     slot: cccc:dddd
