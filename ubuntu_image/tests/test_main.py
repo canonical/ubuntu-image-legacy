@@ -193,7 +193,7 @@ class TestParseArgs(TestCase):
         line = stderr.getvalue()
         self.assertIn('gadget tree is required', line)
 
-    def test_classic_project_required(self):
+    def test_classic_project_or_filesystem_required(self):
         stderr = StringIO()
         with patch('sys.stderr', stderr):
             self.assertRaises(SystemExit,
@@ -201,6 +201,16 @@ class TestParseArgs(TestCase):
                               ['classic', 'tree_url'])
         line = stderr.getvalue()
         self.assertIn('project or filesystem is required', line)
+
+    def test_classic_project_and_filesystem_exclusive(self):
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            self.assertRaises(SystemExit,
+                              parseargs,
+                              ['classic', 'tree_url', '--project',
+                               'ubuntu-cpc', '--filesystem', 'fsdir'])
+        line = stderr.getvalue()
+        self.assertIn('project and filesystem are mutually exclusive', line)
 
     def test_classic_resume_gadget_tree(self):
         stderr = StringIO()

@@ -201,6 +201,61 @@ class TestClassicBuilder(TestCase):
                 self.assertEqual(fp.read(), 'LABEL=writable   '
                                             '/    ext4   defaults    0 0')
 
+    def test_populate_rootfs_contents_from_filesystem(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            args = SimpleNamespace(
+                project=None,
+                suite='xenial',
+                arch='amd64',
+                image_format='img',
+                workdir=workdir,
+                output=None,
+                subproject=None,
+                subarch=None,
+                output_dir=None,
+                cloud_init=None,
+                with_proposed=None,
+                extra_ppas=None,
+                hooks_directory=[],
+                gadget_tree=self.gadget_tree,
+                filesystem=None,
+                )
+            state = resources.enter_context(XXXClassicBuilder(args))
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.
+            part = SimpleNamespace(
+                role=StructureRole.system_data,
+                filesystem_label='writable',
+                filesystem=FileSystemType.none,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.grub,
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir)
+            # Fake some state expected by the method under test.
+            args.filesystem = resources.enter_context(TemporaryDirectory())
+            etc_path = os.path.join(args.filesystem, 'etc')
+            os.makedirs(etc_path)
+            with open(os.path.join(etc_path, 'fstab'), 'w') as fp:
+                fp.write('LABEL=cloudimg-rootfs   /    ext4   defaults    0 0')
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # The seed metadata should exist.
+            # And the filesystem label should be modified to 'writable'
+            fstab_data = os.path.join(state.rootfs, 'etc', 'fstab')
+            with open(fstab_data, 'r', encoding='utf-8') as fp:
+                self.assertEqual(fp.read(), 'LABEL=writable   '
+                                            '/    ext4   defaults    0 0')
+
     def test_populate_rootfs_contents_empty_fstab_entry(self):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
@@ -878,6 +933,48 @@ class TestClassicBuilder(TestCase):
                 posargs, kwargs = mock.call_args_list[0]
                 self.assertIn(env, posargs[1])
                 self.assertEqual(posargs[1][env], 'test')
+
+    def test_filesystem_no_live_build_call(self):
+        with ExitStack() as resources:
+            argstoenv = {
+                'project': 'PROJECT',
+                'suite': 'SUITE',
+                'arch': 'ARCH',
+                'subproject': 'SUBPROJECT',
+                'subarch': 'SUBARCH',
+                'with_proposed': 'PROPOSED',
+                'extra_ppas': 'EXTRA_PPAS',
+                }
+            kwargs_skel = {
+                'workdir': '/tmp',
+                'output_dir': '/tmp',
+                'hooks_directory': '/tmp',
+                'output': None,
+                'cloud_init': None,
+                'gadget_tree': None,
+                'unpackdir': None,
+                'debug': None,
+                'project': None,
+                'suite': None,
+                'arch': None,
+                'subproject': None,
+                'subarch': None,
+                'with_proposed': None,
+                'extra_ppas': None,
+                'filesystem': '/tmp/fs',
+                }
+            for arg, env in argstoenv.items():
+                kwargs = dict(kwargs_skel)
+                kwargs[arg] = 'test'
+                args = SimpleNamespace(**kwargs)
+                # Jump right to the method under test.
+                state = resources.enter_context(XXXClassicBuilder(args))
+                state._next.pop()
+                state._next.append(state.prepare_image)
+                mock = resources.enter_context(patch(
+                    'ubuntu_image.classic_builder.live_build'))
+                next(state)
+                self.assertEqual(len(mock.call_args_list), 0)
 
     def test_generate_manifests_exclude(self):
         # This is not a full test of the manifest generation process as this
