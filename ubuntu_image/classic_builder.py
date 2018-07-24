@@ -48,6 +48,9 @@ class ClassicBuilder(AbstractImageBuilderState):
         super().prepare_gadget_tree()
 
     def prepare_image(self):
+        if self.args.filesystem:
+            return super().prepare_image()
+
         try:
             # Configure it with environment variables.
             env = {}
@@ -80,10 +83,17 @@ class ClassicBuilder(AbstractImageBuilderState):
             super().prepare_image()
 
     def populate_rootfs_contents(self):
-        src = os.path.join(self.unpackdir, 'chroot')
         dst = self.rootfs
-        for subdir in os.listdir(src):
-            shutil.move(os.path.join(src, subdir), os.path.join(dst, subdir))
+        if self.args.filesystem:
+            src = self.args.filesystem
+            # 'cp -a' is faster than the python functions and makes sure all
+            # meta information is preserved.
+            os.system('cp -a ' + os.path.join(src, '*') + ' ' + dst)
+        else:
+            src = os.path.join(self.unpackdir, 'chroot')
+            for subdir in os.listdir(src):
+                shutil.move(os.path.join(src, subdir),
+                            os.path.join(dst, subdir))
         # Remove default grub bootloader settings as we ship bootloader bits
         # (binary blobs and grub.cfg) to a generated rootfs locally.
         grub_folder = os.path.join(dst, 'boot', 'grub')
