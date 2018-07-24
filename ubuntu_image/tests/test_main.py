@@ -200,7 +200,7 @@ class TestParseArgs(TestCase):
                               parseargs,
                               ['classic', 'tree_url'])
         line = stderr.getvalue()
-        self.assertIn('project is required', line)
+        self.assertIn('project or filesystem is required', line)
 
     def test_classic_resume_gadget_tree(self):
         stderr = StringIO()

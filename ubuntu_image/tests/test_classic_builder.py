@@ -78,6 +78,7 @@ class TestClassicBuilder(TestCase):
             extra_ppas=None,
             hooks_directory=[],
             gadget_tree=self.gadget_tree,
+            filesystem=None,
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
         gadget_dir = os.path.join(workdir, 'unpack', 'gadget')
@@ -119,6 +120,7 @@ class TestClassicBuilder(TestCase):
             extra_ppas='ppa:some/ppa',
             hooks_directory=[],
             gadget_tree=self.gadget_tree,
+            filesystem=None,
             )
         state = self._resources.enter_context(XXXClassicBuilder(args))
         # Mock out rootfs generation `live_build`
@@ -162,6 +164,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             # Now we have to craft enough of gadget definition to drive the
@@ -216,6 +219,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             # Now we have to craft enough of gadget definition to drive the
@@ -272,6 +276,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             # Now we have to craft enough of gadget definition to drive the
@@ -331,6 +336,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             # Now we have to craft enough of gadget definition to drive the
@@ -386,6 +392,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             # Now we have to craft enough of gadget definition to drive the
@@ -446,6 +453,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             state._next.pop()
@@ -535,6 +543,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             state._next.pop()
@@ -585,6 +594,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             state = resources.enter_context(XXXClassicBuilder(args))
             state._next.pop()
@@ -644,6 +654,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXClassicBuilder(args))
@@ -747,6 +758,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXClassicBuilder(args))
@@ -794,6 +806,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXClassicBuilder(args))
@@ -848,6 +861,7 @@ class TestClassicBuilder(TestCase):
                 'subarch': None,
                 'with_proposed': None,
                 'extra_ppas': None,
+                'filesystem': None,
                 }
             for arg, env in argstoenv.items():
                 kwargs = dict(kwargs_skel)
@@ -891,6 +905,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 gadget_tree=self.gadget_tree,
+                filesystem=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXClassicBuilder(args))
