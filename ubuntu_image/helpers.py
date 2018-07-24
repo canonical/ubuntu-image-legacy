@@ -204,7 +204,7 @@ def mount(img):
         yield mountpoint
 
 
-def mkfs_ext4(img_file, contents_dir, label='writable',
+def mkfs_ext4(img_file, contents_dir, image_type, label='writable',
               preserve_ownership=False):
     """Encapsulate the `mkfs.ext4` invocation.
 
@@ -214,9 +214,16 @@ def mkfs_ext4(img_file, contents_dir, label='writable',
     Ubuntu 16.04, which has e2fsprogs 1.42.X without the -d flag.  In
     that case, we have to sudo loop mount the ext4 file system and
     populate it that way.  Which sucks because sudo.
+    NOTE Unfortunately we cannot use fakeroot for classic, as that changes the
+    ownership of the files - critical for /home/*
     """
-    cmd = ('fakeroot-sysv mkfs.ext4 -L {} -O -metadata_csum -T default '
-           '-O uninit_bg {} -d {}').format(label, img_file, contents_dir)
+    if image_type == 'snap':
+        sudo_cmd = 'fakeroot-sysv'
+    else:
+        sudo_cmd = 'sudo'
+    cmd = ('{} mkfs.ext4 -L {} -O -metadata_csum -T default '
+           '-O uninit_bg {} -d {}').format(sudo_cmd, label, img_file,
+                                           contents_dir)
     proc = run(cmd, check=False)
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.

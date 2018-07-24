@@ -286,8 +286,8 @@ class AbstractImageBuilderState(State):
                 # The root partition needs to be ext4, which may or may not be
                 # populated at creation time, depending on the version of
                 # e2fsprogs.
-                mkfs_ext4(part_img, self.rootfs, part.filesystem_label,
-                          preserve_ownership=True)
+                mkfs_ext4(part_img, self.rootfs, self.args.cmd,
+                          part.filesystem_label, preserve_ownership=True)
             elif part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0
@@ -327,7 +327,8 @@ class AbstractImageBuilderState(State):
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
             elif part.filesystem is FileSystemType.ext4:
-                mkfs_ext4(part_img, part_dir, part.filesystem_label)
+                mkfs_ext4(part_img, part_dir, self.args.cmd,
+                          part.filesystem_label)
             else:
                 raise AssertionError('Invalid part filesystem type: {}'.format(
                     part.filesystem))
