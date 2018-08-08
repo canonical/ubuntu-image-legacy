@@ -57,6 +57,7 @@ volumes:
 connections:
   - plug: aaaa:bbbb
     slot: cccc:dddd
+  - plug: aaaa:bbbb
 volumes:
   first-image:
     bootloader: u-boot
