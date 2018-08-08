@@ -173,7 +173,7 @@ GadgetYAML = Schema({
     },
     Optional('connections'): [Schema({
         Required('plug'): str,
-        Required('slot'): str,
+        Optional('slot'): str,
         })
     ],
     Optional('device-tree-origin', default='gadget'): str,
