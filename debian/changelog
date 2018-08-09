@@ -1,15 +1,16 @@
-ubuntu-image (1.4+18.10ubuntu1) cosmic; urgency=medium
+ubuntu-image (1.4+16.04ubuntu1) xenial; urgency=medium
 
   * Add support for classic cross-compilation, add qemu-user-static as a
-    dependency.  (LP: #1772061)
+    dependency.  (LP:1772061)
   * Work-around the API rate limit exceeded failures from github in the
     haschangelog test case by re-writing it not to use python3-github anymore
-    and instead check for the PR trivial label manually.  (LP: #1690081)
+    and instead check for the PR trivial label manually.  (LP:1690081)
   * Work-around Permission denied errors printing to stderr whenever parted is
-    imported, causing some of our basic autopkgtests failing.  (LP: #1775085)
+    imported, causing some of our basic autopkgtests failing.  (LP:1775085)
   * Fix some coverage and autopkgtest failures per changes in the environment.
-    Switch to using deb-packaged voluptuous.  (LP: #1782313)
-  * Add the new connections: stanza to the gadget.yaml parser.  (LP: #1780217)
+    Switch to using deb-packaged voluptuous.  (LP:1782313)
+  * Add the new connections: stanza to the gadget.yaml parser.  (LP:1780217)
+  * SRU tracking number LP: #1786229
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 20 Jul 2018 16:43:51 +0200
 
