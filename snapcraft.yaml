@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 1.3+snap1
+version: 1.4+snap1
 grade: stable
 confinement: classic
 
@@ -22,7 +22,6 @@ parts:
     python-packages:
       - PyYAML
       - attrs
-      - voluptuous
     prime:
       - bin/ubuntu-image
       - usr
@@ -32,12 +31,15 @@ parts:
       - dosfstools
       - e2fsprogs
       - fakeroot
+      - libc6
       - mtools
       - python3-debian
       - python3-git
       - python3-parted
+      - python3-voluptuous
       - util-linux
-    install: |
+    override-build: |
+      snapcraftctl build
       cd $SNAPCRAFT_PART_INSTALL/usr/lib/
       ln -s *-linux-gnu* lib-arch
       cd $SNAPCRAFT_PART_INSTALL/lib/

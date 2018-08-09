@@ -56,9 +56,8 @@ def update_changelog(repo, series, version):
         # Currently, master is always Zesty.
         changelog.distributions = series
         series_version = {
+            'cosmic': '18.10',
             'bionic': '18.04',
-            'artful': '17.10',
-            'zesty': '17.04',
             'xenial': '16.04',
             }[series]
         new_version = '{}+{}ubuntu1'.format(version, series_version)
@@ -149,33 +148,20 @@ def main():
                 print('version:', '{}+snap1'.format(version), file=outfp)
             else:
                 outfp.write(line)
+    new_version = update_changelog(repo, 'cosmic', version)
+    continue_abort('Pausing for manual review and commit')
+    tag_or_skip(repo, new_version)
+    make_source_package(working_dir)
+    # Now do the Bionic branch.
+    repo.git.checkout('bionic')
+    # This will almost certainly cause merge conflicts.
+    try:
+        repo.git.merge('master', '--no-commit')
+    except GitCommandError:
+        continue_abort('Resolve merge master->bionic conflicts manually')
+    munge_lp_bug_numbers(repo)
+    sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'bionic', version)
-    continue_abort('Pausing for manual review and commit')
-    tag_or_skip(repo, new_version)
-    make_source_package(working_dir)
-    # Now do the Artful branch.
-    repo.git.checkout('artful')
-    # This will almost certainly cause merge conflicts.
-    try:
-        repo.git.merge('master', '--no-commit')
-    except GitCommandError:
-        continue_abort('Resolve merge master->artful conflicts manually')
-    munge_lp_bug_numbers(repo)
-    sru_tracking_bug(repo, sru)
-    new_version = update_changelog(repo, 'artful', version)
-    continue_abort('Pausing for manual review and commit')
-    tag_or_skip(repo, new_version)
-    make_source_package(working_dir)
-    # Now do the Zesty branch.
-    repo.git.checkout('zesty')
-    # This will almost certainly cause merge conflicts.
-    try:
-        repo.git.merge('master', '--no-commit')
-    except GitCommandError:
-        continue_abort('Resolve merge master->zesty conflicts manually')
-    munge_lp_bug_numbers(repo)
-    sru_tracking_bug(repo, sru)
-    new_version = update_changelog(repo, 'zesty', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)
     make_source_package(working_dir)

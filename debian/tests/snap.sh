@@ -2,7 +2,7 @@
 
 sudo snap install core
 
-snapcraft
+sudo snapcraft
 snapfile=`find . -maxdepth 1 -name \*.snap`
 
 sudo snap install $snapfile --classic --dangerous

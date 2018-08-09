@@ -171,6 +171,11 @@ GadgetYAML = Schema({
             str: object
         }
     },
+    Optional('connections'): [Schema({
+        Required('plug'): str,
+        Optional('slot'): str,
+        })
+    ],
     Optional('device-tree-origin', default='gadget'): str,
     Optional('device-tree'): str,
     Optional('format'): YAMLFormat,

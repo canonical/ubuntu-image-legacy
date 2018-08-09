@@ -8,6 +8,7 @@ import logging
 import contextlib
 
 from contextlib import ExitStack, contextmanager
+from distutils.spawn import find_executable
 from parted import Device
 from subprocess import PIPE, run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -92,6 +93,15 @@ def get_host_distro():
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 
+def get_qemu_static_for_arch(arch):
+    archs = {
+        'armhf': 'arm',
+        'arm64': 'aarch64',
+        'ppc64el': 'ppc64le',
+        }
+    return 'qemu-{}-static'.format(archs.get(arch, arch))
+
+
 def run(command, *, check=True, **args):
     runnable_command = (
         command.split() if isinstance(command, str) and 'shell' not in args
@@ -131,7 +141,7 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
     run(cmd, stdout=None, stderr=None, env=os.environ)
 
 
-def live_build(root_dir, env):
+def live_build(root_dir, env, enable_cross_build=True):
     """live_build for generating a single rootfs from ubuntu archive.
 
     This method call external command to generate a single rootfs
@@ -139,6 +149,7 @@ def live_build(root_dir, env):
     """
     # First, setup the build tools and workspace.
     # query the system to locate livecd-rootfs auto script installation path
+    arch = env.get('ARCH', None)
     auto_src = os.environ.get('UBUNTU_IMAGE_LIVECD_ROOTFS_AUTO_PATH')
     if auto_src is None:
         proc = run('dpkg -L livecd-rootfs | grep "auto$"', shell=True,
@@ -155,6 +166,18 @@ def live_build(root_dir, env):
         config_cmd = ['sudo']
         config_cmd.extend(env_list)
         config_cmd.extend(['lb', 'config'])
+        if arch and arch != get_host_arch() and enable_cross_build:
+            # For cases where we want to cross-build, we need to pass
+            # additional options to live-build with the arch to use and path
+            # to the qemu static.
+            qemu_path = os.environ.get('UBUNTU_IMAGE_QEMU_USER_STATIC_PATH')
+            if qemu_path is None:
+                # Try to guess the qemu-user-static binary name and find it.
+                static = get_qemu_static_for_arch(arch)
+                qemu_path = find_executable(static)
+            config_cmd.extend(['--bootstrap-qemu-arch', arch,
+                               '--bootstrap-qemu-static', qemu_path,
+                               '--architectures', arch])
         run(config_cmd, stdout=None, stderr=None, env=os.environ)
         # Build
         build_cmd = ['sudo']
