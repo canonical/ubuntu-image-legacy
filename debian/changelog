@@ -1,4 +1,4 @@
-ubuntu-image (1.4+18.10ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (1.4+18.10ubuntu1) cosmic; urgency=medium
 
   * Add support for classic cross-compilation, add qemu-user-static as a
     dependency.  (LP: #1772061)
