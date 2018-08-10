@@ -2,7 +2,7 @@ name: ubuntu-image
 summary: Create Ubuntu images
 description: |
   Use this tool to create Ubuntu images.
-version: 1.4+snap2
+version: 1.4+snap3
 grade: stable
 confinement: classic
 
