@@ -9,7 +9,7 @@ from subprocess import CalledProcessError
 from tempfile import gettempdir
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import (
-     check_root_privilege, live_build, run)
+     check_root_privilege, get_host_arch, live_build, run)
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole)
 
@@ -67,6 +67,9 @@ class ClassicBuilder(AbstractImageBuilderState):
                 env['EXTRA_PPAS'] = self.args.extra_ppas
             # Only genereate a single rootfs tree for classic image creation.
             env['IMAGEFORMAT'] = 'none'
+            # ensure ARCH is set
+            if self.args.arch is None:
+                env['ARCH'] = get_host_arch()
             live_build(self.unpackdir, env)
         except CalledProcessError:
             if self.args.debug:
