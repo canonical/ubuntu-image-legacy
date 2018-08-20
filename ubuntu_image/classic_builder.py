@@ -101,12 +101,13 @@ class ClassicBuilder(AbstractImageBuilderState):
             shutil.rmtree(grub_folder, ignore_errors=True)
         # Replace pre-defined LABEL in /etc/fstab with the one
         # we're using 'LABEL=writable' in grub.cfg.
+        # TODO We need EFI partition in fstab too
         fstab_path = os.path.join(dst, 'etc', 'fstab')
         if os.path.exists(fstab_path):
             with open(fstab_path, 'r') as fstab:
                 new_content = re.sub(r'(LABEL=)\S+',
                                      r'\1{}'.format(DEFAULT_FS_LABEL),
-                                     fstab.read())
+                                     fstab.read(), count=1)
             # Insert LABEL entry if it's not found at fstab
             fs_label = 'LABEL={}'.format(DEFAULT_FS_LABEL)
             if fs_label not in new_content:
