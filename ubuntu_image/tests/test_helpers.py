@@ -461,7 +461,7 @@ class TestHelpers(TestCase):
                  'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=armhf',
                  'lb', 'config'])
 
-    def test_mkfs_ext4(self):
+    def aux_test_mkfs_ext4(self, cmd):
         with ExitStack() as resources:
             tmpdir = resources.enter_context(TemporaryDirectory())
             results_dir = os.path.join(tmpdir, 'results')
@@ -476,13 +476,19 @@ class TestHelpers(TestCase):
                 fp.write(b'56789')
             # And a fake image file.
             img_file = resources.enter_context(NamedTemporaryFile())
-            mkfs_ext4(img_file, contents_dir, 'snap')
+            mkfs_ext4(img_file, contents_dir, cmd)
             # Two files were put in the "mountpoint" directory, but because of
             # above, we have to check them in the results copy.
             with open(os.path.join(mock.results_dir, 'a.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'01234')
             with open(os.path.join(mock.results_dir, 'b.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'56789')
+
+    def test_mkfs_ext4_snap(self):
+        self.aux_test_mkfs_ext4('snap')
+
+    def test_mkfs_ext4_classic(self):
+        self.aux_test_mkfs_ext4('classic')
 
     def test_mkfs_ext4_no_contents(self):
         with ExitStack() as resources:
