@@ -16,10 +16,10 @@ from ubuntu_image.__main__ import get_modified_args, main, parseargs
 from ubuntu_image.helpers import GiB, MiB
 from ubuntu_image.hooks import supported_hooks
 from ubuntu_image.testing.helpers import (
-    CrashingModelAssertionBuilder, DoNothingBuilder,
-    EarlyExitLeaveATraceAssertionBuilder, EarlyExitLeaveATraceClassicBuilder,
-    EarlyExitModelAssertionBuilder, LogCapture, XXXModelAssertionBuilder,
-    envar)
+    CallLBLeaveATraceClassicBuilder, CrashingModelAssertionBuilder,
+    DoNothingBuilder, EarlyExitLeaveATraceAssertionBuilder,
+    EarlyExitLeaveATraceClassicBuilder, EarlyExitModelAssertionBuilder,
+    LogCapture, XXXModelAssertionBuilder, envar)
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import call, patch
@@ -614,6 +614,45 @@ class TestMainWithGadget(TestCase):
             mock.call_args_list[-1],
             call('Current user(test) does not have root privilege to build '
                  'classic image. Please run ubuntu-image as root.'))
+
+    def test_classic_cross_build_no_static(self):
+        # We need to check that a DependencyError is raised when
+        # find_executable does not find the qemu-<ARCH>-static binary in
+        # PATH (and no path env is set)
+        workdir = self._resources.enter_context(TemporaryDirectory())
+        livecd_rootfs = self._resources.enter_context(TemporaryDirectory())
+        auto = os.path.join(livecd_rootfs, 'auto')
+        os.mkdir(auto)
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ClassicBuilder',
+            CallLBLeaveATraceClassicBuilder))
+        self._resources.enter_context(
+            envar('UBUNTU_IMAGE_LIVECD_ROOTFS_AUTO_PATH', auto))
+        self._resources.enter_context(
+            patch('ubuntu_image.helpers.run', return_value=None))
+        self._resources.enter_context(
+            patch('ubuntu_image.helpers.find_executable', return_value=None))
+        self._resources.enter_context(
+            patch('ubuntu_image.helpers.get_host_arch',
+                  return_value='amd64'))
+        self._resources.enter_context(
+            patch('ubuntu_image.__main__.get_host_distro',
+                  return_value='bionic'))
+        self._resources.enter_context(
+            patch('ubuntu_image.classic_builder.check_root_privilege',
+                  return_value=None))
+        mock = self._resources.enter_context(patch(
+            'ubuntu_image.__main__._logger.error'))
+        code = main(('classic', '--workdir', workdir,
+                     '--project', 'ubuntu-cpc', '--arch', 'armhf',
+                     self.classic_gadget_tree))
+        self.assertEqual(code, 1)
+        self.assertFalse(os.path.exists(os.path.join(workdir, 'success')))
+        self.assertEqual(
+            mock.call_args_list[-1],
+            call('Required dependency qemu-arm-static seems to be missing. '
+                 'Use UBUNTU_IMAGE_QEMU_USER_STATIC_PATH in case of '
+                 'non-standard archs or custom paths.'))
 
     def test_hook_fired(self):
         # For the purpose of testing, we will be using the post-populate-rootfs
