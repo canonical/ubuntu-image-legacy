@@ -66,7 +66,7 @@ class ClassicBuilder(AbstractImageBuilderState):
                     env['PROPOSED'] = self.args.with_proposed
                 if self.args.extra_ppas is not None:
                     env['EXTRA_PPAS'] = self.args.extra_ppas
-                # Only generate a single rootfs tree for classic image creation.
+                # Only generate a single rootfs tree for classic images.
                 env['IMAGEFORMAT'] = 'none'
                 # ensure ARCH is set
                 if self.args.arch is None:
@@ -76,7 +76,7 @@ class ClassicBuilder(AbstractImageBuilderState):
                 if self.args.debug:
                     _logger.exception('Full debug traceback follows')
                 self.exitcode = 1
-                # Stop the state machine right here by not appending a next step.
+                # Stop the state machine here by not appending a next step.
                 return
 
         super().prepare_image()
