@@ -48,39 +48,38 @@ class ClassicBuilder(AbstractImageBuilderState):
         super().prepare_gadget_tree()
 
     def prepare_image(self):
-        if self.args.filesystem:
-            return super().prepare_image()
+        if not self.args.filesystem:
+            try:
+                # Configure it with environment variables.
+                env = {}
+                if self.args.project is not None:
+                    env['PROJECT'] = self.args.project
+                if self.args.suite is not None:
+                    env['SUITE'] = self.args.suite
+                if self.args.arch is not None:
+                    env['ARCH'] = self.args.arch
+                if self.args.subproject is not None:
+                    env['SUBPROJECT'] = self.args.subproject
+                if self.args.subarch is not None:
+                    env['SUBARCH'] = self.args.subarch
+                if self.args.with_proposed is not None:
+                    env['PROPOSED'] = self.args.with_proposed
+                if self.args.extra_ppas is not None:
+                    env['EXTRA_PPAS'] = self.args.extra_ppas
+                # Only generate a single rootfs tree for classic image creation.
+                env['IMAGEFORMAT'] = 'none'
+                # ensure ARCH is set
+                if self.args.arch is None:
+                    env['ARCH'] = get_host_arch()
+                live_build(self.unpackdir, env)
+            except CalledProcessError:
+                if self.args.debug:
+                    _logger.exception('Full debug traceback follows')
+                self.exitcode = 1
+                # Stop the state machine right here by not appending a next step.
+                return
 
-        try:
-            # Configure it with environment variables.
-            env = {}
-            if self.args.project is not None:
-                env['PROJECT'] = self.args.project
-            if self.args.suite is not None:
-                env['SUITE'] = self.args.suite
-            if self.args.arch is not None:
-                env['ARCH'] = self.args.arch
-            if self.args.subproject is not None:
-                env['SUBPROJECT'] = self.args.subproject
-            if self.args.subarch is not None:
-                env['SUBARCH'] = self.args.subarch
-            if self.args.with_proposed is not None:
-                env['PROPOSED'] = self.args.with_proposed
-            if self.args.extra_ppas is not None:
-                env['EXTRA_PPAS'] = self.args.extra_ppas
-            # Only genereate a single rootfs tree for classic image creation.
-            env['IMAGEFORMAT'] = 'none'
-            # ensure ARCH is set
-            if self.args.arch is None:
-                env['ARCH'] = get_host_arch()
-            live_build(self.unpackdir, env)
-        except CalledProcessError:
-            if self.args.debug:
-                _logger.exception('Full debug traceback follows')
-            self.exitcode = 1
-            # Stop the state machine right here by not appending a next step.
-        else:
-            super().prepare_image()
+        super().prepare_image()
 
     def populate_rootfs_contents(self):
         dst = self.rootfs
@@ -88,7 +87,7 @@ class ClassicBuilder(AbstractImageBuilderState):
             src = self.args.filesystem
             # 'cp -a' is faster than the python functions and makes sure all
             # meta information is preserved.
-            os.system('cp -a ' + os.path.join(src, '*') + ' ' + dst)
+            run('cp -a {} {}'.format(os.path.join(src, '*'), dst), shell=True)
         else:
             src = os.path.join(self.unpackdir, 'chroot')
             for subdir in os.listdir(src):
