@@ -91,6 +91,19 @@ class EarlyExitLeaveATraceClassicBuilder(XXXClassicBuilder):
             pass
 
 
+class CallLBLeaveATraceClassicBuilder(XXXClassicBuilder):
+    def prepare_gadget_tree(self):
+        # We're skipping the gadget tree build as we're leaving early and will
+        # not use it for the tests.
+        self._next.append(self.prepare_image)
+
+    def load_gadget_yaml(self):
+        # This time we want to call prepare_image for the live-build call but
+        # then finish after leaving a trace
+        with open(os.path.join(self.workdir, 'success'), 'w'):
+            pass
+
+
 class LogCapture:
     def __init__(self):
         self.logs = []
