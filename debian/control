@@ -52,9 +52,9 @@ Depends: ca-certificates,
          python3-voluptuous,
          python3-yaml,
          snapd,
-         qemu-user-static,
          ${misc:Depends},
          ${python3:Depends},
+Suggests: qemu-user-static,
 Description: toolkit for building Ubuntu images
  .
  This package contains the ubuntu-image library for Python 3.

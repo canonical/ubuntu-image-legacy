@@ -11,7 +11,7 @@ from ubuntu_image import __version__
 from ubuntu_image.assertion_builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
 from ubuntu_image.helpers import (
-    DoesNotFit, PrivilegeError, as_size, get_host_arch,
+    DependencyError, DoesNotFit, PrivilegeError, as_size,
     get_host_distro)
 from ubuntu_image.hooks import HookError
 from ubuntu_image.i18n import _
@@ -254,7 +254,7 @@ def parseargs(argv=None):
         help=_("""Distribution name to be specified to livecd-rootfs."""))
     classic_cmd.add_argument(
         '-a', '--arch',
-        default=get_host_arch(), metavar='CPU-ARCHITECTURE',
+        default=None, metavar='CPU-ARCHITECTURE',
         help=_("""CPU architecture to be specified to livecd-rootfs.
         default value is builder arch."""))
     classic_cmd.add_argument(
@@ -360,6 +360,10 @@ def main(argv=None):
         _logger.error('Current user({}) does not have root privilege to build'
                       ' classic image. Please run ubuntu-image as root.'
                       .format(error.user_name))
+        return 1
+    except DependencyError as error:
+        _logger.error('Required dependency {} seems to be missing. {}'.format(
+            error.name, error.additional_info))
         return 1
     except:  # noqa: E722
         _logger.exception('Crash in state machine')
