@@ -213,9 +213,13 @@ def mkfs_ext4(img_file, contents_dir, image_type, label='writable',
     contents of an existing directory.  Unfortunately, we're targeting
     Ubuntu 16.04, which has e2fsprogs 1.42.X without the -d flag.  In
     that case, we have to sudo loop mount the ext4 file system and
-    populate it that way.  Which sucks because sudo.
-    NOTE Unfortunately we cannot use fakeroot for classic, as that changes the
-    ownership of the files - critical for /home/*
+    populate it that way.
+
+    Besides that, we need to use fakeroot for core so the files in the
+    partition are owned by root. For classic we want to keep the
+    ownership of the files created by live-build, so we do not use
+    fakeroot. But, we need to use sudo in that case so we can access
+    root read-only files in the contents folder.
     """
     if image_type == 'snap':
         sudo_cmd = 'fakeroot-sysv'
