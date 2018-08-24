@@ -1,3 +1,9 @@
+ubuntu-image (1.5+18.10ubuntu1) UNRELEASED; urgency=medium
+
+  * Fix bug with setting file owners in classic.  (LP: #1783577)
+
+ -- Alfonso Sanchez-Beato (email Canonical) <alfonso.sanchez-beato@canonical.com>  Tue, 21 Aug 2018 14:45:48 +0200
+
 ubuntu-image (1.4+18.10ubuntu2) cosmic; urgency=medium
 
   * Demote the qemu-user-static dependency to Suggests, modify the code to

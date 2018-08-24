@@ -209,7 +209,7 @@ def mount(img):
         yield mountpoint
 
 
-def mkfs_ext4(img_file, contents_dir, label='writable',
+def mkfs_ext4(img_file, contents_dir, image_type, label='writable',
               preserve_ownership=False):
     """Encapsulate the `mkfs.ext4` invocation.
 
@@ -218,10 +218,21 @@ def mkfs_ext4(img_file, contents_dir, label='writable',
     contents of an existing directory.  Unfortunately, we're targeting
     Ubuntu 16.04, which has e2fsprogs 1.42.X without the -d flag.  In
     that case, we have to sudo loop mount the ext4 file system and
-    populate it that way.  Which sucks because sudo.
+    populate it that way.
+
+    Besides that, we need to use fakeroot for core so the files in the
+    partition are owned by root. For classic we want to keep the
+    ownership of the files created by live-build, so we do not use
+    fakeroot. But, we need to use sudo in that case so we can access
+    root read-only files in the contents folder.
     """
-    cmd = ('fakeroot-sysv mkfs.ext4 -L {} -O -metadata_csum -T default '
-           '-O uninit_bg {} -d {}').format(label, img_file, contents_dir)
+    if image_type == 'snap':
+        sudo_cmd = 'fakeroot-sysv'
+    else:
+        sudo_cmd = 'sudo'
+    cmd = ('{} mkfs.ext4 -L {} -O -metadata_csum -T default '
+           '-O uninit_bg {} -d {}').format(sudo_cmd, label, img_file,
+                                           contents_dir)
     proc = run(cmd, check=False)
     if proc.returncode == 0:
         # We have a new enough e2fsprogs, so we're done.
