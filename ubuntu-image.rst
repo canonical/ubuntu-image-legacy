@@ -266,6 +266,13 @@ The following environment variables are recognized by ``ubuntu-image``.
     Otherwise it will attempt to localize ``livecd-rootfs`` through a call to
     ``dpkg``.
 
+``UBUNTU_IMAGE_QEMU_USER_STATIC_PATH``
+    In case of classic image cross-compilation for a different architecture,
+    ``ubuntu-image`` will attempt to use the qemu-user-static emulator with
+    ``live-build``.  If set, ``ubuntu-image`` will use the selected path for
+    the cross-compilation.  Otherwise it will attempt to find a matching
+    emulator binary in the current ``$PATH``.
+
 There are a few other environment variables used for building and testing
 only.
 

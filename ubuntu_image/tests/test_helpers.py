@@ -13,7 +13,7 @@ from subprocess import run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
-     GiB, MiB, PrivilegeError, as_bool, as_size,
+     DependencyError, GiB, MiB, PrivilegeError, as_bool, as_size,
      check_root_privilege, get_host_arch, get_host_distro,
      get_qemu_static_for_arch, live_build,
      mkfs_ext4, run, snap, sparse_copy)
@@ -432,6 +432,30 @@ class TestHelpers(TestCase):
                 ['sudo',
                  'PROJECT=ubuntu-server', 'SUITE=xenial', 'ARCH=armhf',
                  'lb', 'build'])
+
+    def test_live_build_cross_build_no_static(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            root_dir = os.path.join(tmpdir, 'root_dir')
+            mock = LiveBuildMocker(root_dir)
+            resources.enter_context(LogCapture())
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            resources.enter_context(
+                patch('ubuntu_image.helpers.get_host_arch',
+                      return_value='amd64'))
+            resources.enter_context(
+                patch('ubuntu_image.helpers.find_executable',
+                      return_value=None))
+            env = OrderedDict()
+            env['PROJECT'] = 'ubuntu-server'
+            env['SUITE'] = 'xenial'
+            env['ARCH'] = 'armhf'
+            with self.assertRaises(DependencyError) as cm:
+                live_build(root_dir, env)
+            self.assertEqual(len(mock.call_args_list), 1)
+            self.assertEqual(
+                cm.exception.name, 'qemu-arm-static')
 
     def test_live_build_no_cross_build(self):
         with ExitStack() as resources:

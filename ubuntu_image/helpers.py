@@ -175,6 +175,11 @@ def live_build(root_dir, env, enable_cross_build=True):
                 # Try to guess the qemu-user-static binary name and find it.
                 static = get_qemu_static_for_arch(arch)
                 qemu_path = find_executable(static)
+                if qemu_path is None:
+                    raise DependencyError(
+                        static,
+                        'Use UBUNTU_IMAGE_QEMU_USER_STATIC_PATH in case of '
+                        'non-standard archs or custom paths.')
             config_cmd.extend(['--bootstrap-qemu-arch', arch,
                                '--bootstrap-qemu-static', qemu_path,
                                '--architectures', arch])
@@ -284,3 +289,11 @@ class PrivilegeError(ExpectedError):
 
     def __init__(self, user_name):
         self.user_name = user_name
+
+
+class DependencyError(ExpectedError):
+    """An optional dependency is missing."""
+
+    def __init__(self, name, additional_info=''):
+        self.name = name
+        self.additional_info = additional_info

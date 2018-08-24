@@ -1,6 +1,21 @@
-ubuntu-image (1.4+18.10ubuntu2) UNRELEASED; urgency=medium
+ubuntu-image (1.5+18.10ubuntu1) UNRELEASED; urgency=medium
 
-  [ Łukasz 'sil2100' Zemczak ]
+  * Fix bug with setting file owners in classic.  (LP: #1783577)
+
+ -- Alfonso Sanchez-Beato (email Canonical) <alfonso.sanchez-beato@canonical.com>  Tue, 21 Aug 2018 14:45:48 +0200
+
+ubuntu-image (1.4+18.10ubuntu2) cosmic; urgency=medium
+
+  * Demote the qemu-user-static dependency to Suggests, modify the code to
+    gracefully handle the lack of qemu binaries for cross-compilation.
+    (LP: #1788177)
+  * Add missing information about UBUNTU_IMAGE_QEMU_USER_STATIC_PATH to the
+    manpage.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 21 Aug 2018 15:25:59 +0200
+
+ubuntu-image (1.4+18.10ubuntu1) cosmic; urgency=medium
+
   * Add support for classic cross-compilation, add qemu-user-static as a
     dependency.  (LP: #1772061)
   * Work-around the API rate limit exceeded failures from github in the
@@ -12,10 +27,7 @@ ubuntu-image (1.4+18.10ubuntu2) UNRELEASED; urgency=medium
     Switch to using deb-packaged voluptuous.  (LP: #1782313)
   * Add the new connections: stanza to the gadget.yaml parser.  (LP: #1780217)
 
-  [ Alfonso Sanchez-Beato (email Canonical) ]
-  * Fix bug with setting file owners in classic.  (LP: #1783577)
-
- -- Alfonso Sanchez-Beato (email Canonical) <alfonso.sanchez-beato@canonical.com>  Tue, 21 Aug 2018 14:45:48 +0200
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 20 Jul 2018 16:43:51 +0200
 
 ubuntu-image (1.3+18.04ubuntu2) bionic; urgency=medium
 
