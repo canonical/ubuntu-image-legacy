@@ -48,42 +48,51 @@ class ClassicBuilder(AbstractImageBuilderState):
         super().prepare_gadget_tree()
 
     def prepare_image(self):
-        try:
-            # Configure it with environment variables.
-            env = {}
-            if self.args.project is not None:
-                env['PROJECT'] = self.args.project
-            if self.args.suite is not None:
-                env['SUITE'] = self.args.suite
-            if self.args.arch is not None:
-                env['ARCH'] = self.args.arch
-            if self.args.subproject is not None:
-                env['SUBPROJECT'] = self.args.subproject
-            if self.args.subarch is not None:
-                env['SUBARCH'] = self.args.subarch
-            if self.args.with_proposed is not None:
-                env['PROPOSED'] = self.args.with_proposed
-            if self.args.extra_ppas is not None:
-                env['EXTRA_PPAS'] = self.args.extra_ppas
-            # Only genereate a single rootfs tree for classic image creation.
-            env['IMAGEFORMAT'] = 'none'
-            # ensure ARCH is set
-            if self.args.arch is None:
-                env['ARCH'] = get_host_arch()
-            live_build(self.unpackdir, env)
-        except CalledProcessError:
-            if self.args.debug:
-                _logger.exception('Full debug traceback follows')
-            self.exitcode = 1
-            # Stop the state machine right here by not appending a next step.
-        else:
-            super().prepare_image()
+        if not self.args.filesystem:
+            try:
+                # Configure it with environment variables.
+                env = {}
+                if self.args.project is not None:
+                    env['PROJECT'] = self.args.project
+                if self.args.suite is not None:
+                    env['SUITE'] = self.args.suite
+                if self.args.arch is not None:
+                    env['ARCH'] = self.args.arch
+                if self.args.subproject is not None:
+                    env['SUBPROJECT'] = self.args.subproject
+                if self.args.subarch is not None:
+                    env['SUBARCH'] = self.args.subarch
+                if self.args.with_proposed is not None:
+                    env['PROPOSED'] = self.args.with_proposed
+                if self.args.extra_ppas is not None:
+                    env['EXTRA_PPAS'] = self.args.extra_ppas
+                # Only generate a single rootfs tree for classic images.
+                env['IMAGEFORMAT'] = 'none'
+                # ensure ARCH is set
+                if self.args.arch is None:
+                    env['ARCH'] = get_host_arch()
+                live_build(self.unpackdir, env)
+            except CalledProcessError:
+                if self.args.debug:
+                    _logger.exception('Full debug traceback follows')
+                self.exitcode = 1
+                # Stop the state machine here by not appending a next step.
+                return
+
+        super().prepare_image()
 
     def populate_rootfs_contents(self):
-        src = os.path.join(self.unpackdir, 'chroot')
         dst = self.rootfs
-        for subdir in os.listdir(src):
-            shutil.move(os.path.join(src, subdir), os.path.join(dst, subdir))
+        if self.args.filesystem:
+            src = self.args.filesystem
+            # 'cp -a' is faster than the python functions and makes sure all
+            # meta information is preserved.
+            run('cp -a {} {}'.format(os.path.join(src, '*'), dst), shell=True)
+        else:
+            src = os.path.join(self.unpackdir, 'chroot')
+            for subdir in os.listdir(src):
+                shutil.move(os.path.join(src, subdir),
+                            os.path.join(dst, subdir))
         # Remove default grub bootloader settings as we ship bootloader bits
         # (binary blobs and grub.cfg) to a generated rootfs locally.
         grub_folder = os.path.join(dst, 'boot', 'grub')
@@ -91,12 +100,13 @@ class ClassicBuilder(AbstractImageBuilderState):
             shutil.rmtree(grub_folder, ignore_errors=True)
         # Replace pre-defined LABEL in /etc/fstab with the one
         # we're using 'LABEL=writable' in grub.cfg.
+        # TODO We need EFI partition in fstab too
         fstab_path = os.path.join(dst, 'etc', 'fstab')
         if os.path.exists(fstab_path):
             with open(fstab_path, 'r') as fstab:
                 new_content = re.sub(r'(LABEL=)\S+',
                                      r'\1{}'.format(DEFAULT_FS_LABEL),
-                                     fstab.read())
+                                     fstab.read(), count=1)
             # Insert LABEL entry if it's not found at fstab
             fs_label = 'LABEL={}'.format(DEFAULT_FS_LABEL)
             if fs_label not in new_content:
