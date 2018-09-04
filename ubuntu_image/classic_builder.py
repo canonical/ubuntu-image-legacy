@@ -65,7 +65,7 @@ class ClassicBuilder(AbstractImageBuilderState):
                 if self.args.with_proposed is not None:
                     env['PROPOSED'] = self.args.with_proposed
                 if self.args.extra_ppas is not None:
-                    env['EXTRA_PPAS'] = self.args.extra_ppas
+                    env['EXTRA_PPAS'] = ' '.join(self.args.extra_ppas)
                 # Only generate a single rootfs tree for classic images.
                 env['IMAGEFORMAT'] = 'none'
                 # ensure ARCH is set
