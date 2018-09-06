@@ -5,6 +5,8 @@ ubuntu-image (1.5+18.10ubuntu1) UNRELEASED; urgency=medium
   * Add --filesystem option for classic. This gives us the option to use an
     existing unpacked root file system instead of calling live-build to create
     it.  (LP: #1782795)
+  * Remove content of /boot/grub instead of the full folder, so update-grub
+    can still run.  (LP: #1791049)
 
   [ Łukasz 'sil2100' Zemczak ]
   * Fix handling of --extra-ppas for classic builds.  (LP: #1790708)

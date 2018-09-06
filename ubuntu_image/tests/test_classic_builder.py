@@ -354,9 +354,6 @@ class TestClassicBuilder(TestCase):
             state.unpackdir = resources.enter_context(TemporaryDirectory())
             os.makedirs(os.path.join(state.unpackdir, 'chroot'))
             state.rootfs = resources.enter_context(TemporaryDirectory())
-            # While we're at it, make sure we also remove the old grub dir
-            grub_dirs = os.path.join(state.rootfs, 'boot', 'grub', 'test')
-            os.makedirs(grub_dirs, exist_ok=True)
             # Jump right to the state method we're trying to test.
             state._next.pop()
             state._next.append(state.populate_rootfs_contents)
@@ -473,13 +470,18 @@ class TestClassicBuilder(TestCase):
             # Create some dummy files in the grub directory.
             grub_dir = os.path.join(state.rootfs, 'boot', 'grub')
             os.makedirs(grub_dir, exist_ok=True)
-            open(os.path.join(grub_dir, 'test'), 'wb').close()
+            grub_inside_dir = os.path.join(grub_dir, 'dir')
+            os.makedirs(grub_inside_dir, exist_ok=True)
+            grub_file = os.path.join(grub_dir, 'test')
+            open(grub_file, 'wb').close()
             # Jump right to the state method we're trying to test.
             state._next.pop()
             state._next.append(state.populate_rootfs_contents)
             next(state)
-            # There should be no default boot/grub path present.
-            self.assertFalse(os.path.exists(grub_dir))
+            # /boot/grub should persist, but not the files inside
+            self.assertTrue(os.path.exists(grub_dir))
+            self.assertFalse(os.path.exists(grub_inside_dir))
+            self.assertFalse(os.path.exists(grub_file))
 
     def test_populate_bootfs_contents(self):
         # This test provides coverage for populate_bootfs_contents() when a
