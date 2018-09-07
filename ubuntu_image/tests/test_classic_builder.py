@@ -900,7 +900,6 @@ class TestClassicBuilder(TestCase):
                 'subproject': 'SUBPROJECT',
                 'subarch': 'SUBARCH',
                 'with_proposed': 'PROPOSED',
-                'extra_ppas': 'EXTRA_PPAS',
                 }
             kwargs_skel = {
                 'workdir': '/tmp',
@@ -935,6 +934,27 @@ class TestClassicBuilder(TestCase):
                 posargs, kwargs = mock.call_args_list[0]
                 self.assertIn(env, posargs[1])
                 self.assertEqual(posargs[1][env], 'test')
+            # The extra_ppas argument is actually a list, so it needs a
+            # separate test-case.
+            outputtoinput = {
+                'foo/bar': ['foo/bar'],
+                'foo/bar foo/baz': ['foo/bar', 'foo/baz'],
+            }
+            for outputarg, inputarg in outputtoinput.items():
+                kwargs = dict(kwargs_skel)
+                kwargs['extra_ppas'] = inputarg
+                args = SimpleNamespace(**kwargs)
+                # Jump right to the method under test.
+                state = resources.enter_context(XXXClassicBuilder(args))
+                state._next.pop()
+                state._next.append(state.prepare_image)
+                mock = resources.enter_context(patch(
+                    'ubuntu_image.classic_builder.live_build'))
+                next(state)
+                self.assertEqual(len(mock.call_args_list), 1)
+                posargs, kwargs = mock.call_args_list[0]
+                self.assertIn('EXTRA_PPAS', posargs[1])
+                self.assertEqual(posargs[1]['EXTRA_PPAS'], outputarg)
 
     def test_filesystem_no_live_build_call(self):
         with ExitStack() as resources:
