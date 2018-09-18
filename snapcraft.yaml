@@ -33,7 +33,6 @@ parts:
       - fakeroot
       - mtools
       - python3-debian
-      - python3-git
       - python3-parted
       - python3-voluptuous
       - util-linux
