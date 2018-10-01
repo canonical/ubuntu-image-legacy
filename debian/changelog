@@ -1,4 +1,4 @@
-ubuntu-image (1.5+18.10ubuntu2) UNRELEASED; urgency=medium
+ubuntu-image (1.5+18.10ubuntu1) UNRELEASED; urgency=medium
 
   [ Alfonso Sanchez-Beato (email Canonical) ]
   * Fix bug with setting file owners in classic.  (LP: #1783577)
@@ -13,7 +13,14 @@ ubuntu-image (1.5+18.10ubuntu2) UNRELEASED; urgency=medium
   * Check for image/boot/<bootloader> for bootfs additional contents also for
     classic builds.  Ignore if it does not exist.  (LP: #1792561)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 14 Sep 2018 12:50:01 +0200
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 01 Oct 2018 21:05:30 +0200
+
+ubuntu-image (1.4+18.10ubuntu3) cosmic; urgency=medium
+
+  * Use the r prefix for regex in helpers to make the new pycodestyle happy.
+    This essentially fixes all the new u-i ADT qa regressions in cosmic.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 01 Oct 2018 21:05:28 +0200
 
 ubuntu-image (1.4+18.10ubuntu2) cosmic; urgency=medium
 
