@@ -65,7 +65,7 @@ def straight_up_bytes(count):
 
 
 def as_size(size, min=0, max=None):
-    mo = re.match('(\d+)([a-zA-Z]*)', size)
+    mo = re.match(r'(\d+)([a-zA-Z]*)', size)
     if mo is None:
         raise ValueError(size)
     size_in_bytes = mo.group(1)
