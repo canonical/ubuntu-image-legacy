@@ -15,7 +15,7 @@ ubuntu-image (1.5+18.10ubuntu1) UNRELEASED; urgency=medium
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 02 Oct 2018 17:07:58 +0200
 
-ubuntu-image (1.4+18.10ubuntu3) cosmic; urgency=medium
+ubuntu-image (1.4+18.10ubuntu4) cosmic; urgency=medium
 
   * Change the default values of our GadgetYAML voluptuous schema for
     enumerated objects from objects to the strings they represent.  Voluptuous
