@@ -13,7 +13,17 @@ ubuntu-image (1.5+18.10ubuntu1) UNRELEASED; urgency=medium
   * Check for image/boot/<bootloader> for bootfs additional contents also for
     classic builds.  Ignore if it does not exist.  (LP: #1792561)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 01 Oct 2018 21:05:30 +0200
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 02 Oct 2018 17:07:58 +0200
+
+ubuntu-image (1.4+18.10ubuntu4) cosmic; urgency=medium
+
+  * Change the default values of our GadgetYAML voluptuous schema for
+    enumerated objects from objects to the strings they represent.  Voluptuous
+    starting with 0.11.0 started validating default values and apparently the
+    way we defined them no longer works.  Fixes failing autopkgtests.
+    (LP: #1795610)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 02 Oct 2018 17:07:55 +0200
 
 ubuntu-image (1.4+18.10ubuntu3) cosmic; urgency=medium
 
