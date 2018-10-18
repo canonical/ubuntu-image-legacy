@@ -267,19 +267,26 @@ class AbstractImageBuilderState(State):
     def populate_recovery_contents(self):
         recovery = False
         target_dir = None
+        boot_target_dir = None
         # Check if a recovery partition has been specified
         for _, volume in self.gadget.volumes.items():
             for partnum, part in enumerate(volume.structures):
-                if part.role == StructureRole.system_recovery:
+                if part.role is StructureRole.system_boot:
+                    boot_target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+                if part.role is StructureRole.system_recovery:
                     target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
                     recovery = True
+                if recovery and target_dir and boot_target_dir:
                     break
-        if recovery:
-            # Copy the seed directory
+        if recovery and target_dir and boot_target_dir:
+            # Move the seed directory to the system-recovery partition
             src = os.path.join(
                 self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed')
             dst = os.path.join(target_dir, 'seed')
-            shutil.copytree(src, dst)
+            shutil.move(src, dst)
+            # Backup the boot partition to the system-recovery partition
+            boot_dst = os.path.join(target_dir, 'boot')
+            shutil.copytree(boot_target_dir, boot_dst)
         self._next.append(self.prepare_filesystems)
 
     def _prepare_one_volume(self, volume_index, name, volume):
