@@ -262,6 +262,24 @@ class AbstractImageBuilderState(State):
     def populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
             self._populate_one_bootfs(name, volume)
+        self._next.append(self.populate_recovery_contents)
+
+    def populate_recovery_contents(self):
+        recovery = False
+        target_dir = None
+        # Check if a recovery partition has been specified
+        for _, volume in self.gadget.volumes.items():
+            for partnum, part in enumerate(volume.structures):
+                if part.role == StructureRole.system_recovery:
+                    target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+                    recovery = True
+                    break
+        if recovery:
+            # Copy the seed directory
+            src = os.path.join(
+                self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed')
+            dst = os.path.join(target_dir, 'seed')
+            shutil.copytree(src, dst)
         self._next.append(self.prepare_filesystems)
 
     def _prepare_one_volume(self, volume_index, name, volume):

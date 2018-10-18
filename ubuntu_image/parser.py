@@ -88,6 +88,7 @@ class FileSystemType(Enum):
 class StructureRole(Enum):
     mbr = 'mbr'
     system_boot = 'system-boot'
+    system_recovery = 'system-recovery'
     system_data = 'system-data'
 
 
@@ -471,6 +472,11 @@ def parse(stream_or_string):
             if structure_role is None:
                 if filesystem_label == 'system-boot':
                     structure_role = StructureRole.system_boot
+                    warn('volumes:<volume name>:structure:<N>:filesystem_label'
+                         ' used for defining partition roles; use role '
+                         'instead.', DeprecationWarning)
+                elif filesystem_label == 'system-recovery':
+                    structure_role = StructureRole.system_recovery
                     warn('volumes:<volume name>:structure:<N>:filesystem_label'
                          ' used for defining partition roles; use role '
                          'instead.', DeprecationWarning)
