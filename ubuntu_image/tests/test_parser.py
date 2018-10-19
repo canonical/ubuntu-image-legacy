@@ -567,13 +567,19 @@ volumes:
     structure:
         - type: 00000000-0000-0000-0000-0000deafbead
           size: 400
+  fifth-image:
+    structure:
+        - type: 00000000-0000-0000-0000-0000deafbead
+          size: 500
+          role: system-recovery
 """)
-        self.assertEqual(len(gadget_spec.volumes), 4)
+        self.assertEqual(len(gadget_spec.volumes), 5)
         self.assertEqual({
             'first-image': StructureRole.mbr,
             'second-image': StructureRole.system_boot,
             'third-image': StructureRole.system_data,
             'fourth-image': None,
+            'fifth-image': StructureRole.system_recovery,
             },
             {key: gadget_spec.volumes[key].structures[0].role
              for key in gadget_spec.volumes}
@@ -846,6 +852,21 @@ volumes:
         partition = volume0.structures[0]
         self.assertEqual(partition.filesystem_label, 'system-boot')
         self.assertEqual(partition.role, StructureRole.system_boot)
+
+    def test_volume_special_label_system_recovery(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          filesystem-label: system-recovery
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        partition = volume0.structures[0]
+        self.assertEqual(partition.filesystem_label, 'system-recovery')
+        self.assertEqual(partition.role, StructureRole.system_recovery)
 
     def test_content_spec_a(self):
         gadget_spec = parse("""\
