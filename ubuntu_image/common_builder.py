@@ -18,6 +18,7 @@ from ubuntu_image.parser import (
 from ubuntu_image.state import State
 
 
+SYSTEMBOOT_BACKUP = 'system-boot.img'
 SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
@@ -268,11 +269,15 @@ class AbstractImageBuilderState(State):
         recovery = False
         target_dir = None
         boot_target_dir = None
+        boot_part = None
+        boot_schema = None
         # Check if a recovery partition has been specified
         for _, volume in self.gadget.volumes.items():
             for partnum, part in enumerate(volume.structures):
                 if part.role is StructureRole.system_boot:
                     boot_target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+                    boot_part = part
+                    boot_schema = volume.schema
                 if part.role is StructureRole.system_recovery:
                     target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
                     recovery = True
@@ -285,9 +290,42 @@ class AbstractImageBuilderState(State):
             dst = os.path.join(target_dir, 'seed')
             shutil.move(src, dst)
             # Backup the boot partition to the system-recovery partition
-            boot_dst = os.path.join(target_dir, 'boot')
-            shutil.copytree(boot_target_dir, boot_dst)
+            self._backup_system_boot(
+                target_dir, boot_target_dir, boot_part, boot_schema)
         self._next.append(self.prepare_filesystems)
+
+    def _populate_vfat_image(self, part_dir, part_img):
+        sourcefiles = SPACE.join(
+            os.path.join(part_dir, filename)
+            for filename in os.listdir(part_dir)
+            )
+        env = dict(MTOOLS_SKIP_CHECK='1')
+        env.update(os.environ)
+        run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
+            env=env)
+
+    def _backup_system_boot(self, target_dir, boot_target_dir, part, boot_schema):
+        # Prepare the image file for system-boot
+        imgfile = os.path.join(target_dir, SYSTEMBOOT_BACKUP)
+        Image(imgfile, part.size, boot_schema)
+        self._prepare_image(imgfile, part)
+
+        # Copy the system-boot files to the image
+        self._populate_vfat_image(boot_target_dir, imgfile)
+
+    def _prepare_image(self, part_img, part):
+        run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
+            part_img, part.size))
+        if part.filesystem is FileSystemType.vfat:
+            label_option = (
+                '-n {}'.format(part.filesystem_label)
+                # TODO: I think this could be None or the empty string,
+                # but this needs verification.
+                if part.filesystem_label
+                else '')
+            # TODO: hard-coding of sector size.
+            run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
+                label_option, part_img))
 
     def _prepare_one_volume(self, volume_index, name, volume):
         volume.part_images = []
@@ -310,18 +348,7 @@ class AbstractImageBuilderState(State):
                 Path(part_img).touch()
                 os.truncate(part_img, part.size)
             else:
-                run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
-                    part_img, part.size))
-                if part.filesystem is FileSystemType.vfat:
-                    label_option = (
-                        '-n {}'.format(part.filesystem_label)
-                        # TODO: I think this could be None or the empty string,
-                        # but this needs verification.
-                        if part.filesystem_label
-                        else '')
-                    # TODO: hard-coding of sector size.
-                    run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
-                        label_option, part_img))
+                self._prepare_image(part_img, part)
             volume.part_images.append(part_img)
             farthest_offset = max(farthest_offset, (part.offset + part.size))
         # Calculate or check the final image size.
@@ -413,14 +440,7 @@ class AbstractImageBuilderState(State):
                     image.copy_blob(src, bs=1, seek=offset, conv='notrunc')
                     offset += file_size
             elif part.filesystem is FileSystemType.vfat:
-                sourcefiles = SPACE.join(
-                    os.path.join(part_dir, filename)
-                    for filename in os.listdir(part_dir)
-                    )
-                env = dict(MTOOLS_SKIP_CHECK='1')
-                env.update(os.environ)
-                run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
-                    env=env)
+                self._populate_vfat_image(part_dir, part_img)
             elif part.filesystem is FileSystemType.ext4:
                 mkfs_ext4(part_img, part_dir, self.args.cmd,
                           part.filesystem_label)
