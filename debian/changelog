@@ -8,6 +8,9 @@ ubuntu-image (1.5+18.10ubuntu1) UNRELEASED; urgency=medium
   * Remove content of /boot/grub instead of the full folder, so update-grub
     can still run.  (LP: #1791049)
 
+  [ Dimitri John Ledkov ]
+  * Add python3.7 to tox commands everywhere.
+
   [ Łukasz 'sil2100' Zemczak ]
   * Fix handling of --extra-ppas for classic builds.  (LP: #1790708)
   * Check for image/boot/<bootloader> for bootfs additional contents also for
