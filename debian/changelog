@@ -1,4 +1,4 @@
-ubuntu-image (1.5+18.10ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (1.5+19.04ubuntu1) UNRELEASED; urgency=medium
 
   [ Alfonso Sanchez-Beato (email Canonical) ]
   * Fix bug with setting file owners in classic.  (LP: #1783577)
