@@ -1,3 +1,24 @@
+ubuntu-image (1.5+18.04ubuntu1) bionic; urgency=medium
+
+  [ Alfonso Sanchez-Beato (email Canonical) ]
+  * Fix bug with setting file owners in classic.  (LP:1783577)
+  * Add --filesystem option for classic. This gives us the option to use an
+    existing unpacked root file system instead of calling live-build to create
+    it.  (LP:1782795)
+  * Remove content of /boot/grub instead of the full folder, so update-grub
+    can still run.  (LP:1791049)
+
+  [ Dimitri John Ledkov ]
+  * Add python3.7 to tox commands everywhere.
+
+  [ Łukasz 'sil2100' Zemczak ]
+  * Fix handling of --extra-ppas for classic builds.  (LP:1790708)
+  * Check for image/boot/<bootloader> for bootfs additional contents also for
+    classic builds.  Ignore if it does not exist.  (LP:1792561)
+  * SRU tracking number LP: #1801332
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 02 Oct 2018 17:07:58 +0200
+
 ubuntu-image (1.4+18.04ubuntu2) bionic; urgency=medium
 
   * Demote the qemu-user-static dependency to Suggests, modify the code to

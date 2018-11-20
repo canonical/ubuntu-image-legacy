@@ -247,7 +247,13 @@ def parseargs(argv=None):
     classic_cmd.add_argument(
         '-p', '--project',
         default=None, metavar='PROJECT',
-        help=_("""Project name to be specified to livecd-rootfs."""))
+        help=_("""Project name to be specified to livecd-rootfs. Mutually
+        exclusive with --filesystem."""))
+    classic_cmd.add_argument(
+        '-f', '--filesystem',
+        default=None, metavar='FILESYSTEM',
+        help=_("""Unpacked Ubuntu filesystem to be copied to the system
+        partition. Mutually exclusive with --project."""))
     classic_cmd.add_argument(
         '-s', '--suite',
         default=get_host_distro(), metavar='SUITE',
@@ -292,8 +298,10 @@ def parseargs(argv=None):
         if not args.resume:   # pragma: no branch
             if args.gadget_tree is None:
                 parser.error('gadget tree is required')
-            elif args.project is None:
-                parser.error('project is required')
+            elif args.project is None and args.filesystem is None:
+                parser.error('project or filesystem is required')
+            elif args.project and args.filesystem:
+                parser.error('project and filesystem are mutually exclusive')
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
     # --until and --thru can take an int.

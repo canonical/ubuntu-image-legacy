@@ -10,8 +10,6 @@ from tempfile import gettempdir
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import (
      check_root_privilege, get_host_arch, live_build, run)
-from ubuntu_image.parser import (
-    BootLoader, FileSystemType, StructureRole)
 
 
 DEFAULT_FS = 'ext4'
@@ -48,55 +46,70 @@ class ClassicBuilder(AbstractImageBuilderState):
         super().prepare_gadget_tree()
 
     def prepare_image(self):
-        try:
-            # Configure it with environment variables.
-            env = {}
-            if self.args.project is not None:
-                env['PROJECT'] = self.args.project
-            if self.args.suite is not None:
-                env['SUITE'] = self.args.suite
-            if self.args.arch is not None:
-                env['ARCH'] = self.args.arch
-            if self.args.subproject is not None:
-                env['SUBPROJECT'] = self.args.subproject
-            if self.args.subarch is not None:
-                env['SUBARCH'] = self.args.subarch
-            if self.args.with_proposed is not None:
-                env['PROPOSED'] = self.args.with_proposed
-            if self.args.extra_ppas is not None:
-                env['EXTRA_PPAS'] = self.args.extra_ppas
-            # Only genereate a single rootfs tree for classic image creation.
-            env['IMAGEFORMAT'] = 'none'
-            # ensure ARCH is set
-            if self.args.arch is None:
-                env['ARCH'] = get_host_arch()
-            live_build(self.unpackdir, env)
-        except CalledProcessError:
-            if self.args.debug:
-                _logger.exception('Full debug traceback follows')
-            self.exitcode = 1
-            # Stop the state machine right here by not appending a next step.
-        else:
-            super().prepare_image()
+        if not self.args.filesystem:
+            try:
+                # Configure it with environment variables.
+                env = {}
+                if self.args.project is not None:
+                    env['PROJECT'] = self.args.project
+                if self.args.suite is not None:
+                    env['SUITE'] = self.args.suite
+                if self.args.arch is not None:
+                    env['ARCH'] = self.args.arch
+                if self.args.subproject is not None:
+                    env['SUBPROJECT'] = self.args.subproject
+                if self.args.subarch is not None:
+                    env['SUBARCH'] = self.args.subarch
+                if self.args.with_proposed is not None:
+                    env['PROPOSED'] = self.args.with_proposed
+                if self.args.extra_ppas is not None:
+                    env['EXTRA_PPAS'] = ' '.join(self.args.extra_ppas)
+                # Only generate a single rootfs tree for classic images.
+                env['IMAGEFORMAT'] = 'none'
+                # ensure ARCH is set
+                if self.args.arch is None:
+                    env['ARCH'] = get_host_arch()
+                live_build(self.unpackdir, env)
+            except CalledProcessError:
+                if self.args.debug:
+                    _logger.exception('Full debug traceback follows')
+                self.exitcode = 1
+                # Stop the state machine here by not appending a next step.
+                return
+
+        super().prepare_image()
 
     def populate_rootfs_contents(self):
-        src = os.path.join(self.unpackdir, 'chroot')
         dst = self.rootfs
-        for subdir in os.listdir(src):
-            shutil.move(os.path.join(src, subdir), os.path.join(dst, subdir))
+        if self.args.filesystem:
+            src = self.args.filesystem
+            # 'cp -a' is faster than the python functions and makes sure all
+            # meta information is preserved.
+            run('cp -a {} {}'.format(os.path.join(src, '*'), dst), shell=True)
+        else:
+            src = os.path.join(self.unpackdir, 'chroot')
+            for subdir in os.listdir(src):
+                shutil.move(os.path.join(src, subdir),
+                            os.path.join(dst, subdir))
         # Remove default grub bootloader settings as we ship bootloader bits
         # (binary blobs and grub.cfg) to a generated rootfs locally.
         grub_folder = os.path.join(dst, 'boot', 'grub')
         if os.path.exists(grub_folder):
-            shutil.rmtree(grub_folder, ignore_errors=True)
+            for file_name in os.listdir(grub_folder):
+                file_path = os.path.join(grub_folder, file_name)
+                if os.path.isdir(file_path):
+                    shutil.rmtree(file_path, ignore_errors=True)
+                else:
+                    os.unlink(file_path)
         # Replace pre-defined LABEL in /etc/fstab with the one
         # we're using 'LABEL=writable' in grub.cfg.
+        # TODO We need EFI partition in fstab too
         fstab_path = os.path.join(dst, 'etc', 'fstab')
         if os.path.exists(fstab_path):
             with open(fstab_path, 'r') as fstab:
                 new_content = re.sub(r'(LABEL=)\S+',
                                      r'\1{}'.format(DEFAULT_FS_LABEL),
-                                     fstab.read())
+                                     fstab.read(), count=1)
             # Insert LABEL entry if it's not found at fstab
             fs_label = 'LABEL={}'.format(DEFAULT_FS_LABEL)
             if fs_label not in new_content:
@@ -116,60 +129,6 @@ class ClassicBuilder(AbstractImageBuilderState):
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
         super().populate_rootfs_contents()
-
-    def _populate_one_bootfs(self, name, volume):
-        for partnum, part in enumerate(volume.structures):
-            target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
-            if part.role is StructureRole.system_boot:
-                volume.bootfs = target_dir
-                if (volume.bootloader is not BootLoader.uboot and
-                        volume.bootloader is not BootLoader.grub):
-                        raise ValueError(
-                            'Unsupported volume bootloader value: {}'.format(
-                                volume.bootloader))
-            if part.filesystem is FileSystemType.none:
-                continue
-            gadget_dir = os.path.join(self.unpackdir, 'gadget')
-            for content in part.content:
-                src = os.path.join(gadget_dir, content.source)
-                dst = os.path.join(target_dir, content.target)
-                if content.source.endswith('/'):
-                    # This is a directory copy specification.  The target
-                    # must also end in a slash.
-                    #
-                    # TODO: If this is a file instead of a directory, give
-                    # a useful error message instead of a traceback.
-                    #
-                    # TODO: We should assert this constraint in the parser.
-                    target, slash, tail = content.target.rpartition('/')
-                    if slash != '/' and tail != '':
-                        raise ValueError(
-                            'target must end in a slash: {}'.format(
-                                content.target))
-                    # The target of a recursive directory copy is the
-                    # target directory name, with or without a trailing
-                    # slash necessary at least to handle the case of
-                    # recursive copy into the root directory), so make
-                    # sure here that it exists.
-                    os.makedirs(dst, exist_ok=True)
-                    for filename in os.listdir(src):
-                        sub_src = os.path.join(src, filename)
-                        dst = os.path.join(target_dir, target, filename)
-                        if os.path.isdir(sub_src):
-                            shutil.copytree(sub_src, dst, symlinks=True,
-                                            ignore_dangling_symlinks=True)
-                        else:
-                            shutil.copy(sub_src, dst)
-                else:
-                    # TODO: If this is a directory instead of a file, give
-                    # a useful error message instead of a traceback.
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    shutil.copy(src, dst)
-
-    def populate_bootfs_contents(self):
-        for name, volume in self.gadget.volumes.items():
-            self._populate_one_bootfs(name, volume)
-        super().populate_bootfs_contents()
 
     def generate_manifests(self):
         # After the images are built, we would also like to have some image
