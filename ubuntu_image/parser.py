@@ -7,9 +7,12 @@ import logging
 from enum import Enum
 from io import StringIO
 from operator import attrgetter, methodcaller
+from pkg_resources import parse_version
 from ubuntu_image.helpers import GiB, MiB, as_size, get_default_sector_size
 from uuid import UUID
-from voluptuous import Any, Coerce, Invalid, Match, Optional, Required, Schema
+from voluptuous import (
+    Any, Coerce, Invalid, Match, Optional, Required, Schema,
+    __version__ as voluptuous_version)
 from warnings import warn
 from yaml import load
 from yaml.loader import SafeLoader
@@ -46,6 +49,11 @@ StrictLoader.add_constructor(
 # LP: #1640523
 StrictLoader.add_constructor(
     'tag:yaml.org,2002:int', StrictLoader.construct_yaml_str)
+
+
+# Helper function to keep compatibility between voluptuous versions.
+def has_new_voluptuous():
+    return parse_version(voluptuous_version) >= parse_version('0.11.0')
 
 
 # Decorator for naming the path -as best we can statically- within the
@@ -181,7 +189,8 @@ GadgetYAML = Schema({
     Optional('format'): YAMLFormat,
     Required('volumes'): {
         Match('^[-a-zA-Z0-9]+$'): Schema({
-            Optional('schema', default=VolumeSchema.gpt):
+            Optional('schema', default='gpt' if has_new_voluptuous()
+                     else VolumeSchema.gpt):
                 Enumify(VolumeSchema),
             Optional('bootloader'): Enumify(
                 BootLoader, preprocessor=methodcaller('replace', '-', '')),
@@ -197,7 +206,8 @@ GadgetYAML = Schema({
                     StructureRole,
                     preprocessor=methodcaller('replace', '-', '_')),
                 Optional('id'): Coerce(UUID),
-                Optional('filesystem', default=FileSystemType.none):
+                Optional('filesystem', default='none' if has_new_voluptuous()
+                         else FileSystemType.none):
                     Enumify(FileSystemType),
                 Optional('filesystem-label'): str,
                 Optional('content'): Any(

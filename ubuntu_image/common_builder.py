@@ -13,7 +13,7 @@ from ubuntu_image.helpers import (
 from ubuntu_image.hooks import HookManager
 from ubuntu_image.image import Image
 from ubuntu_image.parser import (
-    FileSystemType, StructureRole, VolumeSchema,
+    BootLoader, FileSystemType, StructureRole, VolumeSchema,
     parse as parse_yaml)
 from ubuntu_image.state import State
 
@@ -190,8 +190,78 @@ class AbstractImageBuilderState(State):
                 os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
+    def _populate_one_bootfs(self, name, volume):
+        for partnum, part in enumerate(volume.structures):
+            target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+            if part.role is StructureRole.system_boot:
+                volume.bootfs = target_dir
+                if volume.bootloader is BootLoader.uboot:
+                    boot = os.path.join(
+                        self.unpackdir, 'image', 'boot', 'uboot')
+                    ubuntu = target_dir
+                elif volume.bootloader is BootLoader.grub:
+                    boot = os.path.join(
+                        self.unpackdir, 'image', 'boot', 'grub')
+                    # XXX: Bad special-casing.  `snap prepare-image` currently
+                    # installs to /boot/grub, but we need to map this to
+                    # /EFI/ubuntu.  This is because we are using a SecureBoot
+                    # signed bootloader image which has this path embedded, so
+                    # we need to install our files to there.
+                    ubuntu = os.path.join(target_dir, 'EFI', 'ubuntu')
+                else:
+                    raise ValueError(
+                        'Unsupported volume bootloader value: {}'.format(
+                            volume.bootloader))
+                if os.path.isdir(boot):
+                    os.makedirs(ubuntu, exist_ok=True)
+                    for filename in os.listdir(boot):
+                        src = os.path.join(boot, filename)
+                        dst = os.path.join(ubuntu, filename)
+                        shutil.move(src, dst)
+                else:
+                    _logger.debug('No bootloader bits prepared in the rootfs '
+                                  '- skipping boot copies.')
+            gadget_dir = os.path.join(self.unpackdir, 'gadget')
+            if part.filesystem is not FileSystemType.none:
+                for content in part.content:
+                    src = os.path.join(gadget_dir, content.source)
+                    dst = os.path.join(target_dir, content.target)
+                    if content.source.endswith('/'):
+                        # This is a directory copy specification.  The target
+                        # must also end in a slash.
+                        #
+                        # XXX: If this is a file instead of a directory, give
+                        # a useful error message instead of a traceback.
+                        #
+                        # XXX: We should assert this constraint in the parser.
+                        target, slash, tail = content.target.rpartition('/')
+                        if slash != '/' and tail != '':
+                            raise ValueError(
+                                'target must end in a slash: {}'.format(
+                                    content.target))
+                        # The target of a recursive directory copy is the
+                        # target directory name, with or without a trailing
+                        # slash necessary at least to handle the case of
+                        # recursive copy into the root directory), so make
+                        # sure here that it exists.
+                        os.makedirs(dst, exist_ok=True)
+                        for filename in os.listdir(src):
+                            sub_src = os.path.join(src, filename)
+                            dst = os.path.join(target_dir, target, filename)
+                            if os.path.isdir(sub_src):
+                                shutil.copytree(sub_src, dst, symlinks=True,
+                                                ignore_dangling_symlinks=True)
+                            else:
+                                shutil.copy(sub_src, dst)
+                    else:
+                        # XXX: If this is a directory instead of a file, give
+                        # a useful error message instead of a traceback.
+                        os.makedirs(os.path.dirname(dst), exist_ok=True)
+                        shutil.copy(src, dst)
+
     def populate_bootfs_contents(self):
-        # Abstract, should be re-implemented by derivatives.
+        for name, volume in self.gadget.volumes.items():
+            self._populate_one_bootfs(name, volume)
         self._next.append(self.prepare_filesystems)
 
     def _prepare_one_volume(self, volume_index, name, volume):
@@ -286,8 +356,8 @@ class AbstractImageBuilderState(State):
                 # The root partition needs to be ext4, which may or may not be
                 # populated at creation time, depending on the version of
                 # e2fsprogs.
-                mkfs_ext4(part_img, self.rootfs, part.filesystem_label,
-                          preserve_ownership=True)
+                mkfs_ext4(part_img, self.rootfs, self.args.cmd,
+                          part.filesystem_label, preserve_ownership=True)
             elif part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0
@@ -327,7 +397,8 @@ class AbstractImageBuilderState(State):
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
             elif part.filesystem is FileSystemType.ext4:
-                mkfs_ext4(part_img, part_dir, part.filesystem_label)
+                mkfs_ext4(part_img, part_dir, self.args.cmd,
+                          part.filesystem_label)
             else:
                 raise AssertionError('Invalid part filesystem type: {}'.format(
                     part.filesystem))

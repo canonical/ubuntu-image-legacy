@@ -53,9 +53,9 @@ def update_changelog(repo, series, version):
             open(debian_changelog, 'r', encoding='utf-8'))
         outfp = resources.enter_context(atomic(debian_changelog))
         changelog = Changelog(infp)
-        # Currently, master is always Zesty.
         changelog.distributions = series
         series_version = {
+            'disco': '19.04',
             'cosmic': '18.10',
             'bionic': '18.04',
             'xenial': '16.04',
@@ -148,6 +148,19 @@ def main():
                 print('version:', '{}+snap1'.format(version), file=outfp)
             else:
                 outfp.write(line)
+    new_version = update_changelog(repo, 'disco', version)
+    continue_abort('Pausing for manual review and commit')
+    tag_or_skip(repo, new_version)
+    make_source_package(working_dir)
+    # Now do the Cosmic branch.
+    repo.git.checkout('cosmic')
+    # This will almost certainly cause merge conflicts.
+    try:
+        repo.git.merge('master', '--no-commit')
+    except GitCommandError:
+        continue_abort('Resolve merge master->cosmic conflicts manually')
+    munge_lp_bug_numbers(repo)
+    sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'cosmic', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)

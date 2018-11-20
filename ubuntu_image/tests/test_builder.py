@@ -494,6 +494,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                cmd='snap',
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -584,6 +585,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                cmd='snap',
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -634,7 +636,7 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(
                 posargs,
                 # mkfs_ext4 positional arguments.
-                (part0_img, part0_path, 'hold the door'))
+                (part0_img, part0_path, 'snap', 'hold the door'))
 
     def test_populate_filesystems_bogus_type(self):
         # We do a bit-wise copy when the file system has no type.
