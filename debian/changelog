@@ -1,3 +1,20 @@
+ubuntu-image (1.5+19.04ubuntu3) disco; urgency=medium
+
+  * Fix --with-proposed handling to properly pass PROPOSED to live-build.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 04 Dec 2018 23:49:03 +0200
+
+ubuntu-image (1.5+19.04ubuntu2) disco; urgency=medium
+
+  * Temporarily drop all test environments besides py37.  Normally this should
+    not be needed at all as we're skipping unsupported environments, but
+    because of some unknown reasons some python3.6 lefrovers remain on ADT
+    envs causing test failures on arm64 - even though python3.6 has been
+    removed completely from the archive.  This change will not be committed to
+    the vcs.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 29 Nov 2018 09:15:39 +0100
+
 ubuntu-image (1.5+19.04ubuntu1) disco; urgency=medium
 
   [ Alfonso Sanchez-Beato (email Canonical) ]
