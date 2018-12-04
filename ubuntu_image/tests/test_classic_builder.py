@@ -921,7 +921,7 @@ class TestClassicBuilder(TestCase):
                 }
             for arg, env in argstoenv.items():
                 kwargs = dict(kwargs_skel)
-                kwargs[arg] = 'test'
+                kwargs[arg] = 'test' if arg != 'with_proposed' else True
                 args = SimpleNamespace(**kwargs)
                 # Jump right to the method under test.
                 state = resources.enter_context(XXXClassicBuilder(args))
@@ -933,7 +933,9 @@ class TestClassicBuilder(TestCase):
                 self.assertEqual(len(mock.call_args_list), 1)
                 posargs, kwargs = mock.call_args_list[0]
                 self.assertIn(env, posargs[1])
-                self.assertEqual(posargs[1][env], 'test')
+                self.assertEqual(
+                    posargs[1][env],
+                    'test' if arg != 'with_proposed' else '1')
             # The extra_ppas argument is actually a list, so it needs a
             # separate test-case.
             outputtoinput = {

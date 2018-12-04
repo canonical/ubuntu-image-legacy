@@ -60,8 +60,8 @@ class ClassicBuilder(AbstractImageBuilderState):
                     env['SUBPROJECT'] = self.args.subproject
                 if self.args.subarch is not None:
                     env['SUBARCH'] = self.args.subarch
-                if self.args.with_proposed is not None:
-                    env['PROPOSED'] = self.args.with_proposed
+                if self.args.with_proposed:
+                    env['PROPOSED'] = '1'
                 if self.args.extra_ppas is not None:
                     env['EXTRA_PPAS'] = ' '.join(self.args.extra_ppas)
                 # Only generate a single rootfs tree for classic images.
