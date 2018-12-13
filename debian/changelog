@@ -1,3 +1,10 @@
+ubuntu-image (1.5+16.04ubuntu2) UNRELEASED; urgency=medium
+
+  * debian/control: add sudo to the list of dependencies as we need it for
+    the sudo cp workaround we have in place for xenial's outdated mkfs.ext4.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 13 Dec 2018 15:49:41 +0100
+
 ubuntu-image (1.5+16.04ubuntu1) xenial; urgency=medium
 
   [ Alfonso Sanchez-Beato (email Canonical) ]
