@@ -1,9 +1,10 @@
-ubuntu-image (1.6+19.04ubuntu1) disco; urgency=medium
+ubuntu-image (1.6+18.04ubuntu1) bionic; urgency=medium
 
   * Do not copy-over /etc/cloud to the rootfs if it's empty.  This can cause
     base snaps that define the writable-path as 'persistent' and 'transition'
-    to not be able to provide default configuration.  (LP: #1808554)
+    to not be able to provide default configuration.  (LP:1808554)
   * Fix --with-proposed handling to properly pass PROPOSED to live-build.
+  * SRU tracking number LP: #1808564
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 14 Dec 2018 17:08:09 +0100
 
