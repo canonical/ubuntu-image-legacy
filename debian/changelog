@@ -1,4 +1,4 @@
-ubuntu-image (1.5+19.04ubuntu4) UNRELEASED; urgency=medium
+ubuntu-image (1.6+19.04ubuntu1) disco; urgency=medium
 
   * Do not copy-over /etc/cloud to the rootfs if it's empty.  This can cause
     base snaps that define the writable-path as 'persistent' and 'transition'
