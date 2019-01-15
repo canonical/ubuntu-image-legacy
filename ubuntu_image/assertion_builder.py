@@ -7,6 +7,8 @@ import logging
 from subprocess import CalledProcessError
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import snap
+from ubuntu_image.image import Image
+from ubuntu_image.parser import StructureRole
 
 
 SYSTEMBOOT_BACKUP = 'system-boot.img'
@@ -101,11 +103,13 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
         for _, volume in self.gadget.volumes.items():
             for partnum, part in enumerate(volume.structures):
                 if part.role is StructureRole.system_boot:
-                    boot_target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+                    boot_target_dir = os.path.join(
+                        volume.basedir, 'part{}'.format(partnum))
                     boot_part = part
                     boot_schema = volume.schema
                 if part.role is StructureRole.system_recovery:
-                    target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+                    target_dir = os.path.join(
+                        volume.basedir, 'part{}'.format(partnum))
                     recovery = True
                 if recovery and target_dir and boot_target_dir:
                     break
@@ -120,7 +124,8 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
                 target_dir, boot_target_dir, boot_part, boot_schema)
         self._next.append(self.prepare_filesystems)
 
-    def _backup_system_boot(self, target_dir, boot_target_dir, part, boot_schema):
+    def _backup_system_boot(
+            self, target_dir, boot_target_dir, part, boot_schema):
         # Prepare the image file for system-boot
         imgfile = os.path.join(target_dir, SYSTEMBOOT_BACKUP)
         Image(imgfile, part.size, boot_schema)

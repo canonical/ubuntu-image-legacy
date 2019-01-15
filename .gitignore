@@ -13,3 +13,4 @@ diffcov.html
 demo/model.assertion
 *.model
 .tox
+.vscode
