@@ -1,4 +1,37 @@
-ubuntu-image (1.5+18.10ubuntu2) UNRELEASED; urgency=medium
+ubuntu-image (1.7+19.04ubuntu1) disco; urgency=medium
+
+  [ James Jesudason ]
+  * Adds the creation of a system-recovery partition for factory reset.
+  * Creates backups on the system-recovery partition. 
+
+ -- James Jesudason <james.jesudason@canonical.com>  Wed, 15 Jan 2018 14:04:15 +0000
+
+ubuntu-image (1.6+19.04ubuntu1) disco; urgency=medium
+
+  * Do not copy-over /etc/cloud to the rootfs if it's empty.  This can cause
+    base snaps that define the writable-path as 'persistent' and 'transition'
+    to not be able to provide default configuration.  (LP: #1808554)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 14 Dec 2018 17:08:09 +0100
+
+ubuntu-image (1.5+19.04ubuntu3) disco; urgency=medium
+
+  * Fix --with-proposed handling to properly pass PROPOSED to live-build.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 04 Dec 2018 23:49:03 +0200
+
+ubuntu-image (1.5+19.04ubuntu2) disco; urgency=medium
+
+  * Temporarily drop all test environments besides py37.  Normally this should
+    not be needed at all as we're skipping unsupported environments, but
+    because of some unknown reasons some python3.6 lefrovers remain on ADT
+    envs causing test failures on arm64 - even though python3.6 has been
+    removed completely from the archive.  This change will not be committed to
+    the vcs.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 29 Nov 2018 09:15:39 +0100
+
+ubuntu-image (1.5+19.04ubuntu1) disco; urgency=medium
 
   [ Alfonso Sanchez-Beato (email Canonical) ]
   * Fix bug with setting file owners in classic.  (LP: #1783577)
@@ -8,16 +41,13 @@ ubuntu-image (1.5+18.10ubuntu2) UNRELEASED; urgency=medium
   * Remove content of /boot/grub instead of the full folder, so update-grub
     can still run.  (LP: #1791049)
 
+  [ Dimitri John Ledkov ]
+  * Add python3.7 to tox commands everywhere.
+
   [ Łukasz 'sil2100' Zemczak ]
   * Fix handling of --extra-ppas for classic builds.  (LP: #1790708)
   * Check for image/boot/<bootloader> for bootfs additional contents also for
     classic builds.  Ignore if it does not exist.  (LP: #1792561)
-
-  [ James Jesudason ]
-  * Adds the creation of a system-recovery partition for factory reset.
-  * Creates backups on the system-recovery partition. 
-
- -- James Jesudason <james.jesudason@canonical.com>  Wed, 14 Nov 2018 14:04:15 +0000
 
 ubuntu-image (1.4+18.10ubuntu4) cosmic; urgency=medium
 

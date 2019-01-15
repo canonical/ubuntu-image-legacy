@@ -40,6 +40,13 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             if subdir != 'boot':
                 shutil.move(os.path.join(src, subdir),
                             os.path.join(dst, subdir))
+        etc_cloud = os.path.join(dst, 'etc', 'cloud')
+        if os.path.isdir(etc_cloud) and not os.listdir(etc_cloud):
+            # The snap --prepare-image command creates /etc/cloud even if
+            # it's empty.  We don't want to copy it over into the final rootfs
+            # in that case as it can cause issues when base snaps want to ship
+            # default configuration there.
+            os.rmdir(etc_cloud)
         if self.cloud_init is not None:
             # LP: #1633232 - Only write out meta-data when the --cloud-init
             # parameter is given.

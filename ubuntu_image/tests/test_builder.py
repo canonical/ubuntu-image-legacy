@@ -245,6 +245,74 @@ class TestModelAssertionBuilder(TestCase):
             boot = os.path.join(state.rootfs, 'boot')
             self.assertFalse(os.path.exists(boot))
 
+    def test_populate_rootfs_contents_remove_empty_etc_cloud(self):
+        with ExitStack() as resources:
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'image')
+            os.makedirs(os.path.join(image_dir, 'etc', 'cloud'))
+            with open(os.path.join(image_dir, 'etc',
+                                   'sentinel.dat'), 'wb') as fp:
+                fp.write(b'x' * 25)
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            system_data = os.path.join(state.rootfs, 'system-data')
+            os.makedirs(system_data)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Make sure the empty /etc/cloud has not been copied, but all other
+            # etc contents did.
+            etc_cloud = os.path.join(
+                state.rootfs, 'system-data', 'etc', 'cloud')
+            self.assertFalse(os.path.exists(etc_cloud))
+            etc_sentinel = os.path.join(
+                state.rootfs, 'system-data', 'etc', 'sentinel.dat')
+            self.assertTrue(os.path.exists(etc_sentinel))
+
+    def test_populate_rootfs_contents_keep_nonempty_etc_cloud(self):
+        with ExitStack() as resources:
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'image')
+            src_cloud = os.path.join(image_dir, 'etc', 'cloud')
+            os.makedirs(src_cloud)
+            with open(os.path.join(src_cloud, 'sentinel.dat'), 'wb') as fp:
+                fp.write(b'x' * 25)
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            system_data = os.path.join(state.rootfs, 'system-data')
+            os.makedirs(system_data)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Make sure the non-empty /etc/cloud directory got carried over.
+            etc_sentinel = os.path.join(
+                state.rootfs, 'system-data', 'etc', 'cloud', 'sentinel.dat')
+            self.assertTrue(os.path.exists(etc_sentinel))
+
     def test_bootloader_options_uboot(self):
         # This test provides coverage for populate_bootfs_contents() when the
         # uboot bootloader is used.  The live gadget snap (only tested when we
