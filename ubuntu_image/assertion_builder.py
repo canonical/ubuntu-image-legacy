@@ -9,6 +9,7 @@ from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import snap
 
 
+SYSTEMBOOT_BACKUP = 'system-boot.img'
 _logger = logging.getLogger('ubuntu-image')
 
 
@@ -54,6 +55,10 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
         os.makedirs(os.path.join(dst, 'boot'))
         super().populate_rootfs_contents()
 
+    def populate_bootfs_contents(self):
+        super().populate_bootfs_contents()
+        self._next.append(self.populate_recovery_contents)
+
     def _write_manifest(self, snaps_dir, filename):
         if os.path.isdir(snaps_dir):
             manifest_path = os.path.join(self.output_dir, filename)
@@ -78,3 +83,41 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed', 'snaps')
         self._write_manifest(seed_dir, 'seed.manifest')
         super().generate_manifests()
+
+    def populate_recovery_contents(self):
+        recovery = False
+        target_dir = None
+        boot_target_dir = None
+        boot_part = None
+        boot_schema = None
+        # Check if a recovery partition has been specified
+        for _, volume in self.gadget.volumes.items():
+            for partnum, part in enumerate(volume.structures):
+                if part.role is StructureRole.system_boot:
+                    boot_target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+                    boot_part = part
+                    boot_schema = volume.schema
+                if part.role is StructureRole.system_recovery:
+                    target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+                    recovery = True
+                if recovery and target_dir and boot_target_dir:
+                    break
+        if recovery and target_dir and boot_target_dir:
+            # Move the seed directory to the system-recovery partition
+            src = os.path.join(
+                self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed')
+            dst = os.path.join(target_dir, 'seed')
+            shutil.move(src, dst)
+            # Backup the boot partition to the system-recovery partition
+            self._backup_system_boot(
+                target_dir, boot_target_dir, boot_part, boot_schema)
+        self._next.append(self.prepare_filesystems)
+
+    def _backup_system_boot(self, target_dir, boot_target_dir, part, boot_schema):
+        # Prepare the image file for system-boot
+        imgfile = os.path.join(target_dir, SYSTEMBOOT_BACKUP)
+        Image(imgfile, part.size, boot_schema)
+        self._prepare_image(imgfile, part)
+
+        # Copy the system-boot files to the image
+        self._populate_vfat_image(boot_target_dir, imgfile)

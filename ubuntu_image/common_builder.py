@@ -263,55 +263,6 @@ class AbstractImageBuilderState(State):
     def populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
             self._populate_one_bootfs(name, volume)
-        self._next.append(self.populate_recovery_contents)
-
-    def populate_recovery_contents(self):
-        recovery = False
-        target_dir = None
-        boot_target_dir = None
-        boot_part = None
-        boot_schema = None
-        # Check if a recovery partition has been specified
-        for _, volume in self.gadget.volumes.items():
-            for partnum, part in enumerate(volume.structures):
-                if part.role is StructureRole.system_boot:
-                    boot_target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
-                    boot_part = part
-                    boot_schema = volume.schema
-                if part.role is StructureRole.system_recovery:
-                    target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
-                    recovery = True
-                if recovery and target_dir and boot_target_dir:
-                    break
-        if recovery and target_dir and boot_target_dir:
-            # Move the seed directory to the system-recovery partition
-            src = os.path.join(
-                self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed')
-            dst = os.path.join(target_dir, 'seed')
-            shutil.move(src, dst)
-            # Backup the boot partition to the system-recovery partition
-            self._backup_system_boot(
-                target_dir, boot_target_dir, boot_part, boot_schema)
-        self._next.append(self.prepare_filesystems)
-
-    def _populate_vfat_image(self, part_dir, part_img):
-        sourcefiles = SPACE.join(
-            os.path.join(part_dir, filename)
-            for filename in os.listdir(part_dir)
-            )
-        env = dict(MTOOLS_SKIP_CHECK='1')
-        env.update(os.environ)
-        run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
-            env=env)
-
-    def _backup_system_boot(self, target_dir, boot_target_dir, part, boot_schema):
-        # Prepare the image file for system-boot
-        imgfile = os.path.join(target_dir, SYSTEMBOOT_BACKUP)
-        Image(imgfile, part.size, boot_schema)
-        self._prepare_image(imgfile, part)
-
-        # Copy the system-boot files to the image
-        self._populate_vfat_image(boot_target_dir, imgfile)
 
     def _prepare_image(self, part_img, part):
         run('dd if=/dev/zero of={} count=0 bs={} seek=1'.format(
@@ -399,6 +350,16 @@ class AbstractImageBuilderState(State):
         for index, (name, volume) in enumerate(self.gadget.volumes.items()):
             self._prepare_one_volume(index, name, volume)
         self._next.append(self.populate_filesystems)
+
+    def _populate_vfat_image(self, part_dir, part_img):
+        sourcefiles = SPACE.join(
+            os.path.join(part_dir, filename)
+            for filename in os.listdir(part_dir)
+            )
+        env = dict(MTOOLS_SKIP_CHECK='1')
+        env.update(os.environ)
+        run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
+            env=env)
 
     def _populate_one_volume(self, name, volume):
         for partnum, part in enumerate(volume.structures):
