@@ -20,7 +20,7 @@ from ubuntu_image.testing.helpers import (
 from ubuntu_image.testing.nose import NosePlugin
 from unittest import TestCase, skipIf
 from unittest.mock import patch
-
+from ubuntu_image.assertion_builder import SYSTEMBOOT_BACKUP
 
 NL = '\n'
 COMMASPACE = ', '
@@ -372,6 +372,88 @@ class TestModelAssertionBuilder(TestCase):
                 self.assertEqual(fp.read(), b'01234')
             with open(os.path.join(volume1_dir, 'part0', '2.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'56789')
+
+    def test_bootloader_options_uboot_recovery(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.
+            contents = SimpleNamespace(
+                source='boot-assets/',
+                target='bt/',
+                )
+            part0 = SimpleNamespace(
+                role=StructureRole.system_boot,
+                filesystem_label='system-boot',
+                filesystem=FileSystemType.vfat,
+                size=MiB(1),
+                content=[contents],
+                )
+            part1 = SimpleNamespace(
+                role=StructureRole.system_recovery,
+                filesystem_label='system-recovery',
+                filesystem=FileSystemType.none,
+                )
+            part2 = SimpleNamespace(
+                role=StructureRole.system_data,
+                filesystem_label='system-data',
+                filesystem=FileSystemType.none,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1, part2],
+                schema=VolumeSchema.gpt,
+                bootloader=BootLoader.uboot,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume)
+                )
+            prep_state(state, workdir)
+            # Run the method, the testable effects of which copy all the files
+            # in the boot directory (i.e. <unpackdir>/image/boot/uboot) into
+            # the 'ubuntu' directory (i.e. <workdir>/part0).  So put some
+            # contents into the source directory.
+            assets = os.path.join(unpackdir, 'gadget', 'boot-assets')
+            os.makedirs(assets)
+            with open(os.path.join(assets, 'a.dat'), 'wb') as fp:
+                fp.write(b'01234')
+            with open(os.path.join(assets, 'b.dat'), 'wb') as fp:
+                fp.write(b'56789')
+
+            # Set up the paths
+            volume1_dir = os.path.join(state.volumedir, 'volume1')
+            root_dir = os.path.join(workdir, 'root')
+            os.makedirs(root_dir)
+            state.rootfs = root_dir
+            seed = os.path.join(
+                root_dir, 'system-data', 'var', 'lib', 'snapd', 'seed')
+            os.makedirs(seed)
+
+            # Run the boot partition steps
+            next(state) # populate boot fs
+            next(state) # populate recovery fs
+
+            # Check the recovery partition
+            part_rec = os.path.join(volume1_dir, 'part1')
+            seed_dir = os.path.join(part_rec, 'seed')
+            backup_file = os.path.join(part_rec, SYSTEMBOOT_BACKUP)
+            self.assertEqual(os.path.getsize(backup_file), MiB(1))
+            self.assertTrue(os.path.isdir(seed_dir))
 
     def test_bootloader_options_invalid(self):
         # This test provides coverage for populate_bootfs_contents() when the
