@@ -2173,3 +2173,22 @@ volumes:
 """.format(name))
             self.assertEqual(str(cm.exception),
                              'Invalid gadget.yaml @ volumes:{}'.format(name))
+
+    def test_duplicate_structure_name(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  vol:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          name: not-unique
+          size: 10M
+        - type: 00000000-0000-0000-0000-dd00deadbeee
+          name: not-unique
+          size: 10M
+""")
+        self.assertEqual(str(cm.exception),
+                         'Structure name "not-unique" is not unique')
