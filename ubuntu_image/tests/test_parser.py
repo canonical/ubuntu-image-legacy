@@ -2155,3 +2155,21 @@ volumes:
         partition4 = volume0.structures[4]
         self.assertEqual(partition4.role, StructureRole.system_data)
         self.assertEqual(partition4.offset, MiB(1200))
+
+    def test_invalid_volume_name(self):
+        for name in ["-invalid", "in valid", "in+valid"]:
+            with ExitStack() as resources:
+                cm = resources.enter_context(
+                    self.assertRaises(GadgetSpecificationError))
+                parse("""\
+volumes:
+  {}:
+    bootloader: u-boot
+    structure:
+        - role: mbr
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 446
+          offset: 10
+""".format(name))
+            self.assertEqual(str(cm.exception),
+                             'Invalid gadget.yaml @ volumes:{}'.format(name))

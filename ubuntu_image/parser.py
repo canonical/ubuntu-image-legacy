@@ -188,7 +188,7 @@ GadgetYAML = Schema({
     Optional('device-tree'): str,
     Optional('format'): YAMLFormat,
     Required('volumes'): {
-        Match('^[-a-zA-Z0-9]+$'): Schema({
+        Match('^[a-zA-Z0-9][-a-zA-Z0-9]*$'): Schema({
             Optional('schema', default='gpt' if has_new_voluptuous()
                      else VolumeSchema.gpt):
                 Enumify(VolumeSchema),
