@@ -1,3 +1,11 @@
+ubuntu-image (1.7+19.04ubuntu1) UNRELEASED; urgency=medium
+
+  [ Maciej Borzecki]
+  * Some parser improvements: more strict schema for volume names, make sure
+    structure names are unique.  (LP: #1823160)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 04 Apr 2019 12:46:28 +0200
+
 ubuntu-image (1.6+19.04ubuntu1) disco; urgency=medium
 
   * Do not copy-over /etc/cloud to the rootfs if it's empty.  This can cause
