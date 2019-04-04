@@ -188,7 +188,7 @@ GadgetYAML = Schema({
     Optional('device-tree'): str,
     Optional('format'): YAMLFormat,
     Required('volumes'): {
-        Match('^[-a-zA-Z0-9]+$'): Schema({
+        Match('^[a-zA-Z0-9][-a-zA-Z0-9]*$'): Schema({
             Optional('schema', default='gpt' if has_new_voluptuous()
                      else VolumeSchema.gpt):
                 Enumify(VolumeSchema),
@@ -347,9 +347,15 @@ def parse(stream_or_string):
         bootloader_seen |= (bootloader is not None)
         image_id = image_spec.get('id')
         structures = []
+        structure_names = set()
         last_offset = 0
         for structure in image_spec['structure']:
             name = structure.get('name')
+            if name is not None:
+                if name in structure_names:
+                    raise GadgetSpecificationError(
+                        'Structure name "{}" is not unique'.format(name))
+                structure_names.add(name)
             offset = structure.get('offset')
             offset_write = structure.get('offset-write')
             size = structure['size']
