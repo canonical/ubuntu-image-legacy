@@ -17,9 +17,13 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
         super().__init__(args)
 
     def prepare_image(self):
+        # Since some people might still use the deprecated extra-snaps syntax,
+        # combine the two argument lists before sending it out to
+        # prepare-image.
+        extra_snaps = (self.args.snap or []) + (self.args.extra_snaps or [])
         try:
             snap(self.args.model_assertion, self.unpackdir,
-                 self.args.channel, self.args.extra_snaps)
+                 self.args.channel, extra_snaps)
         except CalledProcessError:
             if self.args.debug:
                 _logger.exception('Full debug traceback follows')
