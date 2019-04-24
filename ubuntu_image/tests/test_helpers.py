@@ -250,12 +250,13 @@ class TestHelpers(TestCase):
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
             tmpdir = resources.enter_context(TemporaryDirectory())
-            snap(model, tmpdir, extra_snaps=('foo', 'bar'))
+            snap(model, tmpdir, extra_snaps=('foo', 'bar=edge', 'baz=18/beta'))
             self.assertEqual(len(mock.call_args_list), 1)
             args, kws = mock.call_args_list[0]
         self.assertEqual(
             args[0],
-            ['snap', 'prepare-image', '--extra-snaps=foo', '--extra-snaps=bar',
+            ['snap', 'prepare-image',
+             '--snap=foo', '--snap=bar=edge', '--snap=baz=18/beta',
              model, tmpdir])
 
     def test_live_build(self):

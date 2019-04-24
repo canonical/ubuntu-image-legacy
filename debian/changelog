@@ -1,10 +1,15 @@
 ubuntu-image (1.7+19.04ubuntu1) UNRELEASED; urgency=medium
 
-  [ Maciej Borzecki]
+  [ Maciej Borzecki ]
   * Some parser improvements: more strict schema for volume names, make sure
     structure names are unique.  (LP: #1823160)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 04 Apr 2019 12:46:28 +0200
+  [ Łukasz 'sil2100' Zemczak ]
+  * Add support for the new prepare-image --snap=<snap>=<channel|risk> syntax,
+    bump the snapd dependency to 2.38.  (LP: #1815580)
+  * Print a deprecation warning when using the old --extra-snaps syntax.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 23 Apr 2019 12:56:41 +0200
 
 ubuntu-image (1.6+19.04ubuntu1) disco; urgency=medium
 
