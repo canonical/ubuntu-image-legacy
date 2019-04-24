@@ -181,6 +181,11 @@ class TestImage(TestCase):
         partitions = disk_info['partitiontable']
         # The device id is unpredictable.
         partitions.pop('id')
+        # XXX: In later versions of pyparted the partitiontable structure
+        #  added a 'grain' entry that we're not really interested in.
+        #  Remove it so we can have the tests working for all series.
+        if 'grain' in partitions:
+            partitions.pop('grain')
         self.assertEqual(partitions, {
             'label': 'dos',
             'device': self.img,
