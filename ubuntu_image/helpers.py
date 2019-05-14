@@ -134,7 +134,7 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
         arg_list.append('--channel={}'.format(channel))
     # Fails if extra_snaps is None or the empty list.
     if extra_snaps:
-        arg_list.append(SPACE.join('--extra-snaps={}'.format(extra)
+        arg_list.append(SPACE.join('--snap={}'.format(extra)
                         for extra in extra_snaps))
     arg_list.extend([model_assertion, root_dir])
     cmd = SPACE.join(arg_list)

@@ -72,6 +72,7 @@ class TestModelAssertionBuilder(TestCase):
             channel='edge',
             cloud_init=None,
             debug=False,
+            snap=None,
             extra_snaps=None,
             model_assertion=self.model_assertion,
             output=output.name,
@@ -137,6 +138,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
+                snap=None,
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
@@ -175,6 +177,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=cloud_init.name,
+                snap=None,
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
@@ -212,6 +215,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
+                snap=None,
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
@@ -250,6 +254,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
+                snap=None,
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
@@ -286,6 +291,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
+                snap=None,
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
@@ -2168,6 +2174,97 @@ class TestModelAssertionBuilder(TestCase):
             # 72 bytes over == 512 - 440
             self.assertEqual(cm.exception.overage, 72)
 
+    def test_snap_with_extra_snaps(self):
+        with ExitStack() as resources:
+            # This tests needs to run the actual snap() helper function, not
+            # the testsuite-wide mock.  This is appropriate since we're
+            # mocking it ourselves here.
+            if NosePlugin.snap_mocker is not None:
+                NosePlugin.snap_mocker.patcher.stop()
+                resources.callback(NosePlugin.snap_mocker.patcher.start)
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=False,
+                snap=['foo', 'bar=edge', 'baz=18/beta'],
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=workdir,
+                hooks_directory=[],
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = unpackdir
+            state._next.pop()
+            state._next.append(state.prepare_image)
+            run_cmd = resources.enter_context(patch(
+                'ubuntu_image.helpers.subprocess_run',
+                return_value=SimpleNamespace(
+                    returncode=0,
+                    stdout='command stdout',
+                    stderr='',
+                    )))
+            next(state)
+            self.assertEqual(state.exitcode, 0)
+            self.assertGreaterEqual(len(run_cmd.call_args), 1)
+            self.assertListEqual(
+                run_cmd.call_args[0][0],
+                ['snap', 'prepare-image', '--channel=edge',
+                 '--snap=foo', '--snap=bar=edge', '--snap=baz=18/beta',
+                 self.model_assertion, unpackdir])
+
+    def test_snap_with_extra_snaps_deprecated_syntax(self):
+        # This is essentially exactly the same as test_snap_with_extra_snaps,
+        # just making sure it still works with the deprecated --extra-snaps
+        # syntax.
+        with ExitStack() as resources:
+            # This tests needs to run the actual snap() helper function, not
+            # the testsuite-wide mock.  This is appropriate since we're
+            # mocking it ourselves here.
+            if NosePlugin.snap_mocker is not None:
+                NosePlugin.snap_mocker.patcher.stop()
+                resources.callback(NosePlugin.snap_mocker.patcher.start)
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=False,
+                snap=None,
+                extra_snaps=['foo', 'bar=edge', 'baz=18/beta'],
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=workdir,
+                hooks_directory=[],
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = unpackdir
+            state._next.pop()
+            state._next.append(state.prepare_image)
+            run_cmd = resources.enter_context(patch(
+                'ubuntu_image.helpers.subprocess_run',
+                return_value=SimpleNamespace(
+                    returncode=0,
+                    stdout='command stdout',
+                    stderr='',
+                    )))
+            next(state)
+            self.assertEqual(state.exitcode, 0)
+            self.assertGreaterEqual(len(run_cmd.call_args), 1)
+            self.assertListEqual(
+                run_cmd.call_args[0][0],
+                ['snap', 'prepare-image', '--channel=edge',
+                 '--snap=foo', '--snap=bar=edge', '--snap=baz=18/beta',
+                 self.model_assertion, unpackdir])
+
     def test_snap_command_fails(self):
         # LP: #1621445 - If the snap(1) command fails, don't print the full
         # traceback unless --debug is given.
@@ -2185,7 +2282,8 @@ class TestModelAssertionBuilder(TestCase):
                 channel='edge',
                 cloud_init=None,
                 debug=False,
-                extra_snaps=[],
+                snap=[],
+                extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
                 output_dir=None,
@@ -2234,7 +2332,8 @@ class TestModelAssertionBuilder(TestCase):
                 channel='edge',
                 cloud_init=None,
                 debug=True,
-                extra_snaps=[],
+                snap=[],
+                extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
                 output_dir=None,
@@ -2275,7 +2374,8 @@ class TestModelAssertionBuilder(TestCase):
                 channel='edge',
                 cloud_init=None,
                 debug=False,
-                extra_snaps=[],
+                snap=[],
+                extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
                 output_dir=None,
@@ -2312,7 +2412,8 @@ class TestModelAssertionBuilder(TestCase):
                 channel='edge',
                 cloud_init=None,
                 debug=True,
-                extra_snaps=[],
+                snap=[],
+                extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
                 output_dir=None,
@@ -2355,6 +2456,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
+                snap=None,
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=disk_img,
@@ -2392,6 +2494,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
+                snap=None,
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,
@@ -2416,6 +2519,7 @@ class TestModelAssertionBuilder(TestCase):
             args = SimpleNamespace(
                 channel='edge',
                 cloud_init=None,
+                snap=None,
                 extra_snaps=None,
                 model_assertion=self.model_assertion,
                 output=None,

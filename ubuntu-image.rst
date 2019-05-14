@@ -6,10 +6,12 @@
 Generate a bootable disk image
 ------------------------------
 
-:Author: Barry Warsaw <barry@ubuntu.com>
-:Date: 2017-11-27
-:Copyright: 2016-2017 Canonical Ltd.
-:Version: 1.3
+:Authors:
+    Barry Warsaw <barry@ubuntu.com>,
+    Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>
+:Date: 2019-05-14
+:Copyright: 2016-2019 Canonical Ltd.
+:Version: 1.7
 :Manual section: 1
 
 
@@ -78,8 +80,14 @@ model_assertion
     Path to the model assertion file.  This positional argument must be given
     for this mode of operation.
 
+--snap SNAP
+    Install an extra snap.  This is passed through to ``snap prepare-image``.
+    The snap argument can include additional information about the channel
+    and/or risk with the following syntax: ``<snap>=<channel|risk>``
+
 --extra-snaps EXTRA_SNAPS
-    Extra snaps to install. This is passed through to ``snap prepare-image``.
+    **DEPRECATED** (Use ``--snap`` instead.) Extra snaps to install.  This is
+    passed through to ``snap prepare-image``.
 
 --cloud-init USER-DATA-FILE
     ``cloud-config`` data to be copied to the image.
@@ -232,7 +240,7 @@ gadget.yaml
 model assertion
     https://developer.ubuntu.com/en/snappy/guides/prepare-image/
 
-gadget tree
+gadget tree (example)
     https://github.com/snapcore/pc-amd64-gadget
 
 cloud-config
@@ -298,6 +306,7 @@ post-populate-rootfs
     Executed after the rootfs directory has been populated, allowing
     custom modification of its contents.  Added in version 1.2.  Environment
     variables present:
+
         ``UBUNTU_IMAGE_HOOK_ROOTFS``
             Includes the absolute path to the rootfs contents.
 

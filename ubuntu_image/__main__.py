@@ -231,14 +231,21 @@ def parseargs(argv=None):
         given unless the state machine is being resumed, in which case it
         cannot be given."""))
     snap_cmd.add_argument(
+        '--snap',
+        default=None, action='append',
+        help=_("""Install an extra snap.  This is passed through to `snap
+        prepare-image`.  The snap argument can include additional information
+        about the channel and/or risk with the following syntax:
+        <snap>=<channel|risk>"""))
+    snap_cmd.add_argument(
         '--extra-snaps',
         default=None, action='append',
-        help=_("""Extra snaps to install.  This is passed through to `snap
-        prepare-image`."""))
+        help=_("""DEPRECATED (use --snap instead). Extra snap to install.
+        This is passed through to `snap prepare-image`."""))
     snap_cmd.add_argument(
         '-c', '--channel',
         default=None,
-        help=_('The snap channel to use'))
+        help=_('The default snap channel to use'))
     # Classic-based image options.
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
@@ -292,6 +299,10 @@ def parseargs(argv=None):
             parser.error('model assertion is not allowed with --resume')
         if not args.resume and args.model_assertion is None:
             parser.error('model assertion is required')
+        # --extra-snaps is deprecated
+        if args.extra_snaps is not None:
+            print('--extra-snaps is deprecated; use --snap instead',
+                  file=sys.stderr)
     else:
         if args.resume and args.gadget_tree:
             parser.error('gadget tree is not allowed with --resume')
