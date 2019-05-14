@@ -55,6 +55,7 @@ def update_changelog(repo, series, version):
         changelog = Changelog(infp)
         changelog.distributions = series
         series_version = {
+            'eoan': '19.10',
             'disco': '19.04',
             'cosmic': '18.10',
             'bionic': '18.04',
@@ -148,6 +149,19 @@ def main():
                 print('version:', '{}+snap1'.format(version), file=outfp)
             else:
                 outfp.write(line)
+    new_version = update_changelog(repo, 'eoan', version)
+    continue_abort('Pausing for manual review and commit')
+    tag_or_skip(repo, new_version)
+    make_source_package(working_dir)
+    # Now do the Disco branch.
+    repo.git.checkout('disco')
+    # This will almost certainly cause merge conflicts.
+    try:
+        repo.git.merge('master', '--no-commit')
+    except GitCommandError:
+        continue_abort('Resolve merge master->disco conflicts manually')
+    munge_lp_bug_numbers(repo)
+    sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'disco', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)

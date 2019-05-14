@@ -149,6 +149,25 @@ class TestParseArgs(TestCase):
                 lines[1],
                 '-o/--output is deprecated; use -O/--output-dir instead')
 
+    def test_snap_syntax_channel_risk(self):
+        args = parseargs(['snap', '--snap', 'foo', '--snap', 'bar=edge',
+                          '--snap', 'baz=18/beta', '--snap=test=edge',
+                          'model.assertion'])
+        self.assertEqual(len(args.snap), 4)
+        self.assertListEqual(args.snap,
+                             ['foo', 'bar=edge', 'baz=18/beta', 'test=edge'])
+
+    def test_extra_snaps_is_deprecated(self):
+        # --extra-snaps is deprecated.
+        stderr = StringIO()
+        with patch('sys.stderr', stderr):
+            parseargs(['snap', '--extra-snaps', 'foo', '--extra-snaps', 'bar',
+                       'model.assertion'])
+        lines = stderr.getvalue().splitlines()
+        self.assertEqual(
+                lines[0],
+                '--extra-snaps is deprecated; use --snap instead')
+
     def test_multivolume_image_size(self):
         args = parseargs(['snap', '-i', '0:4G,sdcard:2G,1:4G',
                           'model.assertion'])
