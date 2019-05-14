@@ -11,7 +11,7 @@ Requirements
 ============
 
 Ubuntu 16.04 (Xenial Xerus) is the minimum platform requirement, but Ubuntu
-17.04 (Zesty Zapus) or newer is recommended.  Python 3.5 is the minimum Python
+18.04 (Bionic Beaver) or newer is recommended.  Python 3.5 is the minimum Python
 version required.  All required third party packages are available in the
 Ubuntu archive.
 
