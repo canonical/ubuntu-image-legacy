@@ -1,4 +1,4 @@
-ubuntu-image (1.7+19.04ubuntu1) UNRELEASED; urgency=medium
+ubuntu-image (1.7+19.10ubuntu1) eoan; urgency=medium
 
   [ Maciej Borzecki ]
   * Some parser improvements: more strict schema for volume names, make sure
