@@ -240,7 +240,7 @@ gadget.yaml
 model assertion
     https://developer.ubuntu.com/en/snappy/guides/prepare-image/
 
-gadget tree
+gadget tree (example)
     https://github.com/snapcore/pc-amd64-gadget
 
 cloud-config
