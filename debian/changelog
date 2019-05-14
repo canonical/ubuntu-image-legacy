@@ -1,16 +1,17 @@
-ubuntu-image (1.7+19.10ubuntu1) eoan; urgency=medium
+ubuntu-image (1.7+19.04ubuntu1) disco; urgency=medium
 
   [ Maciej Borzecki ]
   * Some parser improvements: more strict schema for volume names, make sure
-    structure names are unique.  (LP: #1823160)
+    structure names are unique.  (LP:1823160)
 
   [ Łukasz 'sil2100' Zemczak ]
   * Add support for the new prepare-image --snap=<snap>=<channel|risk> syntax,
-    bump the snapd dependency to 2.38.  (LP: #1815580)
+    bump the snapd dependency to 2.38.  (LP:1815580)
   * Print a deprecation warning when using the old --extra-snaps syntax.
   * Ignore the new 'grain' field in the pyparted partitiontable structure
     during unit-tests, as otherwise it's causing test failures for disco+.
-    (LP: #1826224)
+    (LP:1826224)
+  * SRU tracking number LP: #1828827
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 24 Apr 2019 16:54:22 +0200
 
