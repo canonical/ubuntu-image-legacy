@@ -37,6 +37,17 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
     def populate_rootfs_contents(self):
         src = os.path.join(self.unpackdir, 'image')
         dst = os.path.join(self.rootfs, 'system-data')
+
+        # FIXME: HACK HACK
+        # TODO we should probably check here for a 'recovery' directory
+        #      (produced by "snap prepare-image") and use that
+        from ubuntu_image.parser import StructureRole
+        for volume in self.gadget.volumes.values():
+            for part in volume.structures:
+                if part.role == StructureRole.system_recovery:
+                    dst = os.path.join(self.rootfs, "system", "current")
+                    break
+
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
             # /boot which goes to the boot partition.
