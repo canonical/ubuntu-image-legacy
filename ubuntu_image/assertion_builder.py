@@ -45,7 +45,7 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
         for volume in self.gadget.volumes.values():
             for part in volume.structures:
                 if part.role == StructureRole.system_recovery:
-                    dst = os.path.join(self.rootfs, "system", "current")
+                    dst = self.rootfs
                     break
 
         for subdir in os.listdir(src):
