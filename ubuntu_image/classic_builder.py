@@ -10,6 +10,8 @@ from tempfile import gettempdir
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import (
      check_root_privilege, get_host_arch, live_build, run)
+from ubuntu_image.parser import (
+     BootLoader, FileSystemType, StructureRole)
 
 
 DEFAULT_FS = 'ext4'
@@ -79,6 +81,55 @@ class ClassicBuilder(AbstractImageBuilderState):
 
         super().prepare_image()
 
+    def _prepare_rootfs_system_boot_mount(self, dst, fstab_contents):
+        fstab_additions = ''
+        boot_partition = None
+        for volume in self.gadget.volumes.values():
+            for part in volume.structures:
+                if (part.role is StructureRole.system_boot and
+                        part.filesystem_label and
+                        part.filesystem is not FileSystemType.none):
+                    boot_partition = part
+                    # We also need the volume, but that's set by the loop
+                    # above.
+                    break
+        if boot_partition:
+            # Check if the partition is mounted somewhere already.
+            # If it is, we assume that the rootfs build knows better what
+            # to do with it and not meddle in fstab etc.
+            fs_label = 'LABEL={}'.format(boot_partition.filesystem_label)
+            if fs_label not in fstab_contents:
+                # Add a fstab entry for the system-boot partition, mounting
+                # in a common /boot/system-boot directory.
+                system_boot_dir = os.path.join(dst, 'boot', 'system-boot')
+                os.makedirs(system_boot_dir, exist_ok=True)
+                fstab_additions = \
+                    'LABEL={}   /boot/system-boot    {}    ' \
+                    'defaults    0 1\n'.format(
+                        boot_partition.filesystem_label,
+                        boot_partition.filesystem.name)
+                # If the volume uses grub, we need /boot/grub pointing to
+                # the boot partition.
+                if volume.bootloader is BootLoader.grub:
+                    grub_dir = os.path.join(dst, 'boot', 'grub')
+                    if os.path.exists(grub_dir):
+                        if os.path.isdir(grub_dir):
+                            shutil.rmtree(grub_dir, ignore_errors=True)
+                        else:
+                            os.unlink(grub_dir)
+                    os.symlink('/boot/system-boot', grub_dir)
+                # If the volume uses uboot, we need /boot/firmware pointing
+                # to the boot partition
+                elif volume.bootloader is BootLoader.uboot:
+                    firmware_dir = os.path.join(dst, 'boot', 'firmware')
+                    if os.path.exists(firmware_dir):
+                        if os.path.isdir(firmware_dir):
+                            shutil.rmtree(firmware_dir, ignore_errors=True)
+                        else:
+                            os.unlink(firmware_dir)
+                    os.symlink('/boot/system-boot', firmware_dir)
+        return fstab_additions
+
     def populate_rootfs_contents(self):
         dst = self.rootfs
         if self.args.filesystem:
@@ -101,11 +152,13 @@ class ClassicBuilder(AbstractImageBuilderState):
                     shutil.rmtree(file_path, ignore_errors=True)
                 else:
                     os.unlink(file_path)
-        # Replace pre-defined LABEL in /etc/fstab with the one
-        # we're using 'LABEL=writable' in grub.cfg.
-        # TODO We need EFI partition in fstab too
+        # Modify the system's fstab to make sure everything is ready for our
+        # image to work correctly.
+        # TODO We need the EFI partition in fstab too
         fstab_path = os.path.join(dst, 'etc', 'fstab')
         if os.path.exists(fstab_path):
+            # Replace pre-defined LABEL in /etc/fstab with the one
+            # we're using 'LABEL=writable' in grub.cfg.
             with open(fstab_path, 'r') as fstab:
                 new_content = re.sub(r'(LABEL=)\S+',
                                      r'\1{}'.format(DEFAULT_FS_LABEL),
@@ -113,8 +166,14 @@ class ClassicBuilder(AbstractImageBuilderState):
             # Insert LABEL entry if it's not found at fstab
             fs_label = 'LABEL={}'.format(DEFAULT_FS_LABEL)
             if fs_label not in new_content:
-                new_content += 'LABEL={}   /    {}   defaults    0 0'.format(
-                       DEFAULT_FS_LABEL, DEFAULT_FS)
+                new_content += 'LABEL={}   /   {}   defaults    0 0\n'.format(
+                    DEFAULT_FS_LABEL, DEFAULT_FS)
+            # While we're at it, find if the schema defines a system-boot
+            # partition with a filesystem label.  If it does, we want to
+            # mount it in a special directory for future usage.
+            new_content += self._prepare_rootfs_system_boot_mount(
+                dst, new_content)
+            # Write the new fstab into place.
             with open(fstab_path, 'w') as fstab:
                 fstab.write(new_content)
         if self.cloud_init is not None:

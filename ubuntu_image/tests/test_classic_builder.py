@@ -146,6 +146,79 @@ class TestClassicBuilder(TestCase):
             path = os.path.join(state.rootfs, dirname)
             self.assertTrue(os.path.exists(path), path)
 
+    def test_populate_rootfs_contents_system_boot_mount_grub(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            args = SimpleNamespace(
+                project='ubuntu-cpc',
+                suite='xenial',
+                arch='amd64',
+                image_format='img',
+                workdir=workdir,
+                output=None,
+                subproject=None,
+                subarch=None,
+                output_dir=None,
+                cloud_init=None,
+                with_proposed=None,
+                extra_ppas=None,
+                hooks_directory=[],
+                gadget_tree=self.gadget_tree,
+                filesystem=None,
+                )
+            state = resources.enter_context(XXXClassicBuilder(args))
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.
+            part1 = SimpleNamespace(
+                role=StructureRole.system_data,
+                filesystem_label='writable',
+                filesystem=FileSystemType.none,
+                )
+            part2 = SimpleNamespace(
+                role=StructureRole.system_boot,
+                filesystem_label='the-boot-label',
+                filesystem=FileSystemType.vfat,
+                )
+            volume = SimpleNamespace(
+                structures=[part1, part2],
+                bootloader=BootLoader.grub,
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir)
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            boot_path = os.path.join(state.unpackdir, 'chroot', 'boot')
+            grub_path = os.path.join(boot_path, 'grub')
+            os.makedirs(grub_path)
+            etc_path = os.path.join(state.unpackdir, 'chroot', 'etc')
+            os.makedirs(etc_path)
+            with open(os.path.join(etc_path, 'fstab'), 'w') as fp:
+                fp.write('LABEL=writable   /    ext4   defaults    0 0\n')
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Now check if we updated the fstab file as expected to include the
+            # system-boot partition.
+            fstab_data = os.path.join(state.rootfs, 'etc', 'fstab')
+            with open(fstab_data, 'r', encoding='utf-8') as fp:
+                self.assertEqual(
+                    fp.read(),
+                    'LABEL=writable   /    ext4   defaults    0 0\n'
+                    'LABEL=the-boot-label   /boot/system-boot    vfat    '
+                    'defaults    0 1\n')
+            # Check if all the directories and links are in place as well.
+            rootfs_boot = os.path.join(state.rootfs, 'boot')
+            self.assertTrue(os.path.isdir(
+                os.path.join(rootfs_boot,'system-boot')))
+            self.assertTrue(os.path.islink(os.path.join(rootfs_boot, 'grub')))
+            self.assertEqual(os.readlink(os.path.join(rootfs_boot, 'grub')),
+                             '/boot/system-boot')
+
     def test_populate_rootfs_contents_fstab_label(self):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
