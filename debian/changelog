@@ -1,3 +1,11 @@
+ubuntu-image (1.8+19.10ubuntu1) UNRELEASED; urgency=medium
+
+  * Create a special mount point for the system-boot partition and link
+    /boot/grub (for grub) and /boot/firmware (for uboot) to it to enable proper
+    bootloader package upgrades.  (LP: #1817050)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 05 Jun 2019 16:01:59 +0200
+
 ubuntu-image (1.7+19.10ubuntu1) eoan; urgency=medium
 
   [ Maciej Borzecki ]
