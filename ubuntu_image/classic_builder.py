@@ -122,7 +122,7 @@ class ClassicBuilder(AbstractImageBuilderState):
                 # to the boot partition.
                 # XXX: We need a 'no branch' here as coverage invalidly claims
                 # this branch as not covered.
-                elif volume.bootloader is BootLoader.uboot:  # pragma: no branch
+                elif volume.bootloader is BootLoader.uboot:  # pragma:no branch
                     firmware_dir = os.path.join(dst, 'boot', 'firmware')
                     if os.path.lexists(firmware_dir):
                         if os.path.isdir(firmware_dir):
