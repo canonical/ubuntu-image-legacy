@@ -112,17 +112,19 @@ class ClassicBuilder(AbstractImageBuilderState):
                 # the boot partition.
                 if volume.bootloader is BootLoader.grub:
                     grub_dir = os.path.join(dst, 'boot', 'grub')
-                    if os.path.exists(grub_dir):
+                    if os.path.lexists(grub_dir):
                         if os.path.isdir(grub_dir):
                             shutil.rmtree(grub_dir, ignore_errors=True)
                         else:
                             os.unlink(grub_dir)
                     os.symlink('/boot/system-boot', grub_dir)
                 # If the volume uses uboot, we need /boot/firmware pointing
-                # to the boot partition
-                elif volume.bootloader is BootLoader.uboot:
+                # to the boot partition.
+                # XXX: We need a 'no branch' here as coverage invalidly claims
+                # this branch as not covered.
+                elif volume.bootloader is BootLoader.uboot:  # pragma: no branch
                     firmware_dir = os.path.join(dst, 'boot', 'firmware')
-                    if os.path.exists(firmware_dir):
+                    if os.path.lexists(firmware_dir):
                         if os.path.isdir(firmware_dir):
                             shutil.rmtree(firmware_dir, ignore_errors=True)
                         else:
