@@ -45,7 +45,7 @@ class XXXModelAssertionBuilder(ModelAssertionBuilder):
 
 
 class XXXClassicBuilder(ClassicBuilder):
-        pass
+    pass
 
 
 class CrashingModelAssertionBuilder(XXXModelAssertionBuilder):
