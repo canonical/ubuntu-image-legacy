@@ -1,3 +1,16 @@
+ubuntu-image (1.7+19.10ubuntu3) eoan; urgency=medium
+
+  [ Dimitri John Ledkov ]
+  * Use modern apt commands.
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Tue, 30 Jul 2019 08:26:32 +0200
+
+ubuntu-image (1.7+19.10ubuntu2) eoan; urgency=medium
+
+  * Fix E117 over-intended line
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Tue, 30 Jul 2019 08:03:58 +0200
+
 ubuntu-image (1.7+19.10ubuntu1) eoan; urgency=medium
 
   [ Maciej Borzecki ]
