@@ -623,8 +623,8 @@ volumes:
              )
 
     def test_volume_structure_type_role_conflict_1(self):
-        # type:none means there's no partition, so you can't have a role of
-        # system-{boot,data}.
+        # if type is none means there's no partition, so you can't
+        # have a role of system-{boot,data}.
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
@@ -648,8 +648,8 @@ volumes:
             'Invalid gadget.yaml: structure role/type conflict')
 
     def test_volume_structure_type_role_conflict_2(self):
-        # type:none means there's no partition, so you can't have a role of
-        # system-{boot,data}.
+        # if type is none means there's no partition, so you can't
+        # have a role of system-{boot,data}.
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
@@ -673,8 +673,8 @@ volumes:
             'Invalid gadget.yaml: structure role/type conflict')
 
     def test_volume_structure_type_role_redundant(self):
-        # type:none means there's no partition.  It's valid, but redundant to
-        # also give a role:mbr.
+        # if type is none means there's no partition.  It's valid,
+        # but redundant to also give a role:mbr.
         gadget_spec = parse("""
 volumes:
   first-image:

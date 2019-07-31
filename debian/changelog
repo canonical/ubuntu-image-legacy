@@ -1,3 +1,15 @@
+ubuntu-image (1.7+19.10ubuntu5) eoan; urgency=medium
+
+  * Fix previous upload, to also fix E501 long line error
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Tue, 30 Jul 2019 12:24:12 +0200
+
+ubuntu-image (1.7+19.10ubuntu4) eoan; urgency=medium
+
+  * Try to fix F723 syntax error in type comment
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Tue, 30 Jul 2019 11:39:33 +0200
+
 ubuntu-image (1.7+19.10ubuntu3) eoan; urgency=medium
 
   [ Dimitri John Ledkov ]
@@ -7,7 +19,7 @@ ubuntu-image (1.7+19.10ubuntu3) eoan; urgency=medium
 
 ubuntu-image (1.7+19.10ubuntu2) eoan; urgency=medium
 
-  * Fix E117 over-intended line
+  * Fix E117 over-indended line
 
  -- Gianfranco Costamagna <locutusofborg@debian.org>  Tue, 30 Jul 2019 08:03:58 +0200
 
