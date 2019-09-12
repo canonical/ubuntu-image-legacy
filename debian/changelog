@@ -1,3 +1,9 @@
+ubuntu-image (1.7+19.10ubuntu6) eoan; urgency=medium
+
+  * Require isolation-machine for snapcraft specific autopkgtests
+
+ -- Sergio Schvezov <sergio.schvezov@canonical.com>  Thu, 12 Sep 2019 12:59:48 +0000
+
 ubuntu-image (1.7+19.10ubuntu5) eoan; urgency=medium
 
   * Fix previous upload, to also fix E501 long line error
