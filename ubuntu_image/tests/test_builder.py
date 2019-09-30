@@ -609,6 +609,7 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
@@ -685,6 +686,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             volume = SimpleNamespace(
                 structures=[part],
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
@@ -751,6 +753,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             volume = SimpleNamespace(
                 structures=[part],
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
@@ -767,6 +770,153 @@ class TestModelAssertionBuilder(TestCase):
                 next(state)
             self.assertEqual(
                 str(cm.exception), 'Invalid part filesystem type: 801')
+
+    def test_populate_filesystems_lk_bootloader(self):
+        # We check that boot.img and snapbootsel.bin are copied around so
+        # they can be used when creating the image from gadget.yaml.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                cmd='snap',
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            # Craft a gadget specification.
+            contents1 = SimpleNamespace(
+                image='image1.img',
+                size=None,
+                offset=None,
+                )
+            part = SimpleNamespace(
+                role=None,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='hold the door',
+                content=[contents1],
+                size=150,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.lk,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir, [part0_img])
+            # Create files that should be copied to the gadget folder
+            boot_dir = os.path.join(unpackdir, 'image', 'boot', 'lk')
+            os.makedirs(boot_dir)
+            with open(os.path.join(boot_dir, 'boot.img'), 'wb') as fp:
+                fp.write(b'\1' * 10)
+            with open(os.path.join(boot_dir, 'snapbootsel.bin'), 'wb') as fp:
+                fp.write(b'\1' * 10)
+            # The source image.
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            with open(os.path.join(gadget_dir, 'image1.img'), 'wb') as fp:
+                fp.write(b'\1' * 47)
+            # Mock out the mkfs.ext4 call, and we'll just test the contents
+            # directory (i.e. what would go in the ext4 file system).
+            mock = resources.enter_context(
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
+            next(state)
+            # Check that boot files are copied to the gadget folder
+            file1 = os.path.join(gadget_dir, 'boot.img')
+            self.assertTrue(os.path.exists(file1))
+            file2 = os.path.join(gadget_dir, 'snapbootsel.bin')
+            self.assertTrue(os.path.exists(file2))
+            # Check that mkfs.ext4 got called with the expected values.  It
+            # actually got called twice, but it's only the first call
+            # (i.e. the one creating the part, not the image) that we care
+            # about.
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            part0_path = os.path.join(workdir, 'volumes', 'volume1', 'part0')
+            self.assertEqual(
+                posargs,
+                # mkfs_ext4 positional arguments.
+                (part0_img, part0_path, 'snap', 'hold the door'))
+
+    def test_populate_filesystems_lk_bootloader_no_boot_files(self):
+        # This covers the case of no content files provided for lk
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                cmd='snap',
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            # Craft a gadget specification.
+            contents1 = SimpleNamespace(
+                image='image1.img',
+                size=None,
+                offset=None,
+                )
+            part = SimpleNamespace(
+                role=None,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='hold the door',
+                content=[contents1],
+                size=150,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.lk,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                )
+            prep_state(state, workdir, [part0_img])
+            # The source image.
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            with open(os.path.join(gadget_dir, 'image1.img'), 'wb') as fp:
+                fp.write(b'\1' * 47)
+            # Mock out the mkfs.ext4 call, and we'll just test the contents
+            # directory (i.e. what would go in the ext4 file system).
+            mock = resources.enter_context(
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
+            next(state)
+            # Check that mkfs.ext4 got called with the expected values.  It
+            # actually got called twice, but it's only the first call
+            # (i.e. the one creating the part, not the image) that we care
+            # about.
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            part0_path = os.path.join(workdir, 'volumes', 'volume1', 'part0')
+            self.assertEqual(
+                posargs,
+                # mkfs_ext4 positional arguments.
+                (part0_img, part0_path, 'snap', 'hold the door'))
 
     def test_make_disk(self):
         # make_disk() will use Image with the msdos label with the mbr schema.
@@ -2029,6 +2179,7 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part0],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(pc=volume),
@@ -2094,6 +2245,7 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part0],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(pc=volume),
@@ -2160,6 +2312,7 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part0],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(pc=volume),
