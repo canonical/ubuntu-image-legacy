@@ -69,6 +69,7 @@ def yaml_path(path):
 class BootLoader(Enum):
     uboot = 'u-boot'
     grub = 'grub'
+    lk = 'lk'
 
 
 @yaml_path('volumes:<volume name>:schema')
@@ -89,6 +90,8 @@ class StructureRole(Enum):
     mbr = 'mbr'
     system_boot = 'system-boot'
     system_data = 'system-data'
+    bootselect = 'bootselect'
+    bootimg = 'bootimg'
 
 
 class Enumify:
