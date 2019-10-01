@@ -193,7 +193,7 @@ class AbstractImageBuilderState(State):
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
             target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
-            if part.role is StructureRole.system_boot:
+            if part.role in (StructureRole.system_boot, StructureRole.system_recovery):
                 volume.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
                     boot = os.path.join(
@@ -396,6 +396,16 @@ class AbstractImageBuilderState(State):
                 env.update(os.environ)
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
+                # deal with the system-recovery partition, it needs the ro
+                if part.role == StructureRole.system_recovery:
+                    # FIXME: consolidate with the above code?
+                    # FIXME2: we may want self.recoveryfs here instead?
+                    sourcefiles = SPACE.join(
+                        os.path.join(self.rootfs, filename)
+                        for filename in os.listdir(self.rootfs)
+                    )
+                    run('mcopy -s -i {} {} ::'.format(
+                        part_img, sourcefiles, env=env))
             elif part.filesystem is FileSystemType.ext4:
                 mkfs_ext4(part_img, part_dir, self.args.cmd,
                           part.filesystem_label)

@@ -89,6 +89,7 @@ class StructureRole(Enum):
     mbr = 'mbr'
     system_boot = 'system-boot'
     system_data = 'system-data'
+    system_recovery = 'system-recovery'
 
 
 class Enumify:
@@ -488,6 +489,10 @@ def parse(stream_or_string):
                     raise GadgetSpecificationError(
                         '`role: system-data` structure must have an implicit '
                         "label, or 'writable': {}".format(filesystem_label))
+            elif structure_role is StructureRole.system_recovery:
+                # recovery is good enough as a rootfs, the recovery will
+                # create the writable partition on demand
+                rootfs_seen = True
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
             # in a single structure, they must all be of type A or type B.  If
