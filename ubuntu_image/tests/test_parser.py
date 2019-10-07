@@ -1229,6 +1229,28 @@ volumes:
 """)
         self.assertIsNone(gadget_spec.format)
 
+    def test_gadget_system_seed(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 16M
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-seed
+          size: 100M
+""")
+        self.assertEqual(len(gadget_spec.volumes), 1)
+        self.assertTrue(gadget_spec.seeded)
+        # Also, check that the system-data structure has not been
+        # automatically added at the end, since for UC20 it is now
+        # required to be explicit.
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(len(volume0.structures), 2)
+        self.assertEqual(volume0.structures[0].role, None)
+        self.assertEqual(volume0.structures[1].role, StructureRole.system_seed)
+
 
 class TestParserWarnings(TestCase):
     def setUp(self):

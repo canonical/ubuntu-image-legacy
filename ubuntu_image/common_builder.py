@@ -190,10 +190,19 @@ class AbstractImageBuilderState(State):
                 os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
+    def _should_skip_partition(self, part):
+        # TODO
+        return self.gadget.seeded and part.role in (
+            StructureRole.system_boot,
+            StructureRole.system_data,
+            StructureRole.system_save)
+
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
-            if part.role in (StructureRole.system_boot, StructureRole.system_recovery):
+            if part.role is StructureRole.system_boot:
                 volume.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
                     boot = os.path.join(
@@ -268,10 +277,14 @@ class AbstractImageBuilderState(State):
         volume.part_images = []
         farthest_offset = 0
         for partnum, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             part_img = os.path.join(
                 volume.basedir, 'part{}.img'.format(partnum))
-            if part.role is StructureRole.system_data:
-                # The image for the root partition.
+            # The system-data and system-seed partitions do not have to have
+            # an explicit size set.
+            if part.role in (StructureRole.system_data,
+                             StructureRole.system_seed):
                 if part.size is None:
                     part.size = self.rootfs_size
                 elif part.size < self.rootfs_size:
@@ -279,6 +292,9 @@ class AbstractImageBuilderState(State):
                                     'actual rootfs contents {}'.format(
                                         part.size, self.rootfs_size))
                     part.size = self.rootfs_size
+            # Create the actual image files now.
+            if part.role is StructureRole.system_data:
+                # The image for the root partition.
                 # We defer creating the root file system image because we have
                 # to populate it at the same time.  See mkfs.ext4(8) for
                 # details.
@@ -350,8 +366,16 @@ class AbstractImageBuilderState(State):
 
     def _populate_one_volume(self, name, volume):
         for partnum, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             part_img = volume.part_images[partnum]
-            part_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+            # In seeded images, the system-seed partition is basically the
+            # rootfs partition - at least from the ubuntu-image POV.
+            if part.role is StructureRole.system_seed:
+                part_dir = self.rootfs
+            else:
+                part_dir = os.path.join(volume.basedir,
+                                        'part{}'.format(partnum))
             if part.role is StructureRole.system_data:
                 # The root partition needs to be ext4, which may or may not be
                 # populated at creation time, depending on the version of
@@ -396,16 +420,6 @@ class AbstractImageBuilderState(State):
                 env.update(os.environ)
                 run('mcopy -s -i {} {} ::'.format(part_img, sourcefiles),
                     env=env)
-                # deal with the system-recovery partition, it needs the ro
-                if part.role == StructureRole.system_recovery:
-                    # FIXME: consolidate with the above code?
-                    # FIXME2: we may want self.recoveryfs here instead?
-                    sourcefiles = SPACE.join(
-                        os.path.join(self.rootfs, filename)
-                        for filename in os.listdir(self.rootfs)
-                    )
-                    run('mcopy -s -i {} {} ::'.format(
-                        part_img, sourcefiles, env=env))
             elif part.filesystem is FileSystemType.ext4:
                 mkfs_ext4(part_img, part_dir, self.args.cmd,
                           part.filesystem_label)
@@ -424,13 +438,18 @@ class AbstractImageBuilderState(State):
         image = Image(imgfile, volume.image_size, volume.schema)
         offset_writes = []
         part_offsets = {}
-        # We first create all the partitions.
+        # We first create all the needed partitions.
+        # For regular core16 and core18 builds, this means creating all of the
+        # defined partitions.  For core20 (the so called 'seeded images'), we
+        # only create all the role-less partitions and mbr + system-seed.
+        # The rest is created dynamically by snapd on first boot.
         for part in volume.structures:
             if part.name is not None:
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
-            if part.role is StructureRole.mbr or part.type == 'bare':
+            if (part.role is StructureRole.mbr or part.type == 'bare' or
+                    self._should_skip_partition(part)):
                 continue
             activate = False
             if (volume.schema is VolumeSchema.mbr and
@@ -447,6 +466,8 @@ class AbstractImageBuilderState(State):
         # clobbers things like hybrid MBR partitions.
         part_id = 1
         for i, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             image.copy_blob(volume.part_images[i],
                             bs=image.sector_size,
                             seek=part.offset // image.sector_size,
