@@ -898,11 +898,12 @@ class TestModelAssertionBuilder(TestCase):
             # mcopy of the seed partition.
             self.assertEqual(len(run_mock.call_args_list), 1)
             posargs, kwargs = run_mock.call_args_list[0]
-            self.assertEqual(
-                posargs,
-                # run arguments for mcopy.
-                ('mcopy -s -i {} {} {} ::'.format(
-                    part1_img, file1_path, file2_path), ))
+            # Check if the right arguments were passed to mcopy.
+            mcopy_cmd = posargs[0]
+            self.assertTrue(
+                mcopy_cmd.startswith('mcopy -s -i {} '.format(part1_img)))
+            self.assertIn(file1_path, mcopy_cmd)
+            self.assertIn(file2_path, mcopy_cmd)
 
     def test_make_disk(self):
         # make_disk() will use Image with the msdos label with the mbr schema.
