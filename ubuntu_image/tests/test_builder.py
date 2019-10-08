@@ -601,85 +601,6 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(
                 str(cm.exception), 'target must end in a slash: bt')
 
-    def test_populate_bootfs_contents_skip_seeded(self):
-        # This test provides coverage for populate_bootfs_contents() when a
-        # volume's part is defined as an ext4 or vfat file system type.  In
-        # that case, the part's contents are copied to the target directory.
-        # There are two paths here: one where the contents are a directory and
-        # the other where the contents are a file.  We can test both cases
-        # here for full coverage.
-        with ExitStack() as resources:
-            workdir = resources.enter_context(TemporaryDirectory())
-            unpackdir = resources.enter_context(TemporaryDirectory())
-            # Fast forward a state machine to the method under test.
-            args = SimpleNamespace(
-                cloud_init=None,
-                output=None,
-                output_dir=None,
-                unpackdir=unpackdir,
-                workdir=workdir,
-                hooks_directory=[],
-                )
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state._next.pop()
-            state._next.append(state.populate_bootfs_contents)
-            # Now we have to craft enough of gadget definition to drive the
-            # method under test.  The two paths (is-a-file and is-a-directory)
-            # are differentiated by whether the source ends in a slash or not.
-            # In that case, the target must also end in a slash.
-            contents = SimpleNamespace(
-                source='as.dat',
-                target='at.dat',
-                )
-            part1 = SimpleNamespace(
-                role=None,
-                filesystem_label='not a boot',
-                filesystem=FileSystemType.ext4,
-                content=[contents],
-                )
-            part2 = SimpleNamespace(
-                role=StructureRole.system_boot,
-                )
-            volume = SimpleNamespace(
-                bootloader=BootLoader.grub,
-                structures=[part1, part2],
-                )
-            state.gadget = SimpleNamespace(
-                volumes=dict(volume1=volume),
-                seeded=True,
-                )
-            # Since we're not running make_temporary_directories(), just set
-            # up some additional expected state.
-            state.unpackdir = unpackdir
-            prep_state(state, workdir)
-            # Run the method, the testable effects of which copy all the files
-            # in the source directory (i.e. <unpackdir>/gadget/<source>) into
-            # the target directory (i.e. <workdir>/part0).  So put some
-            # contents into the source locations.
-            gadget_dir = os.path.join(unpackdir, 'gadget')
-            os.makedirs(gadget_dir)
-            src = os.path.join(gadget_dir, 'as.dat')
-            with open(src, 'wb') as fp:
-                fp.write(b'01234')
-            # Put a couple of files and a directory in the source, since
-            # directories are copied recursively.
-            grub_dir = os.path.join(unpackdir, 'image', 'boot', 'grub')
-            os.makedirs(grub_dir)
-            src = os.path.join(grub_dir, 'grub.cfg')
-            with open(src, 'w') as fp:
-                fp.write('CONFIG')
-            # Run the state machine.
-            next(state)
-            # Since we're in seeded mode, the system-boot partition shold
-            # have been skipped.
-            target = os.path.join(
-                workdir, 'volumes', 'volume1', 'part1', 'EFI', 'ubuntu')
-            self.assertFalse(os.path.exists(target))
-            # But the first partition should have been created normally.
-            target = os.path.join(
-                workdir, 'volumes', 'volume1', 'part0', 'at.dat')
-            self.assertTrue(os.path.exists(target))
-
     def test_populate_filesystems_none_type(self):
         # We do a bit-wise copy when the file system has no type.
         with ExitStack() as resources:
@@ -897,7 +818,7 @@ class TestModelAssertionBuilder(TestCase):
                 str(cm.exception), 'Invalid part filesystem type: 801')
 
     def test_populate_filesystems_seeded_image(self):
-        # Check if population of seeded images skips all parts besides seed.
+        # Check if population of seeded images copies the rootfs to the seed.
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             unpackdir = resources.enter_context(TemporaryDirectory())
@@ -938,17 +859,8 @@ class TestModelAssertionBuilder(TestCase):
                 filesystem=FileSystemType.vfat,
                 size=None,
                 )
-            part2 = SimpleNamespace(
-                role=StructureRole.system_boot,
-                filesystem_label='system-boot',
-                )
-            part3 = SimpleNamespace(
-                role=StructureRole.system_data,
-                filesystem=FileSystemType.ext4,
-                size=None,
-                )
             volume = SimpleNamespace(
-                structures=[part0, part1, part2, part3],
+                structures=[part0, part1],
                 schema=VolumeSchema.mbr,
                 )
             state.gadget = SimpleNamespace(
@@ -1538,105 +1450,6 @@ class TestModelAssertionBuilder(TestCase):
                 offset = unpack('<I', fp.read(4))[0]
                 self.assertEqual(offset, MiB(4) / 512)
 
-    def test_make_disk_seeded_image(self):
-        # Check if make_disk only cares about the right partitions for seeded
-        # images.
-        with ExitStack() as resources:
-            workdir = resources.enter_context(TemporaryDirectory())
-            unpackdir = resources.enter_context(TemporaryDirectory())
-            outputdir = resources.enter_context(TemporaryDirectory())
-            # Fast forward a state machine to the method under test.
-            args = SimpleNamespace(
-                cloud_init=None,
-                output=None,
-                output_dir=outputdir,
-                unpackdir=unpackdir,
-                workdir=workdir,
-                hooks_directory=[],
-                )
-            # Jump right to the method under test.
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state._next.pop()
-            state._next.append(state.make_disk)
-            state.rootfs_size = MiB(1)
-            # Craft a gadget schema.
-            part0 = SimpleNamespace(
-                name='assets',
-                role=None,
-                size=MiB(1),
-                offset=MiB(1),
-                offset_write=None,
-                type='bare',
-                )
-            part1 = SimpleNamespace(
-                name=None,
-                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
-                role=StructureRole.system_seed,
-                size=state.rootfs_size,
-                offset=MiB(2),
-                offset_write=None,
-                )
-            part2 = SimpleNamespace(
-                name=None,
-                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
-                role=StructureRole.system_data,
-                size=state.rootfs_size,
-                offset=MiB(3),
-                offset_write=None,
-                )
-            volume = SimpleNamespace(
-                # gadget.yaml appearance order.
-                structures=[part0, part1, part2],
-                schema=VolumeSchema.mbr,
-                image_size=MiB(10),
-                )
-            state.gadget = SimpleNamespace(
-                volumes=dict(volume1=volume),
-                seeded=True,
-                )
-            state.images = os.path.join(workdir, '.image')
-            # Set up images for the targeted test.  These represent the image
-            # files that would have already been crafted to write to the disk
-            # in early (untested here) stages of the state machine.
-            volumedir = os.path.join(workdir, 'volumes', 'volume1')
-            os.makedirs(volumedir)
-            part0_img = os.path.join(volumedir, 'part0.img')
-            with open(part0_img, 'wb') as fp:
-                fp.write(b'\1' * 11)
-            part1_img = os.path.join(volumedir, 'part1.img')
-            with open(part1_img, 'wb') as fp:
-                fp.write(b'\4' * 14)
-            # So this file should never be actually present at this stage, as
-            # for seeded images all content creation should have finished
-            # at the system-seed partition.  However, we add it here
-            # artificially to make sure that it does not get copied over to the
-            # final image disk.
-            root_img = os.path.join(volumedir, 'root.img')
-            with open(root_img, 'wb') as fp:
-                fp.write(b'\5' * 15)
-            prep_state(state, workdir, [part0_img, part1_img, root_img])
-            os.makedirs(state.images)
-            # Create the disk.
-            next(state)
-            # Verify some parts of the disk.img's content.
-            img_file = os.path.join(outputdir, 'volume1.img')
-            with open(img_file, 'rb') as fp:
-                fp.seek(MiB(1))
-                self.assertEqual(fp.read(15), b'\1' * 11 + b'\0' * 4)
-                fp.seek(MiB(2))
-                self.assertEqual(fp.read(15), b'\4' * 14 + b'\0')
-                # Make sure the root partition has not been copied over.
-                fp.seek(MiB(3))
-                self.assertEqual(fp.read(15), b'\0' * 15)
-            # Verify the disk image's partition table.
-            proc = run('sfdisk --json {}'.format(img_file))
-            layout = json.loads(proc.stdout)
-            partitions = [
-                (part['name'] if 'name' in part else None, part['start'])
-                for part in layout['partitiontable']['partitions']
-                ]
-            self.assertEqual(len(partitions), 1)
-
     def test_generate_manifests(self):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
@@ -1783,17 +1596,8 @@ class TestModelAssertionBuilder(TestCase):
                 offset=MiB(1),
                 offset_write=None,
                 )
-            part2 = SimpleNamespace(
-                name=None,
-                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
-                role=StructureRole.system_data,
-                filesystem=FileSystemType.ext4,
-                size=None,
-                offset=MiB(1),
-                offset_write=None,
-                )
             volume = SimpleNamespace(
-                structures=[part0, part1, part2],
+                structures=[part0, part1],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
@@ -1802,16 +1606,13 @@ class TestModelAssertionBuilder(TestCase):
                 )
             prep_state(state, workdir)
             next(state)
-            # Make sure that only part0 and part1 got 'prepared'.
+            # Make sure both part0 and part1 got prepared.
             volumes_dir = os.path.join(workdir, 'volumes')
             self.assertTrue(os.path.exists(
                 os.path.join(volumes_dir, 'volume1', 'part0.img')))
             self.assertTrue(os.path.exists(
                 os.path.join(volumes_dir, 'volume1', 'part1.img')))
-            self.assertFalse(os.path.exists(
-                os.path.join(volumes_dir, 'volume1', 'part2.img')))
-            # While we're at it, check if the seed partition got the right
-            # size auto-selected.
+            # Check if the seed partition got the right size auto-selected.
             seed_part = state.gadget.volumes['volume1'].structures[1]
             self.assertEqual(seed_part.size, MiB(1))
 

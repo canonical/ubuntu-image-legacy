@@ -190,17 +190,8 @@ class AbstractImageBuilderState(State):
                 os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
-    def _should_skip_partition(self, part):
-        # TODO
-        return self.gadget.seeded and part.role in (
-            StructureRole.system_boot,
-            StructureRole.system_data,
-            StructureRole.system_save)
-
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
-            if self._should_skip_partition(part):
-                continue
             target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
             if part.role is StructureRole.system_boot:
                 volume.bootfs = target_dir
@@ -277,8 +268,6 @@ class AbstractImageBuilderState(State):
         volume.part_images = []
         farthest_offset = 0
         for partnum, part in enumerate(volume.structures):
-            if self._should_skip_partition(part):
-                continue
             part_img = os.path.join(
                 volume.basedir, 'part{}.img'.format(partnum))
             # The system-data and system-seed partitions do not have to have
@@ -366,8 +355,6 @@ class AbstractImageBuilderState(State):
 
     def _populate_one_volume(self, name, volume):
         for partnum, part in enumerate(volume.structures):
-            if self._should_skip_partition(part):
-                continue
             part_img = volume.part_images[partnum]
             # In seeded images, the system-seed partition is basically the
             # rootfs partition - at least from the ubuntu-image POV.
@@ -448,8 +435,7 @@ class AbstractImageBuilderState(State):
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
-            if (part.role is StructureRole.mbr or part.type == 'bare' or
-                    self._should_skip_partition(part)):
+            if part.role is StructureRole.mbr or part.type == 'bare':
                 continue
             activate = False
             if (volume.schema is VolumeSchema.mbr and
@@ -466,8 +452,6 @@ class AbstractImageBuilderState(State):
         # clobbers things like hybrid MBR partitions.
         part_id = 1
         for i, part in enumerate(volume.structures):
-            if self._should_skip_partition(part):
-                continue
             image.copy_blob(volume.part_images[i],
                             bs=image.sector_size,
                             seek=part.offset // image.sector_size,

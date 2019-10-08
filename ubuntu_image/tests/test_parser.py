@@ -1240,12 +1240,15 @@ volumes:
         - type: 00000000-0000-0000-0000-0000beefface
           role: system-seed
           size: 100M
+        - type: 00000000-0000-0000-0000-0000feedface
+          role: system-boot
+          size: 20M
 """)
         self.assertEqual(len(gadget_spec.volumes), 1)
         self.assertTrue(gadget_spec.seeded)
-        # Also, check that the system-data structure has not been
-        # automatically added at the end, since for UC20 it is now
-        # required to be explicit.
+        # Also, check that all the paritions after system-seed have been
+        # skipped and no implicit system-data partition has been added at
+        # the end of the volume.
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(len(volume0.structures), 2)
         self.assertEqual(volume0.structures[0].role, None)
