@@ -1238,22 +1238,22 @@ volumes:
     structure:
       - name: snapbootsel
         type: 00000000-0000-0000-0000-0000deadbeef
-        role: bootselect
+        role: system-boot-select
         offset: 20480
         size: 131072
         content:
           - image: snapbootsel.bin
       - name: kernel
-        role: bootimg
+        role: system-boot-image
         type: EBD0A0A2-B9E5-4433-87C0-68B6B72699C7
         size: 67108864
 """)
         volume0 = gadget_spec.volumes['first-image']
         self.assertEqual(volume0.bootloader, BootLoader.lk)
         partition0 = volume0.structures[0]
-        self.assertEqual(partition0.role, StructureRole.bootselect)
+        self.assertEqual(partition0.role, StructureRole.system_boot_select)
         partition1 = volume0.structures[1]
-        self.assertEqual(partition1.role, StructureRole.bootimg)
+        self.assertEqual(partition1.role, StructureRole.system_boot_image)
 
 
 class TestParserWarnings(TestCase):

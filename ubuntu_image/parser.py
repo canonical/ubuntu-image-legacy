@@ -90,8 +90,8 @@ class StructureRole(Enum):
     mbr = 'mbr'
     system_boot = 'system-boot'
     system_data = 'system-data'
-    bootselect = 'bootselect'
-    bootimg = 'bootimg'
+    system_boot_select = 'system-boot-select"'
+    system_boot_image = 'system-boot-image'
 
 
 class Enumify:
