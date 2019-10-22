@@ -496,6 +496,21 @@ def parse(stream_or_string):
                     raise GadgetSpecificationError(
                         '`role: system-data` structure must have an implicit '
                         "label, or 'writable': {}".format(filesystem_label))
+            elif structure_role is StructureRole.system_seed:
+                # The seed is good enough as a rootfs, snapd will create the
+                # writable partition on demand
+                rootfs_seen = True
+                # Also, since the gadget.yaml defines a system-seed partition,
+                # we can consider the image to be 'seeded'.  This basically
+                # changes the u-i build mechanism to only create the
+                # system-seed partition + all the the mbr/role-less partitions
+                # defined on the gadget.  All the others (system-boot,
+                # system-data etc.) will be created by snapd.
+                is_seeded = True
+                # Check if there is a filesystem label defined and, if not,
+                # use the implicit 'ubuntu-seed' label.
+                if filesystem_label is None:
+                    filesystem_label = 'ubuntu-seed'
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
             # in a single structure, they must all be of type A or type B.  If
@@ -527,17 +542,9 @@ def parse(stream_or_string):
                 structure_type, structure_id, structure_role,
                 filesystem, filesystem_label,
                 content_specs))
-            if structure_role is StructureRole.system_seed:
-                # The seed is good enough as a rootfs, snapd will create the
-                # writable partition on demand
-                rootfs_seen = True
-                # Also, since the gadget.yaml defines a system-seed partition,
-                # we can consider the image to be 'seeded'.  This basically
-                # changes the u-i build mechanism to only create the
-                # system-seed partition + all the the mbr/role-less partitions
-                # defined on the gadget.  All the others (system-boot,
-                # system-data etc.) will be created by snapd.
-                is_seeded = True
+            # If we found a system-seed partition, stop looking at other
+            # parts.
+            if is_seeded:
                 break
         # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(

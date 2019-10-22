@@ -343,9 +343,9 @@ class TestModelAssertionBuilder(TestCase):
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
             state.unpackdir = resources.enter_context(TemporaryDirectory())
-            image_dir = os.path.join(state.unpackdir, 'image')
-            os.makedirs(os.path.join(image_dir, 'snap'))
-            os.makedirs(os.path.join(image_dir, 'var'))
+            seed_dir = os.path.join(state.unpackdir, 'system-seed')
+            os.makedirs(os.path.join(seed_dir, 'snap'))
+            os.makedirs(os.path.join(seed_dir, 'var'))
             state.rootfs = resources.enter_context(TemporaryDirectory())
             state.gadget = SimpleNamespace(seeded=True)
             # Jump right to the state method we're trying to test.

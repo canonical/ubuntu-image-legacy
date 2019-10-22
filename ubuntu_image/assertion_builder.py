@@ -35,12 +35,17 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             super().prepare_image()
 
     def populate_rootfs_contents(self):
-        src = os.path.join(self.unpackdir, 'image')
-        dst = os.path.join(self.rootfs, 'system-data')
         if self.gadget.seeded:
-            # TODO we should probably check here for a 'recovery' directory
-            #      (produced by "snap prepare-image") and use that
+            # For now, since we only create the system-seed partition for
+            # uc20 images, we hard-code to use this path for the rootfs
+            # seed population.  In the future we might want to consider
+            # populating other partitions from `snap prepare-image` output
+            # as well, so looking into directories like system-data/ etc.
+            src = os.path.join(self.unpackdir, 'system-seed')
             dst = self.rootfs
+        else:
+            src = os.path.join(self.unpackdir, 'image')
+            dst = os.path.join(self.rootfs, 'system-data')
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
             # /boot which goes to the boot partition.

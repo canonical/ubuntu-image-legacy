@@ -1253,6 +1253,28 @@ volumes:
         self.assertEqual(len(volume0.structures), 2)
         self.assertEqual(volume0.structures[0].role, None)
         self.assertEqual(volume0.structures[1].role, StructureRole.system_seed)
+        self.assertEqual(volume0.structures[1].filesystem_label,
+                         'ubuntu-seed')
+
+    def test_gadget_system_seed_explicit_label(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-seed
+          filesystem-label: ubuntu-foo
+          size: 100M
+""")
+        self.assertEqual(len(gadget_spec.volumes), 1)
+        self.assertTrue(gadget_spec.seeded)
+        # This test is basically unneeded as currently snapd won't support
+        # setting custom filesystem labels on the seed partition - but this can
+        # change in the near future.
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(volume0.structures[0].filesystem_label,
+                         'ubuntu-foo')
 
 
 class TestParserWarnings(TestCase):
