@@ -761,6 +761,7 @@ class TestClassicBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),

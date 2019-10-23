@@ -1,7 +1,11 @@
 ubuntu-image (1.8+19.10ubuntu1) UNRELEASED; urgency=medium
 
+  [ Łukasz 'sil2100' Zemczak ]
   * Add support for uc20 images and the system-seed partition role.
     (LP: #1847231)
+
+  [ Alfonso Sanchez-Beato ]
+  * Add support for LK (little kernel) bootloader (LP: #1845964)
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 08 Oct 2019 12:56:43 +0200
 
