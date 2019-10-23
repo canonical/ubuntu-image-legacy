@@ -819,7 +819,7 @@ class TestModelAssertionBuilder(TestCase):
                 next(state)
             self.assertEqual(
                 str(cm.exception), 'Invalid part filesystem type: 801')
-           
+
     def test_populate_filesystems_lk_bootloader(self):
         # We check that boot.img and snapbootsel.bin are copied around so
         # they can be used when creating the image from gadget.yaml.

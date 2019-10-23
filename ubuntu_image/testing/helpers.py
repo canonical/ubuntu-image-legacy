@@ -78,19 +78,6 @@ class EarlyExitLeaveATraceAssertionBuilder(XXXModelAssertionBuilder):
             pass
 
 
-class DummyPrepareAssertionBuilder(XXXModelAssertionBuilder):
-    def prepare_image(self):
-        # Similar to above, but actually proceed with the build further.
-        prepare_path = os.path.join(self.unpackdir, 'image')
-        os.makedirs(prepare_path)
-        # Touch a few files so that later steps have anything to copy.
-        with open(os.path.join(prepare_path, 'file1'), 'w'):
-            pass
-        with open(os.path.join(prepare_path, 'file2'), 'w'):
-            pass
-        self._next.append(self.load_gadget_yaml)
-
-
 class EarlyExitLeaveATraceClassicBuilder(XXXClassicBuilder):
     def prepare_gadget_tree(self):
         # We're skipping the gadget tree build as we're leaving early and will
