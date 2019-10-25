@@ -864,6 +864,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, [part0_img])
             # Create files that should be copied to the gadget folder
@@ -943,6 +944,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, [part0_img])
             # The source image.
@@ -1012,6 +1014,7 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part0, part1],
                 schema=VolumeSchema.mbr,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
