@@ -1,8 +1,13 @@
-ubuntu-image (1.7+19.10ubuntu7) UNRELEASED; urgency=medium
+ubuntu-image (1.8+19.10ubuntu1) UNRELEASED; urgency=medium
 
+  [ Łukasz 'sil2100' Zemczak ]
+  * Add support for uc20 images and the system-seed partition role.
+    (LP: #1847231)
+
+  [ Alfonso Sanchez-Beato ]
   * Add support for LK (little kernel) bootloader (LP: #1845964)
 
- -- Alfonso Sanchez-Beato (email Canonical) <alfonso.sanchez-beato@canonical.com>  Mon, 30 Sep 2019 16:24:02 +0200
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 08 Oct 2019 12:56:43 +0200
 
 ubuntu-image (1.7+19.10ubuntu6) eoan; urgency=medium
 

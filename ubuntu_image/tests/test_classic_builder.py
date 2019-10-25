@@ -181,6 +181,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Fake some state expected by the method under test.
@@ -236,6 +237,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Fake some state expected by the method under test.
@@ -291,6 +293,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Fake some state expected by the method under test.
@@ -348,6 +351,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Fake some state expected by the method under test.
@@ -405,6 +409,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Fake some state expected by the method under test.
@@ -461,6 +466,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Fake some state expected by the method under test.
@@ -539,6 +545,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Since we're not running make_temporary_directories(), just set
             # up some additional expected state.
@@ -618,6 +625,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Don't blat to stderr.
@@ -676,6 +684,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Since we're not running make_temporary_directories(), just set
             # up some additional expected state.
@@ -756,6 +765,7 @@ class TestClassicBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, [part0_img])
             # The source image.

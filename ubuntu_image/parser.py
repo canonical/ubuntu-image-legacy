@@ -90,6 +90,8 @@ class StructureRole(Enum):
     mbr = 'mbr'
     system_boot = 'system-boot'
     system_data = 'system-data'
+    system_seed = 'system-seed'
+    system_save = 'system-save'
     system_boot_select = 'system-boot-select"'
     system_boot_image = 'system-boot-image'
 
@@ -291,6 +293,8 @@ class GadgetSpec:
     volumes = attr.ib()
     defaults = attr.ib()
     format = attr.ib()
+    # Additional u-i internal metadata, not part of the spec
+    seeded = attr.ib()
 
 
 def parse(stream_or_string):
@@ -340,6 +344,10 @@ def parse(stream_or_string):
     # volumes are defined.  We have no b/c considerations for implicit-root-fs
     # in the multi-volume case.
     rootfs_seen = False
+    # For UC20 a new gadget layout is used, in which only the seed partition
+    # needs to be explicitly created by ubuntu-image.  In ubuntu-image we will
+    # call this state as 'seeded'.
+    is_seeded = False
     farthest_offset = 0
     # This item is a dictionary so it can't possibly have duplicate keys.
     # That's okay because our StrictLoader above will already raise an
@@ -491,6 +499,21 @@ def parse(stream_or_string):
                     raise GadgetSpecificationError(
                         '`role: system-data` structure must have an implicit '
                         "label, or 'writable': {}".format(filesystem_label))
+            elif structure_role is StructureRole.system_seed:
+                # The seed is good enough as a rootfs, snapd will create the
+                # writable partition on demand
+                rootfs_seen = True
+                # Also, since the gadget.yaml defines a system-seed partition,
+                # we can consider the image to be 'seeded'.  This basically
+                # changes the u-i build mechanism to only create the
+                # system-seed partition + all the the mbr/role-less partitions
+                # defined on the gadget.  All the others (system-boot,
+                # system-data etc.) will be created by snapd.
+                is_seeded = True
+                # Check if there is a filesystem label defined and, if not,
+                # use the implicit 'ubuntu-seed' label.
+                if filesystem_label is None:
+                    filesystem_label = 'ubuntu-seed'
             # The content will be one of two formats, and no mixing is
             # allowed.  I.e. even though multiple content sections are allowed
             # in a single structure, they must all be of type A or type B.  If
@@ -522,6 +545,10 @@ def parse(stream_or_string):
                 structure_type, structure_id, structure_role,
                 filesystem, filesystem_label,
                 content_specs))
+            # If we found a system-seed partition, stop looking at other
+            # parts.
+            if is_seeded:
+                break
         # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(
             schema, bootloader, image_id, structures)
@@ -561,4 +588,4 @@ def parse(stream_or_string):
     if not bootloader_seen:
         raise GadgetSpecificationError('No bootloader structure named')
     return GadgetSpec(device_tree_origin, device_tree, volume_specs,
-                      defaults, format)
+                      defaults, format, is_seeded)

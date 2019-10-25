@@ -270,8 +270,10 @@ class AbstractImageBuilderState(State):
         for partnum, part in enumerate(volume.structures):
             part_img = os.path.join(
                 volume.basedir, 'part{}.img'.format(partnum))
-            if part.role is StructureRole.system_data:
-                # The image for the root partition.
+            # The system-data and system-seed partitions do not have to have
+            # an explicit size set.
+            if part.role in (StructureRole.system_data,
+                             StructureRole.system_seed):
                 if part.size is None:
                     part.size = self.rootfs_size
                 elif part.size < self.rootfs_size:
@@ -279,6 +281,9 @@ class AbstractImageBuilderState(State):
                                     'actual rootfs contents {}'.format(
                                         part.size, self.rootfs_size))
                     part.size = self.rootfs_size
+            # Create the actual image files now.
+            if part.role is StructureRole.system_data:
+                # The image for the root partition.
                 # We defer creating the root file system image because we have
                 # to populate it at the same time.  See mkfs.ext4(8) for
                 # details.
@@ -367,7 +372,13 @@ class AbstractImageBuilderState(State):
                     shutil.copy(src, dst)
         for partnum, part in enumerate(volume.structures):
             part_img = volume.part_images[partnum]
-            part_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
+            # In seeded images, the system-seed partition is basically the
+            # rootfs partition - at least from the ubuntu-image POV.
+            if part.role is StructureRole.system_seed:
+                part_dir = self.rootfs
+            else:
+                part_dir = os.path.join(volume.basedir,
+                                        'part{}'.format(partnum))
             if part.role is StructureRole.system_data:
                 # The root partition needs to be ext4, which may or may not be
                 # populated at creation time, depending on the version of
@@ -430,7 +441,11 @@ class AbstractImageBuilderState(State):
         image = Image(imgfile, volume.image_size, volume.schema)
         offset_writes = []
         part_offsets = {}
-        # We first create all the partitions.
+        # We first create all the needed partitions.
+        # For regular core16 and core18 builds, this means creating all of the
+        # defined partitions.  For core20 (the so called 'seeded images'), we
+        # only create all the role-less partitions and mbr + system-seed.
+        # The rest is created dynamically by snapd on first boot.
         for part in volume.structures:
             if part.name is not None:
                 part_offsets[part.name] = part.offset
