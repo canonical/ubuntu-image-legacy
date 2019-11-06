@@ -550,6 +550,77 @@ class TestModelAssertionBuilder(TestCase):
             with open(os.path.join(dstbase, 'bt', 'd', 'e.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'0abcd')
 
+    def test_populate_bootfs_contents_seeded(self):
+        # Test populate_bootfs_contents() behavior for the system-seed
+        # partition.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.  The two paths (is-a-file and is-a-directory)
+            # are differentiated by whether the source ends in a slash or not.
+            # In that case, the target must also end in a slash.
+            contents = SimpleNamespace(
+                source='as.dat',
+                target='at.dat',
+                )
+            part = SimpleNamespace(
+                role=StructureRole.system_seed,
+                filesystem=FileSystemType.vfat,
+                content=[contents],
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.grub,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=True,
+                )
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
+            prep_state(state, workdir)
+            # Run the method, the testable effects of which copy all the files
+            # in the source directory (i.e. <unpackdir>/gadget/<source>) into
+            # the target directory.  In this case the target directory should
+            # be the rootfs.
+            state.rootfs = os.path.join(workdir, 'rootfs')
+            os.makedirs(state.rootfs)
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            src = os.path.join(gadget_dir, 'as.dat')
+            with open(src, 'wb') as fp:
+                fp.write(b'01234')
+            # While we're at it, also make sure the bootloader specific rootfs
+            # files are moved to the right places as well.
+            boot_dir = os.path.join(state.unpackdir, 'image', 'boot', 'grub')
+            os.makedirs(boot_dir)
+            src = os.path.join(boot_dir, 'grub.cfg')
+            with open(src, 'wb') as fp:
+                fp.write(b'43210')
+            # Run the state machine.
+            next(state)
+            # Did the content copy happen as expected?
+            with open(os.path.join(state.rootfs, 'at.dat'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'01234')
+            # Did we get the bootloader specific copies done?
+            efi_dir = os.path.join(state.rootfs, 'EFI', 'ubuntu')
+            with open(os.path.join(efi_dir, 'grub.cfg'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'43210')
+
     def test_populate_bootfs_contents_content_mismatch(self):
         # If a content source ends in a slash, so must the target.
         with ExitStack() as resources:
