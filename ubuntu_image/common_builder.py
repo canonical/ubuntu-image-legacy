@@ -192,8 +192,16 @@ class AbstractImageBuilderState(State):
 
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
-            target_dir = os.path.join(volume.basedir, 'part{}'.format(partnum))
-            if part.role is StructureRole.system_boot:
+            if part.role is StructureRole.system_seed:
+                # For seeded systems, the system-seed partition (which reuses
+                # the rootfs paths) is also the boot partition - so we need
+                # to redirect all the boot copies there as well.
+                target_dir = self.rootfs
+            else:
+                target_dir = os.path.join(
+                    volume.basedir, 'part{}'.format(partnum))
+            if part.role in (StructureRole.system_boot,
+                             StructureRole.system_seed):
                 volume.bootfs = target_dir
                 if volume.bootloader is BootLoader.uboot:
                     boot = os.path.join(
