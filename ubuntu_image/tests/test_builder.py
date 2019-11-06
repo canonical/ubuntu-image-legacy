@@ -252,6 +252,43 @@ class TestModelAssertionBuilder(TestCase):
             boot = os.path.join(state.rootfs, 'boot')
             self.assertFalse(os.path.exists(boot))
 
+    def test_populate_rootfs_contents_with_etc_and_stuff_uc20(self):
+        with ExitStack() as resources:
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                snap=None,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'system-seed')
+            for subdir in ('var/lib/foo', 'etc', 'stuff', 'boot', 'home'):
+                path = os.path.join(image_dir, subdir)
+                os.makedirs(path)
+                # Throw a sentinel data file in the subdirectory.
+                with open(os.path.join(path, 'sentinel.dat'), 'wb') as fp:
+                    fp.write(b'x' * 25)
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            # Note that "seeded=True" here which means its a uc20 layout
+            state.gadget = SimpleNamespace(seeded=True)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Everything got copied (i.e. /boot too) into the rootfs,
+            # no system-data prefix
+            for subdir in ('var/lib/foo', 'etc', 'stuff', 'boot'):
+                path = os.path.join(state.rootfs,  subdir)
+                with open(os.path.join(path, 'sentinel.dat'), 'rb') as fp:
+                    self.assertEqual(fp.read(), b'x' * 25)
+
     def test_populate_rootfs_contents_remove_empty_etc_cloud(self):
         with ExitStack() as resources:
             args = SimpleNamespace(

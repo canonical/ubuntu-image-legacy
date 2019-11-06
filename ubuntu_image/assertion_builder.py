@@ -73,7 +73,7 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
         # This is just a mount point.
-        os.makedirs(os.path.join(dst, 'boot'))
+        os.makedirs(os.path.join(dst, 'boot'), exist_ok=True)
         super().populate_rootfs_contents()
 
     def _write_manifest(self, snaps_dir, filename):
