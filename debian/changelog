@@ -1,3 +1,23 @@
+ubuntu-image (1.8+20.04ubuntu1) focal; urgency=medium
+
+  [ Łukasz 'sil2100' Zemczak ]
+  * Add support for uc20 images and the system-seed partition role.
+    (LP: #1847231)
+
+  [ Alfonso Sanchez-Beato ]
+  * Add support for LK (little kernel) bootloader (LP: #1845964)
+
+  [ Dimitri John Ledkov ]
+  * Use modern apt commands.
+
+  [ Gianfranco Costamagna ]
+  * Code-style fixes (E117, F723, E501)
+
+  [ Sergio Schvezov ]
+  * Require isolation-machine for snapcraft specific autopkgtests
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 08 Oct 2019 12:56:43 +0200
+
 ubuntu-image (1.7+16.04ubuntu1) xenial; urgency=medium
 
   [ Maciej Borzecki ]
