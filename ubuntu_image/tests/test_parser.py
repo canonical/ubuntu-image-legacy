@@ -623,8 +623,8 @@ volumes:
              )
 
     def test_volume_structure_type_role_conflict_1(self):
-        # type:none means there's no partition, so you can't have a role of
-        # system-{boot,data}.
+        # if type is none means there's no partition, so you can't
+        # have a role of system-{boot,data}.
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
@@ -648,8 +648,8 @@ volumes:
             'Invalid gadget.yaml: structure role/type conflict')
 
     def test_volume_structure_type_role_conflict_2(self):
-        # type:none means there's no partition, so you can't have a role of
-        # system-{boot,data}.
+        # if type is none means there's no partition, so you can't
+        # have a role of system-{boot,data}.
         with ExitStack() as resources:
             cm = resources.enter_context(
                 self.assertRaises(GadgetSpecificationError))
@@ -673,8 +673,8 @@ volumes:
             'Invalid gadget.yaml: structure role/type conflict')
 
     def test_volume_structure_type_role_redundant(self):
-        # type:none means there's no partition.  It's valid, but redundant to
-        # also give a role:mbr.
+        # if type is none means there's no partition.  It's valid,
+        # but redundant to also give a role:mbr.
         gadget_spec = parse("""
 volumes:
   first-image:
@@ -1228,6 +1228,79 @@ volumes:
           size: 400M
 """)
         self.assertIsNone(gadget_spec.format)
+
+    def test_gadget_system_seed(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000deadbeef
+          size: 16M
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-seed
+          size: 100M
+        - type: 00000000-0000-0000-0000-0000feedface
+          role: system-boot
+          size: 20M
+""")
+        self.assertEqual(len(gadget_spec.volumes), 1)
+        self.assertTrue(gadget_spec.seeded)
+        # Also, check that all the paritions after system-seed have been
+        # skipped and no implicit system-data partition has been added at
+        # the end of the volume.
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(len(volume0.structures), 2)
+        self.assertEqual(volume0.structures[0].role, None)
+        self.assertEqual(volume0.structures[1].role, StructureRole.system_seed)
+        self.assertEqual(volume0.structures[1].filesystem_label,
+                         'ubuntu-seed')
+
+    def test_gadget_system_seed_explicit_label(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-seed
+          filesystem-label: ubuntu-foo
+          size: 100M
+""")
+        self.assertEqual(len(gadget_spec.volumes), 1)
+        self.assertTrue(gadget_spec.seeded)
+        # This test is basically unneeded as currently snapd won't support
+        # setting custom filesystem labels on the seed partition - but this can
+        # change in the near future.
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(volume0.structures[0].filesystem_label,
+                         'ubuntu-foo')
+
+    def test_lk(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    schema: gpt
+    bootloader: lk
+    structure:
+      - name: snapbootsel
+        type: 00000000-0000-0000-0000-0000deadbeef
+        role: system-boot-select
+        offset: 20480
+        size: 131072
+        content:
+          - image: snapbootsel.bin
+      - name: kernel
+        role: system-boot-image
+        type: EBD0A0A2-B9E5-4433-87C0-68B6B72699C7
+        size: 67108864
+""")
+        volume0 = gadget_spec.volumes['first-image']
+        self.assertEqual(volume0.bootloader, BootLoader.lk)
+        partition0 = volume0.structures[0]
+        self.assertEqual(partition0.role, StructureRole.system_boot_select)
+        partition1 = volume0.structures[1]
+        self.assertEqual(partition1.role, StructureRole.system_boot_image)
 
 
 class TestParserWarnings(TestCase):
