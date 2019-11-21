@@ -1,11 +1,12 @@
-ubuntu-image (1.8+20.04ubuntu1) focal; urgency=medium
+ubuntu-image (1.8+16.04ubuntu1) xenial; urgency=medium
 
   [ Łukasz 'sil2100' Zemczak ]
   * Add support for uc20 images and the system-seed partition role.
-    (LP: #1847231)
+    (LP:1847231)
+  * SRU tracking number LP: #1853493
 
   [ Alfonso Sanchez-Beato ]
-  * Add support for LK (little kernel) bootloader (LP: #1845964)
+  * Add support for LK (little kernel) bootloader (LP:1845964)
 
   [ Dimitri John Ledkov ]
   * Use modern apt commands.
