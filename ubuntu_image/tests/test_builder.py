@@ -153,6 +153,7 @@ class TestModelAssertionBuilder(TestCase):
             os.makedirs(os.path.join(image_dir, 'snap'))
             os.makedirs(os.path.join(image_dir, 'var'))
             state.rootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(seeded=False)
             system_data = os.path.join(state.rootfs, 'system-data')
             os.makedirs(system_data)
             # Jump right to the state method we're trying to test.
@@ -192,6 +193,7 @@ class TestModelAssertionBuilder(TestCase):
             os.makedirs(os.path.join(image_dir, 'snap'))
             os.makedirs(os.path.join(image_dir, 'var'))
             state.rootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(seeded=False)
             system_data = os.path.join(state.rootfs, 'system-data')
             os.makedirs(system_data)
             # Jump right to the state method we're trying to test.
@@ -234,6 +236,7 @@ class TestModelAssertionBuilder(TestCase):
                 with open(os.path.join(path, 'sentinel.dat'), 'wb') as fp:
                     fp.write(b'x' * 25)
             state.rootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(seeded=False)
             system_data = os.path.join(state.rootfs, 'system-data')
             os.makedirs(system_data)
             # Jump right to the state method we're trying to test.
@@ -248,6 +251,43 @@ class TestModelAssertionBuilder(TestCase):
             # But these directories did not get copied.
             boot = os.path.join(state.rootfs, 'boot')
             self.assertFalse(os.path.exists(boot))
+
+    def test_populate_rootfs_contents_with_etc_and_stuff_uc20(self):
+        with ExitStack() as resources:
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                snap=None,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'system-seed')
+            for subdir in ('var/lib/foo', 'etc', 'stuff', 'boot', 'home'):
+                path = os.path.join(image_dir, subdir)
+                os.makedirs(path)
+                # Throw a sentinel data file in the subdirectory.
+                with open(os.path.join(path, 'sentinel.dat'), 'wb') as fp:
+                    fp.write(b'x' * 25)
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            # Note that "seeded=True" here which means its a uc20 layout
+            state.gadget = SimpleNamespace(seeded=True)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Everything got copied (i.e. /boot too) into the rootfs,
+            # no system-data prefix
+            for subdir in ('var/lib/foo', 'etc', 'stuff', 'boot'):
+                path = os.path.join(state.rootfs,  subdir)
+                with open(os.path.join(path, 'sentinel.dat'), 'rb') as fp:
+                    self.assertEqual(fp.read(), b'x' * 25)
 
     def test_populate_rootfs_contents_remove_empty_etc_cloud(self):
         with ExitStack() as resources:
@@ -271,6 +311,7 @@ class TestModelAssertionBuilder(TestCase):
                                    'sentinel.dat'), 'wb') as fp:
                 fp.write(b'x' * 25)
             state.rootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(seeded=False)
             system_data = os.path.join(state.rootfs, 'system-data')
             os.makedirs(system_data)
             # Jump right to the state method we're trying to test.
@@ -308,6 +349,7 @@ class TestModelAssertionBuilder(TestCase):
             with open(os.path.join(src_cloud, 'sentinel.dat'), 'wb') as fp:
                 fp.write(b'x' * 25)
             state.rootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(seeded=False)
             system_data = os.path.join(state.rootfs, 'system-data')
             os.makedirs(system_data)
             # Jump right to the state method we're trying to test.
@@ -318,6 +360,43 @@ class TestModelAssertionBuilder(TestCase):
             etc_sentinel = os.path.join(
                 state.rootfs, 'system-data', 'etc', 'cloud', 'sentinel.dat')
             self.assertTrue(os.path.exists(etc_sentinel))
+
+    def test_populate_rootfs_correct_path_for_seeded(self):
+        with ExitStack() as resources:
+            cloud_init = resources.enter_context(
+                NamedTemporaryFile('w', encoding='utf-8'))
+            print('cloud init user data', end='', flush=True, file=cloud_init)
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                snap=None,
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            # Fake some state expected by the method under test.
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            seed_dir = os.path.join(state.unpackdir, 'system-seed')
+            os.makedirs(os.path.join(seed_dir, 'snap'))
+            os.makedirs(os.path.join(seed_dir, 'var'))
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(seeded=True)
+            # Jump right to the state method we're trying to test.
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Check if the rootfs contents have been copied to the expected
+            # directory.
+            self.assertFalse(os.path.exists(
+                os.path.join(state.rootfs, 'system-data')))
+            self.assertTrue(os.path.exists(
+                os.path.join(state.rootfs, 'snap')))
+            self.assertTrue(os.path.exists(
+                os.path.join(state.rootfs, 'var')))
 
     def test_bootloader_options_uboot(self):
         # This test provides coverage for populate_bootfs_contents() when the
@@ -359,6 +438,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Run the method, the testable effects of which copy all the files
@@ -415,6 +495,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Don't blat to stderr.
@@ -470,6 +551,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Since we're not running make_temporary_directories(), just set
             # up some additional expected state.
@@ -504,6 +586,77 @@ class TestModelAssertionBuilder(TestCase):
                 self.assertEqual(fp.read(), b'56789')
             with open(os.path.join(dstbase, 'bt', 'd', 'e.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'0abcd')
+
+    def test_populate_bootfs_contents_seeded(self):
+        # Test populate_bootfs_contents() behavior for the system-seed
+        # partition.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.  The two paths (is-a-file and is-a-directory)
+            # are differentiated by whether the source ends in a slash or not.
+            # In that case, the target must also end in a slash.
+            contents = SimpleNamespace(
+                source='as.dat',
+                target='at.dat',
+                )
+            part = SimpleNamespace(
+                role=StructureRole.system_seed,
+                filesystem=FileSystemType.vfat,
+                content=[contents],
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.grub,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=True,
+                )
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
+            prep_state(state, workdir)
+            # Run the method, the testable effects of which copy all the files
+            # in the source directory (i.e. <unpackdir>/gadget/<source>) into
+            # the target directory.  In this case the target directory should
+            # be the rootfs.
+            state.rootfs = os.path.join(workdir, 'rootfs')
+            os.makedirs(state.rootfs)
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            src = os.path.join(gadget_dir, 'as.dat')
+            with open(src, 'wb') as fp:
+                fp.write(b'01234')
+            # While we're at it, also make sure the bootloader specific rootfs
+            # files are moved to the right places as well.
+            boot_dir = os.path.join(state.unpackdir, 'image', 'boot', 'grub')
+            os.makedirs(boot_dir)
+            src = os.path.join(boot_dir, 'grub.cfg')
+            with open(src, 'wb') as fp:
+                fp.write(b'43210')
+            # Run the state machine.
+            next(state)
+            # Did the content copy happen as expected?
+            with open(os.path.join(state.rootfs, 'at.dat'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'01234')
+            # Did we get the bootloader specific copies done?
+            efi_dir = os.path.join(state.rootfs, 'EFI', 'ubuntu')
+            with open(os.path.join(efi_dir, 'grub.cfg'), 'rb') as fp:
+                self.assertEqual(fp.read(), b'43210')
 
     def test_populate_bootfs_contents_content_mismatch(self):
         # If a content source ends in a slash, so must the target.
@@ -543,6 +696,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Since we're not running make_temporary_directories(), just set
             # up some additional expected state.
@@ -609,9 +763,11 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, [part0_img])
             # The source image.
@@ -685,9 +841,11 @@ class TestModelAssertionBuilder(TestCase):
                 )
             volume = SimpleNamespace(
                 structures=[part],
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, [part0_img])
             # The source image.
@@ -751,9 +909,11 @@ class TestModelAssertionBuilder(TestCase):
                 )
             volume = SimpleNamespace(
                 structures=[part],
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, [part0_img])
             # The source image.
@@ -767,6 +927,244 @@ class TestModelAssertionBuilder(TestCase):
                 next(state)
             self.assertEqual(
                 str(cm.exception), 'Invalid part filesystem type: 801')
+
+    def test_populate_filesystems_lk_bootloader(self):
+        # We check that boot.img and snapbootsel.bin are copied around so
+        # they can be used when creating the image from gadget.yaml.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                cmd='snap',
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            # Craft a gadget specification.
+            contents1 = SimpleNamespace(
+                image='image1.img',
+                size=None,
+                offset=None,
+                )
+            part = SimpleNamespace(
+                role=None,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='hold the door',
+                content=[contents1],
+                size=150,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.lk,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=False,
+                )
+            prep_state(state, workdir, [part0_img])
+            # Create files that should be copied to the gadget folder
+            boot_dir = os.path.join(unpackdir, 'image', 'boot', 'lk')
+            os.makedirs(boot_dir)
+            with open(os.path.join(boot_dir, 'boot.img'), 'wb') as fp:
+                fp.write(b'\1' * 10)
+            with open(os.path.join(boot_dir, 'snapbootsel.bin'), 'wb') as fp:
+                fp.write(b'\1' * 10)
+            # The source image.
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            with open(os.path.join(gadget_dir, 'image1.img'), 'wb') as fp:
+                fp.write(b'\1' * 47)
+            # Mock out the mkfs.ext4 call, and we'll just test the contents
+            # directory (i.e. what would go in the ext4 file system).
+            mock = resources.enter_context(
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
+            next(state)
+            # Check that boot files are copied to the gadget folder
+            file1 = os.path.join(gadget_dir, 'boot.img')
+            self.assertTrue(os.path.exists(file1))
+            file2 = os.path.join(gadget_dir, 'snapbootsel.bin')
+            self.assertTrue(os.path.exists(file2))
+            # Check that mkfs.ext4 got called with the expected values.  It
+            # actually got called twice, but it's only the first call
+            # (i.e. the one creating the part, not the image) that we care
+            # about.
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            part0_path = os.path.join(workdir, 'volumes', 'volume1', 'part0')
+            self.assertEqual(
+                posargs,
+                # mkfs_ext4 positional arguments.
+                (part0_img, part0_path, 'snap', 'hold the door'))
+
+    def test_populate_filesystems_lk_bootloader_no_boot_files(self):
+        # This covers the case of no content files provided for lk
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                cmd='snap',
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            # Craft a gadget specification.
+            contents1 = SimpleNamespace(
+                image='image1.img',
+                size=None,
+                offset=None,
+                )
+            part = SimpleNamespace(
+                role=None,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='hold the door',
+                content=[contents1],
+                size=150,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.lk,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=False,
+                )
+            prep_state(state, workdir, [part0_img])
+            # The source image.
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            with open(os.path.join(gadget_dir, 'image1.img'), 'wb') as fp:
+                fp.write(b'\1' * 47)
+            # Mock out the mkfs.ext4 call, and we'll just test the contents
+            # directory (i.e. what would go in the ext4 file system).
+            mock = resources.enter_context(
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
+            next(state)
+            # Check that mkfs.ext4 got called with the expected values.  It
+            # actually got called twice, but it's only the first call
+            # (i.e. the one creating the part, not the image) that we care
+            # about.
+            self.assertEqual(len(mock.call_args_list), 1)
+            posargs, kwargs = mock.call_args_list[0]
+            part0_path = os.path.join(workdir, 'volumes', 'volume1', 'part0')
+            self.assertEqual(
+                posargs,
+                # mkfs_ext4 positional arguments.
+                (part0_img, part0_path, 'snap', 'hold the door'))
+
+    def test_populate_filesystems_seeded_image(self):
+        # Check if population of seeded images copies the rootfs to the seed.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                cmd='snap',
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            part1_img = os.path.join(state.images, 'part1.img')
+            # Craft a gadget specification.
+            contents1 = SimpleNamespace(
+                image='image1.img',
+                size=None,
+                offset=None,
+                )
+            part0 = SimpleNamespace(
+                role=None,
+                filesystem=FileSystemType.none,
+                content=[contents1],
+                size=150,
+                )
+            part1 = SimpleNamespace(
+                role=StructureRole.system_seed,
+                filesystem=FileSystemType.vfat,
+                size=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1],
+                schema=VolumeSchema.mbr,
+                bootloader=BootLoader.grub,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=True,
+                )
+            prep_state(state, workdir, [part0_img, part1_img])
+            # The source image.
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            with open(os.path.join(gadget_dir, 'image1.img'), 'wb') as fp:
+                fp.write(b'\1' * 47)
+            # Mock out the mkfs.ext4 call, since we want to make sure it's not
+            # called in this case.  We also mock out the run call to see if
+            # mcopy was called as expected.
+            mkfs_mock = resources.enter_context(
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
+            run_mock = resources.enter_context(
+                patch('ubuntu_image.common_builder.run'))
+            # Prepare some files on the rootfs directory.
+            state.rootfs = os.path.join(workdir, 'rootfs')
+            os.makedirs(state.rootfs)
+            file1_path = os.path.join(state.rootfs, 'bar')
+            file2_path = os.path.join(state.rootfs, 'foo')
+            open(file1_path, 'w')
+            open(file2_path, 'w')
+            next(state)
+            # Check the contents of the part0 image file.
+            with open(part0_img, 'rb') as fp:
+                data = fp.read()
+            self.assertEqual(data, b'\1' * 47 + b'\0' * 103)
+            # Make sure the mkfs.ext4 call never happened.
+            self.assertEqual(len(mkfs_mock.call_args_list), 0)
+            # Make sure there was only one run call and that it was for
+            # mcopy of the seed partition.
+            self.assertEqual(len(run_mock.call_args_list), 1)
+            posargs, kwargs = run_mock.call_args_list[0]
+            # Check if the right arguments were passed to mcopy.
+            mcopy_cmd = posargs[0]
+            self.assertTrue(
+                mcopy_cmd.startswith('mcopy -s -i {} '.format(part1_img)))
+            self.assertIn(file1_path, mcopy_cmd)
+            self.assertIn(file2_path, mcopy_cmd)
 
     def test_make_disk(self):
         # make_disk() will use Image with the msdos label with the mbr schema.
@@ -800,6 +1198,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Prepare the state machine for the steps we don't execute.
             prep_state(state, workdir)
@@ -884,6 +1283,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Set up images for the targeted test.  These represent the image
             # files that would have already been crafted to write to the disk
@@ -990,6 +1390,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             state.images = os.path.join(workdir, '.image')
             # Set up images for the targeted test.  These represent the image
@@ -1096,6 +1497,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Set up images for the targeted test.  These represent the image
             # files that would have already been crafted to write to the disk
@@ -1208,6 +1610,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Set up images for the targeted test.  These represent the image
             # files that would have already been crafted to write to the disk
@@ -1284,6 +1687,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             # Set up images for the targeted test.  These represent the image
             # files that would have already been crafted to write to the disk
@@ -1405,6 +1809,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Mock the run() call to prove that we never call dd.
@@ -1415,6 +1820,63 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(len(mock.call_args_list), 1)
             posargs, kwargs = mock.call_args_list[0]
             self.assertTrue(posargs[0].startswith('dd if='))
+
+    def test_prepare_filesystems_seeded_image(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                image_size=None,
+                output=None,
+                output_dir=None,
+                unpackdir=None,
+                workdir=workdir,
+                hooks_directory=[],
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='21686148-6449-6E6f-744E-656564454649',
+                role=None,
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name=None,
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
+                role=StructureRole.system_seed,
+                filesystem=FileSystemType.ext4,
+                size=None,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=True,
+                )
+            prep_state(state, workdir)
+            next(state)
+            # Make sure both part0 and part1 got prepared.
+            volumes_dir = os.path.join(workdir, 'volumes')
+            self.assertTrue(os.path.exists(
+                os.path.join(volumes_dir, 'volume1', 'part0.img')))
+            self.assertTrue(os.path.exists(
+                os.path.join(volumes_dir, 'volume1', 'part1.img')))
+            # Check if the seed partition got the right size auto-selected.
+            seed_part = state.gadget.volumes['volume1'].structures[1]
+            self.assertEqual(seed_part.size, MiB(1))
 
     def test_image_size_calculated(self):
         # We let prepare_filesystems() calculate the disk image size.  The
@@ -1462,6 +1924,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             next(state)
@@ -1512,6 +1975,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             next(state)
@@ -1562,6 +2026,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             next(state)
@@ -1614,6 +2079,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
@@ -1701,6 +2167,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
@@ -1765,6 +2232,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
@@ -1822,6 +2290,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
@@ -1899,6 +2368,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(pi3=volume0),
+                seeded=False,
                 )
             # Set up images for the targeted test.  The important thing here
             # is that the root partition gets sizes to a non-multiple of 1KiB.
@@ -1966,6 +2436,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             mock = resources.enter_context(
@@ -2029,9 +2500,11 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part0],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(pc=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, part_images=[part0_img])
             with self.assertRaises(DoesNotFit) as cm:
@@ -2094,9 +2567,11 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part0],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(pc=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, part_images=[part0_img])
             with self.assertRaises(DoesNotFit) as cm:
@@ -2160,9 +2635,11 @@ class TestModelAssertionBuilder(TestCase):
             volume = SimpleNamespace(
                 structures=[part0],
                 schema=VolumeSchema.gpt,
+                bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(pc=volume),
+                seeded=False,
                 )
             prep_state(state, workdir, part_images=[part0_img])
             with self.assertRaises(DoesNotFit) as cm:
@@ -2469,7 +2946,8 @@ class TestModelAssertionBuilder(TestCase):
             state._next.append(state.make_disk)
             state.gadget = SimpleNamespace(
                 volumes={name: SimpleNamespace()
-                         for name in ('one', 'two', 'three')}
+                         for name in ('one', 'two', 'three')},
+                seeded=False,
                 )
             resources.enter_context(patch.object(state, '_make_one_disk'))
             log_mock = resources.enter_context(
@@ -2507,7 +2985,8 @@ class TestModelAssertionBuilder(TestCase):
             state._next.append(state.make_disk)
             state.gadget = SimpleNamespace(
                 volumes={name: SimpleNamespace()
-                         for name in ('one', 'two', 'three')}
+                         for name in ('one', 'two', 'three')},
+                seeded=False,
                 )
             resources.enter_context(patch.object(state, '_make_one_disk'))
             next(state)
@@ -2544,6 +3023,7 @@ class TestModelAssertionBuilder(TestCase):
                 )
             state.gadget = SimpleNamespace(
                 volumes=dict(volume1=volume),
+                seeded=False,
                 )
             prep_state(state, workdir)
             # Test this debugging helper.

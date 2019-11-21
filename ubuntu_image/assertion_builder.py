@@ -35,14 +35,25 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             super().prepare_image()
 
     def populate_rootfs_contents(self):
-        src = os.path.join(self.unpackdir, 'image')
-        dst = os.path.join(self.rootfs, 'system-data')
+        if self.gadget.seeded:
+            # For now, since we only create the system-seed partition for
+            # uc20 images, we hard-code to use this path for the rootfs
+            # seed population.  In the future we might want to consider
+            # populating other partitions from `snap prepare-image` output
+            # as well, so looking into directories like system-data/ etc.
+            src = os.path.join(self.unpackdir, 'system-seed')
+            dst = self.rootfs
+        else:
+            src = os.path.join(self.unpackdir, 'image')
+            dst = os.path.join(self.rootfs, 'system-data')
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
-            # /boot which goes to the boot partition.
-            if subdir != 'boot':
-                shutil.move(os.path.join(src, subdir),
-                            os.path.join(dst, subdir))
+            # /boot which goes to the boot partition. Unless this is a uc20
+            # system which has everything under "system-seed".
+            if not self.gadget.seeded and subdir == 'boot':
+                continue
+            shutil.move(os.path.join(src, subdir),
+                        os.path.join(dst, subdir))
         etc_cloud = os.path.join(dst, 'etc', 'cloud')
         if os.path.isdir(etc_cloud) and not os.listdir(etc_cloud):
             # The snap --prepare-image command creates /etc/cloud even if
@@ -62,7 +73,7 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
         # This is just a mount point.
-        os.makedirs(os.path.join(dst, 'boot'))
+        os.makedirs(os.path.join(dst, 'boot'), exist_ok=True)
         super().populate_rootfs_contents()
 
     def _write_manifest(self, snaps_dir, filename):

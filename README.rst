@@ -17,9 +17,9 @@ Ubuntu archive.
 
 If you want to run the test suite locally, you should install all the build
 dependencies named in the `debian/control` file.  The easiest way to do that
-is to `apt install devscripts equivs` and then run::
+is to run::
 
-    $ sudo mk-build-deps --remove --install --tool '/usr/bin/apt-get -y'
+    $ sudo apt build-dep ./
 
 from the directory containing the `debian` subdirectory.  Alternatively of
 course, you can just install the packages named in the `Build-Depends` field.
