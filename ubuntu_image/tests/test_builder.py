@@ -1739,6 +1739,9 @@ class TestModelAssertionBuilder(TestCase):
                 'snaps')
             os.makedirs(snaps_dir)
             os.makedirs(seed_dir)
+            state.gadget = SimpleNamespace(
+                seeded=False,
+                )
             # Create some dummy snaps in both directories
             snaps = {'foo': '13', 'bar-baz': '43', 'comma': '4.4',
                      'snap': '1', 'underscore_name': '78'}
@@ -1761,6 +1764,50 @@ class TestModelAssertionBuilder(TestCase):
                 manifest = set(f.read().splitlines())
                 snap_set = set('{} {}'.format(k, v) for k, v in snaps.items())
                 self.assertEqual(snap_set, manifest)
+            with open(seed_manifest) as f:
+                manifest = set(f.read().splitlines())
+                snap_set = set('{} {}'.format(k, v) for k, v in seeds.items())
+                self.assertEqual(snap_set, manifest)
+
+    def test_generate_manifests_seeded(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                debug=False,
+                output=None,
+                output_dir=outputdir,
+                unpackdir=None,
+                workdir=workdir,
+                hooks_directory=[],
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.generate_manifests)
+            # Set up expected state.
+            state.rootfs = os.path.join(workdir, 'root')
+            seed_dir = os.path.join(
+                state.rootfs, 'snaps')
+            os.makedirs(seed_dir)
+            state.gadget = SimpleNamespace(
+                seeded=True,
+                )
+            # Create some dummy snaps in both directories
+            seeds = {'foo': '13', 'bar-baz': '43', 'comma': '4.4',
+                     'snap': '1', 'underscore_name': '78', 'pc': '19'}
+            files = ['{}_{}.snap'.format(k, v) for k, v in seeds.items()]
+            files.append('not_a_snap')
+            for file in files:
+                open(os.path.join(seed_dir, file), 'w').close()
+            next(state)
+            snaps_manifest = os.path.join(outputdir, 'snaps.manifest')
+            seed_manifest = os.path.join(outputdir, 'seed.manifest')
+            # Make sure the snaps.manifest is not created in this case
+            self.assertFalse(os.path.exists(snaps_manifest))
+            self.assertTrue(os.path.exists(seed_manifest))
             with open(seed_manifest) as f:
                 manifest = set(f.read().splitlines())
                 snap_set = set('{} {}'.format(k, v) for k, v in seeds.items())
