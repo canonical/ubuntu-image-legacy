@@ -153,6 +153,12 @@ def add_common_args(subcommand):
         default=[], metavar='DIRECTORY',
         help=_("""Path or comma-separated list of paths of directories in which
         scripts for build-time hooks will be located."""))
+    common_group.add_argument(
+        '--disk-info',
+        default=None, metavar='DISK-INFO-CONTENTS',
+        help=_("""File to be used as .disk/info on the image's rootfs.  This
+        file can contain useful information about the target image, like
+        image identification data, system name, build timestamp etc."""))
     output_group = common_group.add_mutually_exclusive_group()
     output_group.add_argument(
         '-O', '--output-dir',
