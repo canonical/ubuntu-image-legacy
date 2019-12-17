@@ -59,6 +59,7 @@ class AbstractImageBuilderState(State):
         self.unpackdir = None
         self.volumedir = None
         self.cloud_init = args.cloud_init
+        self.disk_info = args.disk_info
         self.exitcode = 0
         self.done = False
         # Generic hook handling manager.
@@ -71,6 +72,7 @@ class AbstractImageBuilderState(State):
         state.update(
             args=self.args,
             cloud_init=self.cloud_init,
+            disk_info=self.disk_info,
             done=self.done,
             exitcode=self.exitcode,
             gadget=self.gadget,
@@ -90,6 +92,7 @@ class AbstractImageBuilderState(State):
         super().__setstate__(state)
         self.args = state['args']
         self.cloud_init = state['cloud_init']
+        self.disk_info = state['disk_info']
         self.done = state['done']
         self.exitcode = state['exitcode']
         self.gadget = state['gadget']
@@ -154,6 +157,15 @@ class AbstractImageBuilderState(State):
         # Separate populate step for firing the post-populate-rootfs hook.
         env = {'UBUNTU_IMAGE_HOOK_ROOTFS': self.rootfs}
         self.hook_manager.fire('post-populate-rootfs', env)
+        self._next.append(self.generate_disk_info)
+
+    def generate_disk_info(self):
+        # If available, populate the rootfs .disk/info
+        if self.disk_info is not None:
+            disk_info_dir = os.path.join(self.rootfs, '.disk')
+            os.makedirs(disk_info_dir, exist_ok=True)
+            disk_info_file = os.path.join(disk_info_dir, 'info')
+            shutil.copy(self.disk_info, disk_info_file)
         self._next.append(self.calculate_rootfs_size)
 
     @staticmethod
