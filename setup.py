@@ -75,6 +75,7 @@ setup(
         'attrs',
         'pyyaml',
         'voluptuous',
+        'pyparted',
         ],
     include_package_data=True,
     scripts=['ubuntu-image'],
