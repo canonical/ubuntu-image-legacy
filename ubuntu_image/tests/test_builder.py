@@ -2891,82 +2891,36 @@ class TestModelAssertionBuilder(TestCase):
                 ('IMAGINE THE TRACEBACK HERE'),
                 ])
 
-    def test_du_command_fails(self):
-        with ExitStack() as resources:
-            # Fast forward a state machine to the method under test.
-            args = SimpleNamespace(
-                channel='edge',
-                cloud_init=None,
-                debug=False,
-                snap=[],
-                extra_snaps=None,
-                model_assertion=self.model_assertion,
-                output=None,
-                output_dir=None,
-                workdir=None,
-                hooks_directory=[],
-                )
-            # Jump right to the method under test.
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state.rootfs = '/tmp'
-            state._next.pop()
-            state._next.append(state.calculate_rootfs_size)
-            resources.enter_context(patch(
-                'ubuntu_image.helpers.subprocess_run',
-                return_value=SimpleNamespace(
-                    returncode=1,
-                    stdout='command stdout',
-                    stderr='command stderr',
-                    check_returncode=check_returncode,
-                    )))
-            log_capture = resources.enter_context(LogCapture())
-            next(state)
-            self.assertEqual(state.exitcode, 1)
-            # Note that there is no traceback in the output.
-            self.assertEqual(log_capture.logs, [
-                (logging.ERROR, 'COMMAND FAILED: du -s -B1 /tmp'),
-                (logging.ERROR, 'command stdout'),
-                (logging.ERROR, 'command stderr'),
-                ])
 
-    def test_du_command_fails_debug(self):
+    def test_calculate_rootfs_size(self):
         with ExitStack() as resources:
-            # Fast forward a state machine to the method under test.
+            mock_os_walk = resources.enter_context(
+                patch('os.walk', return_value=[
+                    ('/tmp/somewhere', ('dir1', ), ('somefile', )),
+                    ('/tmp/somewhere/dir1', ('somedir2', ), ()) ]))
+            mock_os_stat = resources.enter_context(
+                patch('os.stat', return_value=SimpleNamespace(st_size=12)))
+
             args = SimpleNamespace(
-                channel='edge',
                 cloud_init=None,
-                debug=True,
-                snap=[],
-                extra_snaps=None,
-                model_assertion=self.model_assertion,
+                image_size=None,
                 output=None,
                 output_dir=None,
+                unpackdir=None,
                 workdir=None,
                 hooks_directory=[],
-                )
-            # Jump right to the method under test.
+                rootfs = '/tmp/somewhere')
             state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state.rootfs = '/tmp'
+
+            # Jump right to the state method we're trying to test.
             state._next.pop()
             state._next.append(state.calculate_rootfs_size)
-            resources.enter_context(patch(
-                'ubuntu_image.helpers.subprocess_run',
-                return_value=SimpleNamespace(
-                    returncode=1,
-                    stdout='command stdout',
-                    stderr='command stderr',
-                    check_returncode=check_returncode,
-                    )))
-            log_capture = resources.enter_context(LogCapture())
             next(state)
-            self.assertEqual(state.exitcode, 1)
-            self.assertEqual(log_capture.logs, [
-                (logging.ERROR, 'COMMAND FAILED: du -s -B1 /tmp'),
-                (logging.ERROR, 'command stdout'),
-                (logging.ERROR, 'command stderr'),
-                (logging.ERROR, 'Full debug traceback follows'),
-                ('IMAGINE THE TRACEBACK HERE'),
-                ])
+
+            mock_os_walk.assert_called_with(state.rootfs)
+            # INFO: ceil(total * 1.5) + 8 MB
+            self.assertEqual(state.rootfs_size, 36 + 18 + MiB(8))
+
 
     def test_multivolume_dash_o(self):
         # -o/--output is ignored when multiple volumes are specified in the
