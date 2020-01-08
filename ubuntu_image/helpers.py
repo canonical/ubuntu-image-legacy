@@ -101,6 +101,17 @@ def get_qemu_static_for_arch(arch):
         }
     return 'qemu-{}-static'.format(archs.get(arch, arch))
 
+def _debug_log_run(cmd, stdout, stderr):
+    cmd = cmd if isinstance(cmd, str) else ' '.join(cmd)
+    _logger.debug(' > RUN: %s', cmd)
+    if stdout:
+        _logger.debug('   OUT:')
+        for line in stdout.splitlines():
+            _logger.debug(' '*8 + '%s', line)
+    if stderr:
+        _logger.debug('   ERR:')
+        for line in stderr.splitlines():
+            _logger.debug(' '*8 + '%s', line)
 
 def run(command, *, check=True, **args):
     runnable_command = (
@@ -113,6 +124,8 @@ def run(command, *, check=True, **args):
         stdout=stdout, stderr=stderr,
         universal_newlines=True,
         **args)
+    if _logger.level <= logging.DEBUG:
+        _debug_log_run(runnable_command, proc.stdout, proc.stderr)
     if check and proc.returncode != 0:
         _logger.error('COMMAND FAILED: %s', command)
         if proc.stdout is not None:
