@@ -105,9 +105,10 @@ class CallLBLeaveATraceClassicBuilder(XXXClassicBuilder):
 
 
 class LogCapture:
-    def __init__(self):
+    def __init__(self, level=logging.WARN):
         self.logs = []
         self._resources = ExitStack()
+        self.level = level
 
     def capture(self, *args, **kws):
         level, fmt, fmt_args = args
@@ -121,6 +122,7 @@ class LogCapture:
     def __enter__(self):
         log = logging.getLogger('ubuntu-image')
         self._resources.enter_context(patch.object(log, '_log', self.capture))
+        self._resources.enter_context(patch.object(log, 'level', self.level))
         return self
 
     def __exit__(self, *exception):
