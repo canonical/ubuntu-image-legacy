@@ -156,31 +156,21 @@ class AbstractImageBuilderState(State):
         self.hook_manager.fire('post-populate-rootfs', env)
         self._next.append(self.calculate_rootfs_size)
 
-    @staticmethod
-    def _calculate_dirsize(path):
-        # more accruate way to calculate size of dir which
-        # contains hard or soft links
-        total = 0
-        proc = run('du -s -B1 {}'.format(path))
-        total = int(proc.stdout.strip().split()[0])
-        # Fudge factor for incidentals.
-        total *= 1.5
-        return ceil(total)
-
     def calculate_rootfs_size(self):
         # Calculate the size of the root file system.
         #
         # On a 100MiB filesystem, ext4 takes a little over 7MiB for the
         # metadata.  Use 8MiB as a minimum padding here.
-        try:
-            self.rootfs_size = self._calculate_dirsize(self.rootfs) + MiB(8)
-        except CalledProcessError:
-            if self.args.debug:
-                _logger.exception('Full debug traceback follows')
-            self.exitcode = 1
-            # Stop the state machine right here by not appending a next step.
-        else:
-            self._next.append(self.pre_populate_bootfs_contents)
+        total = 0
+        _fsize = lambda r, f: os.stat(os.path.join(r, f)).st_size
+        for root, dirs, files in os.walk(self.rootfs):
+            # FIXME: are hardlinks correctly handled ?
+            total += sum([_fsize(root, d) for d in dirs])
+            total += sum([_fsize(root, f) for f in files])
+
+        # Fudge factor for incidentals.
+        self.rootfs_size = ceil(total * 1.5) + MiB(8)
+        self._next.append(self.pre_populate_bootfs_contents)
 
     def pre_populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
