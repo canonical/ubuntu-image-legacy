@@ -1,9 +1,14 @@
 ubuntu-image (1.8+20.04ubuntu3) UNRELEASED; urgency=medium
 
+  [ Łukasz 'sil2100' Zemczak ]
   * Add support for populating a .disk/info file on the target image rootfs.
     (LP: #1856684)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 17 Dec 2019 12:30:21 +0100
+  [ Maciej Borzecki ]
+  * ubuntu_image: update schema validator to allow gadget update specific
+    keys & little cleanups.  (LP: #1856903)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 19 Dec 2019 19:22:57 +0100
 
 ubuntu-image (1.8+20.04ubuntu2) focal; urgency=medium
 
