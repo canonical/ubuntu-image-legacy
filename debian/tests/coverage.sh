@@ -9,4 +9,4 @@ then
     export UBUNTU_IMAGE_CODENAME="devel"
 fi
 
-tox -e py35-cov,py36-cov,py37-cov
+tox -e py35-cov,py36-cov,py37-cov,py38-cov
