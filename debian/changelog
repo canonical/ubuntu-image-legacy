@@ -9,7 +9,7 @@ ubuntu-image (1.8+20.04ubuntu3) UNRELEASED; urgency=medium
   * ubuntu_image: update schema validator to allow gadget update specific
     keys & little cleanups.  (LP: #1856903)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 29 Jan 2020 16:31:36 +0100
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 29 Jan 2020 16:33:36 +0100
 
 ubuntu-image (1.8+20.04ubuntu2) focal; urgency=medium
 
