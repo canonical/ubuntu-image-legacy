@@ -3,12 +3,15 @@ ubuntu-image (1.8+20.04ubuntu3) UNRELEASED; urgency=medium
   [ Łukasz 'sil2100' Zemczak ]
   * Add support for populating a .disk/info file on the target image rootfs.
     (LP: #1856684)
+  * Design change: no longer remove /boot/grub from the rootfs for classic
+    image builds.  This allows developers to have more freedom on deciding how
+    boot configuration should be handled.  (LP: #1817050)
 
   [ Maciej Borzecki ]
   * ubuntu_image: update schema validator to allow gadget update specific
     keys & little cleanups.  (LP: #1856903)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 19 Dec 2019 19:22:57 +0100
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Tue, 14 Jan 2020 14:55:37 +0100
 
 ubuntu-image (1.8+20.04ubuntu2) focal; urgency=medium
 
