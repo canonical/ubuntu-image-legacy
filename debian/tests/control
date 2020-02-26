@@ -17,7 +17,7 @@ Features: test-name=manpage
 
 # Something in the tox/pip/setuptools stack requires git.
 
-Test-Command: tox -e py35-nocov,py36-nocov,py37-nocov,py38-nocov
+Test-Command: unittests.sh
 Depends: @builddeps@, git, fakeroot
 Features: test-name=unittests
 
