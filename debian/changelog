@@ -6,7 +6,8 @@ ubuntu-image (1.8+20.04ubuntu3) UNRELEASED; urgency=medium
   * Design change: no longer remove /boot/grub from the rootfs for classic
     image builds.  This allows developers to have more freedom on deciding how
     boot configuration should be handled.  (LP: #1817050)
-  * Fix the autopkgtest story on focal.
+  * Fix the autopkgtest story on focal.  Only for this series, remove the py37
+    tox environment as it does not work due to pyparted being 3.8-only.
 
   [ Maciej Borzecki ]
   * ubuntu_image: update schema validator to allow gadget update specific
