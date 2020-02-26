@@ -19,7 +19,6 @@ Features: test-name=manpage
 
 Tests: unittests.sh
 Depends: @builddeps@, git, lsb-release, fakeroot
-Features: test-name=unittests
 
 Test-Command: tox -e qa
 Depends: @builddeps@, git
