@@ -17,8 +17,8 @@ Features: test-name=manpage
 
 # Something in the tox/pip/setuptools stack requires git.
 
-Test-Command: unittests.sh
-Depends: @builddeps@, git, fakeroot
+Tests: unittests.sh
+Depends: @builddeps@, git, lsb-release, fakeroot
 Features: test-name=unittests
 
 Test-Command: tox -e qa
