@@ -11,7 +11,7 @@ from pkg_resources import parse_version
 from ubuntu_image.helpers import GiB, MiB, as_size, get_default_sector_size
 from uuid import UUID
 from voluptuous import (
-    Any, Coerce, Invalid, Match, Optional, Required, Schema,
+    All, Any, Coerce, Invalid, Match, Optional, Range, Required, Schema,
     __version__ as voluptuous_version)
 from warnings import warn
 from yaml import load
@@ -229,7 +229,12 @@ GadgetYAML = Schema({
                         Optional('size'): Coerce(as_size),
                         })
                     ],
-                )
+                ),
+                Optional('update'): Schema({
+                    Optional('edition'): All(
+                        Coerce(int), Range(min=0, min_included=True)),
+                    Optional('preserve'): [str],
+                }),
             })]
         })
     }

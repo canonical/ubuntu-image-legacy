@@ -96,7 +96,13 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'snaps')
         self._write_manifest(snaps_dir, 'snaps.manifest')
         # seed.manifest
-        seed_dir = os.path.join(
-            self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed', 'snaps')
+        if self.gadget.seeded:
+            # For uc20 builds, the snaps are located in a different directory.
+            seed_dir = os.path.join(
+                self.rootfs, 'snaps')
+        else:
+            seed_dir = os.path.join(
+                self.rootfs, 'system-data', 'var', 'lib', 'snapd', 'seed',
+                'snaps')
         self._write_manifest(seed_dir, 'seed.manifest')
         super().generate_manifests()
