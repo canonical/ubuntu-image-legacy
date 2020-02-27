@@ -19,6 +19,9 @@ parts:
   ubuntu-image:
     plugin: python
     source: .
+    build-packages:
+      - pkg-config
+      - libparted-dev
     python-packages:
       - PyYAML
       - attrs
