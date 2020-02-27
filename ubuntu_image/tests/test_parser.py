@@ -1302,6 +1302,24 @@ volumes:
         partition1 = volume0.structures[1]
         self.assertEqual(partition1.role, StructureRole.system_boot_image)
 
+    def test_gadget_structure_update(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-boot
+          filesystem-label: boot
+          size: 100M
+          update:
+            edition: 1
+            preserve:
+                - foo
+                - bar
+""")
+        self.assertEqual(len(gadget_spec.volumes), 1)
+
 
 class TestParserWarnings(TestCase):
     def setUp(self):
@@ -2107,6 +2125,104 @@ volumes:
         self.assertEqual(partition2.filesystem, FileSystemType.ext4)
         self.assertEqual(partition2.filesystem_label, 'writable')
 
+    def test_invalid_volume_name(self):
+        for name in ["-invalid", "in valid", "in+valid"]:
+            with ExitStack() as resources:
+                cm = resources.enter_context(
+                    self.assertRaises(GadgetSpecificationError))
+                parse("""\
+volumes:
+  {}:
+    bootloader: u-boot
+    structure:
+        - role: mbr
+          type: 00000000-0000-0000-0000-0000deadbeef
+          size: 446
+          offset: 10
+""".format(name))
+            self.assertEqual(str(cm.exception),
+                             'Invalid gadget.yaml @ volumes:{}'.format(name))
+
+    def test_duplicate_structure_name(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  vol:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-dd00deadbeef
+          name: not-unique
+          size: 10M
+        - type: 00000000-0000-0000-0000-dd00deadbeee
+          name: not-unique
+          size: 10M
+""")
+        self.assertEqual(str(cm.exception),
+                         'Structure name "not-unique" is not unique')
+
+    def test_gadget_structure_update_edition_string(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-boot
+          filesystem-label: boot
+          size: 100M
+          update:
+            edition: "foo"
+""")
+        self.assertEqual(str(cm.exception),
+                         'Invalid gadget.yaml @ '
+                         'volumes:first-image:structure:0:update:edition')
+
+    def test_gadget_structure_update_edition_negative(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-boot
+          filesystem-label: boot
+          size: 100M
+          update:
+            edition: -1
+""")
+        self.assertEqual(str(cm.exception),
+                         'Invalid gadget.yaml @ '
+                         'volumes:first-image:structure:0:update:edition')
+
+    def test_gadget_structure_update_preserve_not_a_list(self):
+        with ExitStack() as resources:
+            cm = resources.enter_context(
+                self.assertRaises(GadgetSpecificationError))
+            parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-boot
+          filesystem-label: boot
+          size: 100M
+          update:
+            edition: 2
+            preserve: foo
+""")
+        self.assertEqual(str(cm.exception),
+                         'Invalid gadget.yaml @ '
+                         'volumes:first-image:structure:0:update:preserve')
+
 
 class TestPartOrder(TestCase):
     # LP: #1631423
@@ -2228,40 +2344,3 @@ volumes:
         partition4 = volume0.structures[4]
         self.assertEqual(partition4.role, StructureRole.system_data)
         self.assertEqual(partition4.offset, MiB(1200))
-
-    def test_invalid_volume_name(self):
-        for name in ["-invalid", "in valid", "in+valid"]:
-            with ExitStack() as resources:
-                cm = resources.enter_context(
-                    self.assertRaises(GadgetSpecificationError))
-                parse("""\
-volumes:
-  {}:
-    bootloader: u-boot
-    structure:
-        - role: mbr
-          type: 00000000-0000-0000-0000-0000deadbeef
-          size: 446
-          offset: 10
-""".format(name))
-            self.assertEqual(str(cm.exception),
-                             'Invalid gadget.yaml @ volumes:{}'.format(name))
-
-    def test_duplicate_structure_name(self):
-        with ExitStack() as resources:
-            cm = resources.enter_context(
-                self.assertRaises(GadgetSpecificationError))
-            parse("""\
-volumes:
-  vol:
-    bootloader: u-boot
-    structure:
-        - type: 00000000-0000-0000-0000-dd00deadbeef
-          name: not-unique
-          size: 10M
-        - type: 00000000-0000-0000-0000-dd00deadbeee
-          name: not-unique
-          size: 10M
-""")
-        self.assertEqual(str(cm.exception),
-                         'Structure name "not-unique" is not unique')

@@ -1,3 +1,19 @@
+ubuntu-image (1.9+20.04ubuntu1) focal; urgency=medium
+
+  [ Łukasz 'sil2100' Zemczak ]
+  * Design change: no longer remove /boot/grub from the rootfs for classic
+    image builds.  This allows developers to have more freedom on deciding how
+    boot configuration should be handled.  (LP: #1817050)
+  * Fix the autopkgtest story on focal.  Only for this series, remove the py37
+    tox environment as it does not work due to pyparted being 3.8-only.
+  * Fix manifest generation for uc20 builds.  (LP: #1856205)
+
+  [ Maciej Borzecki ]
+  * ubuntu_image: update schema validator to allow gadget update specific
+    keys & little cleanups.  (LP: #1856903)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 29 Jan 2020 16:33:36 +0100
+
 ubuntu-image (1.8+18.04ubuntu2) bionic; urgency=medium
 
   * Add support for populating a .disk/info file on the target image rootfs.
