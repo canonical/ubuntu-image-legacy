@@ -79,6 +79,7 @@ class TestModelAssertionBuilder(TestCase):
             output_dir=None,
             workdir=None,
             hooks_directory=[],
+            disk_info=None,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
         state.run_thru('populate_bootfs_contents')
@@ -145,6 +146,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -185,6 +187,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -224,6 +227,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -264,6 +268,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -301,6 +306,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -339,6 +345,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -376,6 +383,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -418,6 +426,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -478,6 +487,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -524,6 +534,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -601,6 +612,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -672,6 +684,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -722,6 +735,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -815,6 +829,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -884,6 +899,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -942,6 +958,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -1022,6 +1039,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -1090,6 +1108,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -1181,6 +1200,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1231,6 +1251,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1359,6 +1380,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1445,6 +1467,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1575,6 +1598,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1645,6 +1669,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1725,6 +1750,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1739,6 +1765,9 @@ class TestModelAssertionBuilder(TestCase):
                 'snaps')
             os.makedirs(snaps_dir)
             os.makedirs(seed_dir)
+            state.gadget = SimpleNamespace(
+                seeded=False,
+                )
             # Create some dummy snaps in both directories
             snaps = {'foo': '13', 'bar-baz': '43', 'comma': '4.4',
                      'snap': '1', 'underscore_name': '78'}
@@ -1766,6 +1795,51 @@ class TestModelAssertionBuilder(TestCase):
                 snap_set = set('{} {}'.format(k, v) for k, v in seeds.items())
                 self.assertEqual(snap_set, manifest)
 
+    def test_generate_manifests_seeded(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                debug=False,
+                output=None,
+                output_dir=outputdir,
+                unpackdir=None,
+                workdir=workdir,
+                hooks_directory=[],
+                disk_info=None,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.generate_manifests)
+            # Set up expected state.
+            state.rootfs = os.path.join(workdir, 'root')
+            seed_dir = os.path.join(
+                state.rootfs, 'snaps')
+            os.makedirs(seed_dir)
+            state.gadget = SimpleNamespace(
+                seeded=True,
+                )
+            # Create some dummy snaps in both directories
+            seeds = {'foo': '13', 'bar-baz': '43', 'comma': '4.4',
+                     'snap': '1', 'underscore_name': '78', 'pc': '19'}
+            files = ['{}_{}.snap'.format(k, v) for k, v in seeds.items()]
+            files.append('not_a_snap')
+            for file in files:
+                open(os.path.join(seed_dir, file), 'w').close()
+            next(state)
+            snaps_manifest = os.path.join(outputdir, 'snaps.manifest')
+            seed_manifest = os.path.join(outputdir, 'seed.manifest')
+            # Make sure the snaps.manifest is not created in this case
+            self.assertFalse(os.path.exists(snaps_manifest))
+            self.assertTrue(os.path.exists(seed_manifest))
+            with open(seed_manifest) as f:
+                manifest = set(f.read().splitlines())
+                snap_set = set('{} {}'.format(k, v) for k, v in seeds.items())
+                self.assertEqual(snap_set, manifest)
+
     def test_prepare_filesystems_with_no_vfat_partitions(self):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
@@ -1778,6 +1852,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1833,6 +1908,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1893,6 +1969,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1944,6 +2021,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1995,6 +2073,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2048,6 +2127,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2114,6 +2194,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2201,6 +2282,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2259,6 +2341,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2325,6 +2408,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=unpackdir,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2405,6 +2489,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2463,6 +2548,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2530,6 +2616,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2598,6 +2685,7 @@ class TestModelAssertionBuilder(TestCase):
                 unpackdir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2673,6 +2761,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2720,6 +2809,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2766,6 +2856,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2816,6 +2907,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2844,6 +2936,36 @@ class TestModelAssertionBuilder(TestCase):
                 ('IMAGINE THE TRACEBACK HERE'),
                 ])
 
+    def test_disk_info(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            diskinfo = os.path.join(tmpdir, 'disk-info')
+            with open(diskinfo, 'w') as fp:
+                fp.write('Some disk info')
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=False,
+                snap=[],
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                disk_info=diskinfo,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            state._next.pop()
+            state._next.append(state.generate_disk_info)
+            next(state)
+            # Make sure the file is populated with the right contents.
+            with open(os.path.join(state.rootfs, '.disk', 'info')) as fp:
+                self.assertEqual(fp.read(), 'Some disk info')
+
     def test_du_command_fails(self):
         with ExitStack() as resources:
             # Fast forward a state machine to the method under test.
@@ -2858,6 +2980,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2896,6 +3019,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2940,6 +3064,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=outputdir,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -2979,6 +3104,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=None,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -3005,6 +3131,7 @@ class TestModelAssertionBuilder(TestCase):
                 output_dir=None,
                 workdir=workdir,
                 hooks_directory=[],
+                disk_info=None,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state.unpackdir = resources.enter_context(TemporaryDirectory())
