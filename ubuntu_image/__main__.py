@@ -252,6 +252,10 @@ def parseargs(argv=None):
         '-c', '--channel',
         default=None,
         help=_('The default snap channel to use'))
+    snap_cmd.add_argument(
+        '--disable-console-conf',
+        default=False, action='store_true',
+        help=_("""Disable console-conf on the resulting image."""))
     # Classic-based image options.
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',

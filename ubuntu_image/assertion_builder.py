@@ -4,6 +4,7 @@ import os
 import shutil
 import logging
 
+from pathlib import Path
 from subprocess import CalledProcessError
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import snap
@@ -72,6 +73,13 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
                 print('instance-id: nocloud-static', file=fp)
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
+        if self.disable_console_conf:
+            # For now we just touch /var/lib/console-conf/complete to disable
+            # console-conf on core images.
+            cc_dir = os.path.join(dst, 'var', 'lib', 'console-conf')
+            print(cc_dir)
+            os.makedirs(cc_dir, exist_ok=True)
+            Path(os.path.join(cc_dir, 'complete')).touch()
         # This is just a mount point.
         os.makedirs(os.path.join(dst, 'boot'), exist_ok=True)
         super().populate_rootfs_contents()

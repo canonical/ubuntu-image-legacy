@@ -78,6 +78,7 @@ class TestClassicBuilder(TestCase):
             extra_ppas=None,
             hooks_directory=[],
             disk_info=None,
+            disable_console_conf=False,
             gadget_tree=self.gadget_tree,
             filesystem=None,
             )
@@ -121,6 +122,7 @@ class TestClassicBuilder(TestCase):
             extra_ppas='ppa:some/ppa',
             hooks_directory=[],
             disk_info=None,
+            disable_console_conf=False,
             gadget_tree=self.gadget_tree,
             filesystem=None,
             )
@@ -166,6 +168,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -223,6 +226,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -280,6 +284,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -339,6 +344,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -398,6 +404,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -459,6 +466,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -527,6 +535,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -619,6 +628,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -672,6 +682,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -734,6 +745,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -841,6 +853,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -890,6 +903,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -934,6 +948,7 @@ class TestClassicBuilder(TestCase):
                 'output_dir': '/tmp',
                 'hooks_directory': '/tmp',
                 'disk_info': None,
+                'disable_console_conf': False,
                 'output': None,
                 'cloud_init': None,
                 'gadget_tree': None,
@@ -1003,6 +1018,7 @@ class TestClassicBuilder(TestCase):
                 'output_dir': '/tmp',
                 'hooks_directory': '/tmp',
                 'disk_info': None,
+                'disable_console_conf': False,
                 'output': None,
                 'cloud_init': None,
                 'gadget_tree': None,
@@ -1056,6 +1072,7 @@ class TestClassicBuilder(TestCase):
                 extra_ppas=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
