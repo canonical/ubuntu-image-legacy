@@ -77,7 +77,6 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             # For now we just touch /var/lib/console-conf/complete to disable
             # console-conf on core images.
             cc_dir = os.path.join(dst, 'var', 'lib', 'console-conf')
-            print(cc_dir)
             os.makedirs(cc_dir, exist_ok=True)
             Path(os.path.join(cc_dir, 'complete')).touch()
         # This is just a mount point.

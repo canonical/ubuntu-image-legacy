@@ -323,6 +323,8 @@ def parseargs(argv=None):
                 parser.error('project or filesystem is required')
             elif args.project and args.filesystem:
                 parser.error('project and filesystem are mutually exclusive')
+        # And classic doesn't use console-conf
+        args.disable_console_conf = False
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
     # --until and --thru can take an int.
