@@ -95,6 +95,9 @@ model_assertion
 -c CHANNEL, --channel CHANNEL
     The snap channel to use.
 
+--disable-console-conf
+    Disable console-conf on the resulting image.
+
 
 Classic command options
 -----------------------
