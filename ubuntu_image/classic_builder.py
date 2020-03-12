@@ -91,16 +91,6 @@ class ClassicBuilder(AbstractImageBuilderState):
             for subdir in os.listdir(src):
                 shutil.move(os.path.join(src, subdir),
                             os.path.join(dst, subdir))
-        # Remove default grub bootloader settings as we ship bootloader bits
-        # (binary blobs and grub.cfg) to a generated rootfs locally.
-        grub_folder = os.path.join(dst, 'boot', 'grub')
-        if os.path.exists(grub_folder):
-            for file_name in os.listdir(grub_folder):
-                file_path = os.path.join(grub_folder, file_name)
-                if os.path.isdir(file_path):
-                    shutil.rmtree(file_path, ignore_errors=True)
-                else:
-                    os.unlink(file_path)
         # Replace pre-defined LABEL in /etc/fstab with the one
         # we're using 'LABEL=writable' in grub.cfg.
         # TODO We need EFI partition in fstab too

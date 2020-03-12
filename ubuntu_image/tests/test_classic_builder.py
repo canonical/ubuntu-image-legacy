@@ -77,6 +77,8 @@ class TestClassicBuilder(TestCase):
             with_with_proposed=None,
             extra_ppas=None,
             hooks_directory=[],
+            disk_info=None,
+            disable_console_conf=False,
             gadget_tree=self.gadget_tree,
             filesystem=None,
             )
@@ -119,6 +121,8 @@ class TestClassicBuilder(TestCase):
             with_proposed='1',
             extra_ppas='ppa:some/ppa',
             hooks_directory=[],
+            disk_info=None,
+            disable_console_conf=False,
             gadget_tree=self.gadget_tree,
             filesystem=None,
             )
@@ -163,6 +167,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -219,6 +225,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -275,6 +283,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -333,6 +343,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -391,6 +403,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -431,7 +445,10 @@ class TestClassicBuilder(TestCase):
             with open(meta_data, 'r', encoding='utf-8') as fp:
                 self.assertEqual(fp.read(), 'instance-id: nocloud-static\n')
 
-    def test_populate_rootfs_contents_grub_boot_remove(self):
+    def test_populate_rootfs_contents_grub_boot_preserved(self):
+        # We changed our design, so this test is here to make sure the new
+        # design of preserving /boot/grub works.  Previously we removed all
+        # contents of that directory, leaving it empty.
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             args = SimpleNamespace(
@@ -448,6 +465,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -484,10 +503,10 @@ class TestClassicBuilder(TestCase):
             state._next.pop()
             state._next.append(state.populate_rootfs_contents)
             next(state)
-            # /boot/grub should persist, but not the files inside
+            # /boot/grub should persist
             self.assertTrue(os.path.exists(grub_dir))
-            self.assertFalse(os.path.exists(grub_inside_dir))
-            self.assertFalse(os.path.exists(grub_file))
+            self.assertTrue(os.path.exists(grub_inside_dir))
+            self.assertTrue(os.path.exists(grub_file))
 
     def test_populate_bootfs_contents(self):
         # This test provides coverage for populate_bootfs_contents() when a
@@ -515,6 +534,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -606,6 +627,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -658,6 +681,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -719,6 +744,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -825,6 +852,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -873,6 +902,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -916,6 +947,8 @@ class TestClassicBuilder(TestCase):
                 'workdir': '/tmp',
                 'output_dir': '/tmp',
                 'hooks_directory': '/tmp',
+                'disk_info': None,
+                'disable_console_conf': False,
                 'output': None,
                 'cloud_init': None,
                 'gadget_tree': None,
@@ -984,6 +1017,8 @@ class TestClassicBuilder(TestCase):
                 'workdir': '/tmp',
                 'output_dir': '/tmp',
                 'hooks_directory': '/tmp',
+                'disk_info': None,
+                'disable_console_conf': False,
                 'output': None,
                 'cloud_init': None,
                 'gadget_tree': None,
@@ -1036,6 +1071,8 @@ class TestClassicBuilder(TestCase):
                 with_proposed=None,
                 extra_ppas=None,
                 hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )

@@ -95,6 +95,9 @@ model_assertion
 -c CHANNEL, --channel CHANNEL
     The snap channel to use.
 
+--disable-console-conf
+    Disable console-conf on the resulting image.
+
 
 Classic command options
 -----------------------
@@ -191,6 +194,11 @@ in more detail below.
 --hooks-directory DIRECTORY
     Path or comma-separated list of paths of directories in which scripts for
     build-time hooks will be located.
+
+--disk-info DISK-INFO-CONTENTS
+    File to be used as .disk/info on the image's rootfs.  This file can
+    contain useful information about the target image, like image
+    identification data, system name, build timestamp etc.
 
 
 State machine options

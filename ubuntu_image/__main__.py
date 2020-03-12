@@ -153,6 +153,12 @@ def add_common_args(subcommand):
         default=[], metavar='DIRECTORY',
         help=_("""Path or comma-separated list of paths of directories in which
         scripts for build-time hooks will be located."""))
+    common_group.add_argument(
+        '--disk-info',
+        default=None, metavar='DISK-INFO-CONTENTS',
+        help=_("""File to be used as .disk/info on the image's rootfs.  This
+        file can contain useful information about the target image, like
+        image identification data, system name, build timestamp etc."""))
     output_group = common_group.add_mutually_exclusive_group()
     output_group.add_argument(
         '-O', '--output-dir',
@@ -246,6 +252,10 @@ def parseargs(argv=None):
         '-c', '--channel',
         default=None,
         help=_('The default snap channel to use'))
+    snap_cmd.add_argument(
+        '--disable-console-conf',
+        default=False, action='store_true',
+        help=_("""Disable console-conf on the resulting image."""))
     # Classic-based image options.
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
@@ -313,6 +323,8 @@ def parseargs(argv=None):
                 parser.error('project or filesystem is required')
             elif args.project and args.filesystem:
                 parser.error('project and filesystem are mutually exclusive')
+        # And classic doesn't use console-conf
+        args.disable_console_conf = False
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
     # --until and --thru can take an int.
