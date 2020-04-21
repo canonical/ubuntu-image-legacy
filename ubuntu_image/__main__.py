@@ -10,6 +10,7 @@ from pickle import dump, load
 from ubuntu_image import __version__
 from ubuntu_image.assertion_builder import ModelAssertionBuilder
 from ubuntu_image.classic_builder import ClassicBuilder
+from ubuntu_image.common_builder import UnsupportedFeatureError
 from ubuntu_image.helpers import (
     DependencyError, DoesNotFit, PrivilegeError, as_size,
     get_host_distro)
@@ -395,6 +396,10 @@ def main(argv=None):
     except DependencyError as error:
         _logger.error('Required dependency {} seems to be missing. {}'.format(
             error.name, error.additional_info))
+        return 1
+    except UnsupportedFeatureError as error:
+        _logger.error('The current model does not support the following '
+                      'feature: {}'.format(error))
         return 1
     except:  # noqa: E722
         _logger.exception('Crash in state machine')
