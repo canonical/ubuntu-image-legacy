@@ -149,9 +149,9 @@ class AbstractImageBuilderState(State):
             # for these in UC20.
             if self.cloud_init:
                 raise UnsupportedFeatureError('--cloud-init')
-            elif self.disable_console_conf:
+            if self.disable_console_conf:
                 raise UnsupportedFeatureError('--disable-console-conf')
-            elif self.disk_info:
+            if self.disk_info:  # pragma: no branch
                 raise UnsupportedFeatureError('--disk-info')
         # Make a working subdirectory for every volume we're going to create.
         # We'll put the volume contents inside these directories, and then use
