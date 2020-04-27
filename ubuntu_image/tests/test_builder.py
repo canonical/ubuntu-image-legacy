@@ -3294,9 +3294,6 @@ class TestModelAssertionBuilder(TestCase):
 
     def test_temporary_error_on_uc20_unsupported_features(self):
         test_cases = {
-            'disk_info': {
-                'value': 'some/path', 'exception': '--disk-info'
-            },
             'disable_console_conf': {
                 'value': True, 'exception': '--disable-console-conf'
             },
@@ -3334,3 +3331,36 @@ class TestModelAssertionBuilder(TestCase):
                     next(state)
                 # Check if the right exception has been thrown
                 self.assertEqual(str(cm.exception), test['exception'])
+
+    def test_temporary_skip_hooks_on_uc20(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            args = SimpleNamespace(
+                output=None,
+                output_dir=None,
+                model_assertion=self.model_assertion,
+                workdir=workdir,
+                hooks_directory=[],
+                cloud_init=None,
+                disk_info=None,
+                disable_console_conf=False,
+                debug=False,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents_hooks)
+            state.gadget = SimpleNamespace(
+                volumes={},
+                seeded=True,
+                )
+            prep_state(state, workdir)
+            mock = resources.enter_context(
+                patch('ubuntu_image.assertion_builder._logger.debug'))
+            next(state)
+            self.assertEqual(len(mock.call_args_list), 2)
+            posargs, kwargs = mock.call_args_list[1]
+            self.assertEqual(
+                posargs[0],
+                'Building from a seeded gadget - skipping the '
+                'post-populate-rootfs hook execution: unsupported.')
