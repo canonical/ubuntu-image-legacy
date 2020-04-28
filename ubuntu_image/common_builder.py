@@ -22,10 +22,6 @@ SPACE = ' '
 _logger = logging.getLogger('ubuntu-image')
 
 
-class UnsupportedFeatureError(Exception):
-    """A (temporary) exception raised on an unsupported feature."""
-
-
 class AbstractImageBuilderState(State):
     """Abstract class for image building.
 
@@ -140,17 +136,6 @@ class AbstractImageBuilderState(State):
         shutil.copy(self.yaml_file_path, self.workdir)
         with open(self.yaml_file_path, 'r', encoding='utf-8') as fp:
             self.gadget = parse_yaml(fp)
-        # XXX: This is temporary
-        # Let's knowingly error out for now when someone tries to pass
-        # --cloud-init, --disable-console-conf or --disk-info when building
-        # a seeded UC20 image, as it is not supported by snapd yet.
-        if self.gadget.seeded:
-            # We should make sure to remove this once we get proper support
-            # for these in UC20.
-            if self.cloud_init:
-                raise UnsupportedFeatureError('--cloud-init')
-            if self.disable_console_conf:  # pragma: no branch
-                raise UnsupportedFeatureError('--disable-console-conf')
         # Make a working subdirectory for every volume we're going to create.
         # We'll put the volume contents inside these directories, and then use
         # the directories to create the disk images, one per volume.
