@@ -62,16 +62,16 @@ suite, including coverage and code quality tests via::
 
 You can run individual tests like this::
 
-    $ tox -e py35 -- -P <pattern>
+    $ tox -e py37-nocov -- -P <pattern>
 
 where *<pattern>* is a Python regular expression matching a test name, e.g.::
 
-    $ tox -e py35 -- -P test_smoke
+    $ tox -e py37-nocov -- -P test_smoke
 
 Pull requests run the same test suite that archive promotion (i.e. -proposed
 to release pocket) runs.  You can reproduce this locally by building the
 source package (with ``gbp buildpackage -S``) and running::
 
-    $ autopkgtest ubuntu-image_0.8+16.10ubuntu1.dsc -- schroot zesty-amd64
+    $ autopkgtest ubuntu-image_1.9+20.04ubuntu1 .dsc -- schroot focal-amd64
 
 with changes to the version number and Ubuntu distroseries as appropriate.

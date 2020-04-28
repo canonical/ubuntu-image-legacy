@@ -9,9 +9,9 @@ Generate a bootable disk image
 :Authors:
     Barry Warsaw <barry@ubuntu.com>,
     Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>
-:Date: 2019-05-14
-:Copyright: 2016-2019 Canonical Ltd.
-:Version: 1.7
+:Date: 2020-04-28
+:Copyright: 2016-2020 Canonical Ltd.
+:Version: 1.9
 :Manual section: 1
 
 
