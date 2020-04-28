@@ -683,6 +683,27 @@ class TestMainWithGadget(TestCase):
                  'Use UBUNTU_IMAGE_QEMU_USER_STATIC_PATH in case of '
                  'non-standard archs or custom paths.'))
 
+    def test_uc20_error_on_unsupported_features(self):
+        class Builder(DoNothingBuilder):
+            gadget_yaml = 'gadget-seed.yaml'
+        self._resources.enter_context(patch(
+            'ubuntu_image.__main__.ModelAssertionBuilder',
+            Builder))
+        # Quiet the test suite.
+        self._resources.enter_context(patch(
+            'ubuntu_image.parser._logger.warning'))
+        mock = self._resources.enter_context(patch(
+            'ubuntu_image.__main__._logger.error'))
+        tmpdir = self._resources.enter_context(TemporaryDirectory())
+        outputdir = os.path.join(tmpdir, 'images')
+        code = main(('snap', '-O', outputdir,
+                     '--disable-console-conf', self.model_assertion))
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            mock.call_args_list[-1],
+            call('The current model does not support the following '
+                 'feature: --disable-console-conf'))
+
     def test_hook_fired(self):
         # For the purpose of testing, we will be using the post-populate-rootfs
         # hook as we made sure it's still executed as part of of the

@@ -1,8 +1,13 @@
 ubuntu-image (1.9+20.04ubuntu2) UNRELEASED; urgency=medium
 
   * Add a quick option to disable console-conf.  (LP: #1866002)
+  * Disable some of the unsupported features for UC20 models.  (LP: #1875431)
+    - --disable-console-conf
+    - --cloud-init
+    - Running the post-populate-rootfs hook.
+  * Do not create an empty /boot on the system-seed partition.
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 04 Mar 2020 11:33:50 +0100
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 27 Apr 2020 18:02:07 +0200
 
 ubuntu-image (1.9+20.04ubuntu1) focal; urgency=medium
 

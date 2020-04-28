@@ -12,6 +12,7 @@ from struct import unpack
 from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
+from ubuntu_image.common_builder import UnsupportedFeatureError
 from ubuntu_image.helpers import DoesNotFit, MiB, run
 from ubuntu_image.parser import (
     BootLoader, FileSystemType, StructureRole, VolumeSchema)
@@ -3290,3 +3291,76 @@ class TestModelAssertionBuilder(TestCase):
                 'unpack/gadget/meta/gadget.yaml',
                 'unpack/gadget/shim.efi.signed',
                 ])
+
+    def test_temporary_error_on_uc20_unsupported_features(self):
+        test_cases = {
+            'disable_console_conf': {
+                'value': True, 'exception': '--disable-console-conf'
+            },
+            'cloud_init': {
+                'value': 'some/path', 'exception': '--cloud-init'
+            },
+        }
+        for arg, test in test_cases.items():
+            with ExitStack() as resources:
+                workdir = resources.enter_context(TemporaryDirectory())
+                args = SimpleNamespace(
+                    output=None,
+                    output_dir=None,
+                    model_assertion=self.model_assertion,
+                    workdir=workdir,
+                    hooks_directory=[],
+                    cloud_init=None,
+                    disk_info=None,
+                    disable_console_conf=False,
+                    debug=False,
+                    )
+                # Apply the selected test case
+                setattr(args, arg, test['value'])
+                state = resources.enter_context(XXXModelAssertionBuilder(args))
+                state.unpackdir = resources.enter_context(TemporaryDirectory())
+                state._next.pop()
+                state._next.append(state.load_gadget_yaml)
+                mock = resources.enter_context(
+                    patch('ubuntu_image.common_builder.parse_yaml'))
+                # We only care about 'seeded' - if any other fields are being
+                # accessed before erroring out, that is also an error and
+                # means that we're not doing what we're supposed to.
+                mock.return_value = SimpleNamespace(seeded=True)
+                with self.assertRaises(UnsupportedFeatureError) as cm:
+                    next(state)
+                # Check if the right exception has been thrown
+                self.assertEqual(str(cm.exception), test['exception'])
+
+    def test_temporary_skip_hooks_on_uc20(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            args = SimpleNamespace(
+                output=None,
+                output_dir=None,
+                model_assertion=self.model_assertion,
+                workdir=workdir,
+                hooks_directory=[],
+                cloud_init=None,
+                disk_info=None,
+                disable_console_conf=False,
+                debug=False,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents_hooks)
+            state.gadget = SimpleNamespace(
+                volumes={},
+                seeded=True,
+                )
+            prep_state(state, workdir)
+            mock = resources.enter_context(
+                patch('ubuntu_image.assertion_builder._logger.debug'))
+            next(state)
+            self.assertEqual(len(mock.call_args_list), 2)
+            posargs, kwargs = mock.call_args_list[1]
+            self.assertEqual(
+                posargs[0],
+                'Building from a seeded gadget - skipping the '
+                'post-populate-rootfs hook execution: unsupported.')

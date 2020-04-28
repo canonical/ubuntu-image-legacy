@@ -47,6 +47,8 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
         else:
             src = os.path.join(self.unpackdir, 'image')
             dst = os.path.join(self.rootfs, 'system-data')
+            # This is just a mount point.
+            os.makedirs(os.path.join(dst, 'boot'), exist_ok=True)
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
             # /boot which goes to the boot partition. Unless this is a uc20
@@ -79,8 +81,6 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             cc_dir = os.path.join(dst, 'var', 'lib', 'console-conf')
             os.makedirs(cc_dir, exist_ok=True)
             Path(os.path.join(cc_dir, 'complete')).touch()
-        # This is just a mount point.
-        os.makedirs(os.path.join(dst, 'boot'), exist_ok=True)
         super().populate_rootfs_contents()
 
     def _write_manifest(self, snaps_dir, filename):
