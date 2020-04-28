@@ -240,6 +240,40 @@ class TestParseArgs(TestCase):
         line = stderr.getvalue()
         self.assertIn('gadget tree is not allowed with --resume', line)
 
+    def test_uc20_temporary_disabled_features(self):
+        with TemporaryDirectory() as tmpdir:
+            model_path = os.path.join(tmpdir, 'model.assertion')
+            test_cases = {
+                'cloud-init':   (['snap', '--cloud-init', 'foo',
+                                  model_path], '--cloud-init'),
+                'console-conf': (['snap', '--disable-console-conf',
+                                  model_path], '--disable-console-conf'),
+                'both':         (['snap', '--cloud-init', 'foo',
+                                  '--disable-console-conf', model_path],
+                                 '--disable-console-conf --cloud-init'),
+            }
+            with open(model_path, 'w') as fd:
+                fd.write('type: model\nseries: 16\nbase: core20\n'
+                         'grade: dangerous\n(...)\n')
+            for name, test in test_cases.items():
+                stderr = StringIO()
+                with patch('sys.stderr', stderr):
+                    self.assertRaises(SystemExit,
+                                      parseargs,
+                                      test[0])
+                line = stderr.getvalue()
+                self.assertIn('base: core20 model assertion detected, the '
+                              'following features are unsupported: '
+                              '{}'.format(test[1]), line)
+
+    def test_uc20_normal_args_still_ok(self):
+        with TemporaryDirectory() as tmpdir:
+            model_path = os.path.join(tmpdir, 'model.assertion')
+            with open(model_path, 'w') as fd:
+                fd.write('type: model\nseries: 16\nbase: core20\n'
+                         'grade: dangerous\n(...)\n')
+                parseargs(['snap', model_path])
+
 
 class TestMain(TestCase):
     def setUp(self):
@@ -682,27 +716,6 @@ class TestMainWithGadget(TestCase):
             call('Required dependency qemu-arm-static seems to be missing. '
                  'Use UBUNTU_IMAGE_QEMU_USER_STATIC_PATH in case of '
                  'non-standard archs or custom paths.'))
-
-    def test_uc20_error_on_unsupported_features(self):
-        class Builder(DoNothingBuilder):
-            gadget_yaml = 'gadget-seed.yaml'
-        self._resources.enter_context(patch(
-            'ubuntu_image.__main__.ModelAssertionBuilder',
-            Builder))
-        # Quiet the test suite.
-        self._resources.enter_context(patch(
-            'ubuntu_image.parser._logger.warning'))
-        mock = self._resources.enter_context(patch(
-            'ubuntu_image.__main__._logger.error'))
-        tmpdir = self._resources.enter_context(TemporaryDirectory())
-        outputdir = os.path.join(tmpdir, 'images')
-        code = main(('snap', '-O', outputdir,
-                     '--disable-console-conf', self.model_assertion))
-        self.assertEqual(code, 1)
-        self.assertEqual(
-            mock.call_args_list[-1],
-            call('The current model does not support the following '
-                 'feature: --disable-console-conf'))
 
     def test_hook_fired(self):
         # For the purpose of testing, we will be using the post-populate-rootfs
