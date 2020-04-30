@@ -51,9 +51,9 @@ Depends: ca-certificates,
          python3-setuptools,
          python3-voluptuous,
          python3-yaml,
-         snapd (>= 2.38~),
          ${misc:Depends},
          ${python3:Depends},
+Recommends: snapd (>= 2.38~)
 Suggests: qemu-user-static,
 Description: toolkit for building Ubuntu images
  .
