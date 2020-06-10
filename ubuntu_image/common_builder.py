@@ -5,6 +5,7 @@ import shutil
 import logging
 
 from math import ceil
+from functools import partial
 from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
@@ -211,6 +212,21 @@ class AbstractImageBuilderState(State):
                 os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
+    @staticmethod
+    def _skip_existing(src, dst, where_dir, what_entries):
+        # Given the source and destination as specified in gadget content,
+        # selectively skip entries from where_dir that exist at the target
+        # location.
+        def dst_from_src(name):
+            return os.path.join(dst, name[len(src):])
+
+        return [p for p in what_entries if
+                # skip if a file exists at the destination
+                os.path.exists(dst_from_src(os.path.join(where_dir, p))) and
+                # but not if it's a directory, we still want to peek
+                # inside
+                not os.path.isdir(os.path.join(where_dir, p))]
+
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
             if part.role is StructureRole.system_seed:
@@ -251,6 +267,7 @@ class AbstractImageBuilderState(State):
                     _logger.debug('No bootloader bits prepared in the rootfs '
                                   '- skipping boot copies.')
             gadget_dir = os.path.join(self.unpackdir, 'gadget')
+
             if part.filesystem is not FileSystemType.none:
                 for content in part.content:
                     src = os.path.join(gadget_dir, content.source)
@@ -275,18 +292,23 @@ class AbstractImageBuilderState(State):
                         # sure here that it exists.
                         os.makedirs(dst, exist_ok=True)
                         for filename in os.listdir(src):
+                            ignore = partial(self._skip_existing, src, dst)
                             sub_src = os.path.join(src, filename)
                             dst = os.path.join(target_dir, target, filename)
                             if os.path.isdir(sub_src):
                                 shutil.copytree(sub_src, dst, symlinks=True,
+                                                dirs_exist_ok=True,
+                                                ignore=ignore,
                                                 ignore_dangling_symlinks=True)
                             else:
-                                shutil.copy(sub_src, dst)
+                                if not os.path.exists(dst):
+                                    shutil.copy(sub_src, dst)
                     else:
                         # XXX: If this is a directory instead of a file, give
                         # a useful error message instead of a traceback.
                         os.makedirs(os.path.dirname(dst), exist_ok=True)
-                        shutil.copy(src, dst)
+                        if not os.path.exists(dst):
+                            shutil.copy(src, dst)
 
     def populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
