@@ -5,7 +5,6 @@ import shutil
 import logging
 
 from math import ceil
-from functools import partial
 from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
@@ -212,20 +211,26 @@ class AbstractImageBuilderState(State):
                 os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
-    @staticmethod
-    def _skip_existing(src, dst, where_dir, what_entries):
-        # Given the source and destination as specified in gadget content,
-        # selectively skip entries from where_dir that exist at the target
-        # location.
-        def dst_from_src(name):
-            return os.path.join(dst, name[len(src):])
+    @classmethod
+    def _selective_copytree(cls, src, dst):
+        # Selectively copy entries from src to dst directory. Entries already
+        # existing at dst are not overwritten when overwrite is True.
+        os.makedirs(dst, exist_ok=True)
+        shutil.copystat(src, dst)
+        for entry in os.scandir(src):
+            sname = os.path.join(src, entry.name)
+            dname = os.path.join(dst, entry.name)
 
-        return [p for p in what_entries if
-                # skip if a file exists at the destination
-                os.path.exists(dst_from_src(os.path.join(where_dir, p))) and
-                # but not if it's a directory, we still want to peek
-                # inside
-                not os.path.isdir(os.path.join(where_dir, p))]
+            if entry.is_file() or entry.is_symlink():
+                if os.path.exists(dname):
+                    # skip existing entries when asked to do so
+                    continue
+                # copy files and recreate symlinks
+                shutil.copy(sname, dname)
+
+            elif entry.is_dir():
+                # recursive copy directories
+                cls._selective_copytree(sname, dname)
 
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
@@ -292,14 +297,10 @@ class AbstractImageBuilderState(State):
                         # sure here that it exists.
                         os.makedirs(dst, exist_ok=True)
                         for filename in os.listdir(src):
-                            ignore = partial(self._skip_existing, src, dst)
                             sub_src = os.path.join(src, filename)
                             dst = os.path.join(target_dir, target, filename)
                             if os.path.isdir(sub_src):
-                                shutil.copytree(sub_src, dst, symlinks=True,
-                                                dirs_exist_ok=True,
-                                                ignore=ignore,
-                                                ignore_dangling_symlinks=True)
+                                self._selective_copytree(sub_src, dst)
                             else:
                                 if not os.path.exists(dst):
                                     shutil.copy(sub_src, dst)
