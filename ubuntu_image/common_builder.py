@@ -267,6 +267,7 @@ class AbstractImageBuilderState(State):
                     for filename in os.listdir(boot):
                         src = os.path.join(boot, filename)
                         dst = os.path.join(ubuntu, filename)
+                        # XXX: Use _selective_copytree?
                         shutil.move(src, dst)
                 else:
                     _logger.debug('No bootloader bits prepared in the rootfs '
