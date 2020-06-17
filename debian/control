@@ -5,7 +5,7 @@ Maintainer: Lukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>
 Build-Depends: debhelper (>= 9),
                dh-python,
                dosfstools,
-               sfdisk,
+               fdisk,
                gdisk,
                grub-common,
                livecd-rootfs,
