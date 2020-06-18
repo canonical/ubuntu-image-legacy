@@ -5,6 +5,7 @@ Maintainer: Lukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>
 Build-Depends: debhelper (>= 9),
                dh-python,
                dosfstools,
+               fdisk | util-linux (<< 2.29.2-3),
                gdisk,
                grub-common,
                livecd-rootfs,
@@ -40,6 +41,7 @@ Architecture: all
 Section: python
 Depends: ca-certificates,
          dosfstools,
+         fdisk | util-linux (<< 2.29.2-3),
          gdisk,
          grub-common,
          livecd-rootfs (>= 2.480),
