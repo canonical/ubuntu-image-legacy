@@ -567,7 +567,7 @@ class TestModelAssertionBuilder(TestCase):
                 target='EFI/ubuntu/grub.cfg',
                 )
             contents4 = SimpleNamespace(
-                source='very/',
+                source='nested/',
                 target='EFI/ubuntu/',
                 )
             part = SimpleNamespace(
@@ -611,10 +611,14 @@ class TestModelAssertionBuilder(TestCase):
             src = os.path.join(gadget_dir, 'grub.conf')
             with open(src, 'wb') as fp:
                 fp.write(b'from-gadget')
-            srcdir = os.path.join(gadget_dir, 'very/nested')
+            srcdir = os.path.join(gadget_dir, 'nested/very')
             os.makedirs(srcdir)
             with open(os.path.join(srcdir, 'nested.cfg'), 'wb') as fp:
                 fp.write(b'nested-from-gadget')
+            srcdir = os.path.join(gadget_dir, 'nested/very/much')
+            os.makedirs(srcdir)
+            with open(os.path.join(srcdir, 'much.cfg'), 'wb') as fp:
+                fp.write(b'nested-very-much-from-gadget')
 
             # While we're at it, also make sure the grub bootloader specific
             # rootfs files are moved to the right places as well.
@@ -624,7 +628,7 @@ class TestModelAssertionBuilder(TestCase):
             # not be overwritten by copies from unpacked gadget
             with open(os.path.join(boot_dir, 'grub.cfg'), 'wb') as fp:
                 fp.write(b'from-image-boot-grub')
-            boot_nested_dir = os.path.join(boot_dir, 'nested')
+            boot_nested_dir = os.path.join(boot_dir, 'very')
             os.makedirs(boot_nested_dir)
             with open(os.path.join(boot_nested_dir, 'nested.cfg'), 'wb') as fp:
                 fp.write(b'nested-from-image-boot-grub')
@@ -642,10 +646,14 @@ class TestModelAssertionBuilder(TestCase):
             dst = os.path.join(dstbase, 'EFI', 'ubuntu', 'grub.cfg')
             with open(dst, 'rb') as fp:
                 self.assertEqual(fp.read(), b'from-image-boot-grub')
-            dst = os.path.join(dstbase, 'EFI', 'ubuntu', 'nested',
+            dst = os.path.join(dstbase, 'EFI', 'ubuntu', 'very',
                                'nested.cfg')
             with open(dst, 'rb') as fp:
                 self.assertEqual(fp.read(), b'nested-from-image-boot-grub')
+            dst = os.path.join(dstbase, 'EFI', 'ubuntu', 'very', 'much',
+                               'much.cfg')
+            with open(dst, 'rb') as fp:
+                self.assertEqual(fp.read(), b'nested-very-much-from-gadget')
 
     def test_populate_bootfs_contents_seeded(self):
         # Test populate_bootfs_contents() behavior for the system-seed
