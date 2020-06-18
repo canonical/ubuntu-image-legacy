@@ -8,6 +8,7 @@ import logging
 from contextlib import ExitStack
 from itertools import product
 from pkg_resources import resource_filename
+from shutil import SpecialFileError
 from struct import unpack
 from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -790,6 +791,65 @@ class TestModelAssertionBuilder(TestCase):
                 next(state)
             self.assertEqual(
                 str(cm.exception), 'target must end in a slash: bt')
+
+    def test_populate_bootfs_contents_special_file(self):
+        # If a content source ends in a slash, so must the target.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                debug=False,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.  The two paths (is-a-file and is-a-directory)
+            # are differentiated by whether the source ends in a slash or not.
+            # In that case, the target must also end in a slash.
+            contents = SimpleNamespace(
+                source='bs/',
+                # No slash!
+                target='bt/',
+                )
+            part = SimpleNamespace(
+                role=StructureRole.system_boot,
+                filesystem_label='not a boot',
+                filesystem=FileSystemType.ext4,
+                content=[contents],
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.grub,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=False,
+                )
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
+            prep_state(state, workdir)
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            src = os.path.join(gadget_dir, 'bs', 'd')
+            os.makedirs(src)
+            os.mkfifo(os.path.join(src, 'not-a-file'))
+            # Run the state machine.  Don't blat to stderr.
+            resources.enter_context(patch('ubuntu_image.state.log'))
+            with self.assertRaises(SpecialFileError) as cm:
+                next(state)
+            self.assertRegex(
+                str(cm.exception), '.*/not-a-file` is a named pipe')
 
     def test_populate_filesystems_none_type(self):
         # We do a bit-wise copy when the file system has no type.

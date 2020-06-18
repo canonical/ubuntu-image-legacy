@@ -228,6 +228,9 @@ class AbstractImageBuilderState(State):
             elif entry.is_dir():
                 # recursive copy directories
                 cls._selective_copytree(sname, dname)
+            else:
+                # will most likely raise shutil.SpecialFileError
+                shutil.copy2(sname, dname, follow_symlinks=False)
 
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
