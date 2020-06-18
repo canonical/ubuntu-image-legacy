@@ -214,20 +214,17 @@ class AbstractImageBuilderState(State):
     @classmethod
     def _selective_copytree(cls, src, dst):
         # Selectively copy entries from src to dst directory. Entries already
-        # existing at dst are not overwritten when overwrite is True.
+        # existing at dst overwritten.
         os.makedirs(dst, exist_ok=True)
         shutil.copystat(src, dst)
         for entry in os.scandir(src):
             sname = os.path.join(src, entry.name)
             dname = os.path.join(dst, entry.name)
-
             if entry.is_file() or entry.is_symlink():
                 if os.path.exists(dname):
-                    # skip existing entries when asked to do so
                     continue
                 # copy files and recreate symlinks
-                shutil.copy(sname, dname)
-
+                shutil.copy2(sname, dname, follow_symlinks=False)
             elif entry.is_dir():
                 # recursive copy directories
                 cls._selective_copytree(sname, dname)
@@ -273,7 +270,6 @@ class AbstractImageBuilderState(State):
                     _logger.debug('No bootloader bits prepared in the rootfs '
                                   '- skipping boot copies.')
             gadget_dir = os.path.join(self.unpackdir, 'gadget')
-
             if part.filesystem is not FileSystemType.none:
                 for content in part.content:
                     src = os.path.join(gadget_dir, content.source)

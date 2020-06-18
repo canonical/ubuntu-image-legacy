@@ -628,8 +628,6 @@ class TestModelAssertionBuilder(TestCase):
             os.makedirs(boot_nested_dir)
             with open(os.path.join(boot_nested_dir, 'nested.cfg'), 'wb') as fp:
                 fp.write(b'nested-from-image-boot-grub')
-
-
             dstbase = os.path.join(workdir, 'volumes', 'volume1', 'part0')
             # Run the state machine.
             next(state)
@@ -641,11 +639,13 @@ class TestModelAssertionBuilder(TestCase):
             with open(os.path.join(dstbase, 'bt', 'd', 'e.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'0abcd')
             # bootloader specific rootfs files end up in special place
-            with open(os.path.join(dstbase, 'EFI', 'ubuntu', 'grub.cfg'), 'rb') as fp:
+            dst = os.path.join(dstbase, 'EFI', 'ubuntu', 'grub.cfg')
+            with open(dst, 'rb') as fp:
                 self.assertEqual(fp.read(), b'from-image-boot-grub')
-            with open(os.path.join(dstbase, 'EFI', 'ubuntu', 'nested', 'nested.cfg'), 'rb') as fp:
+            dst = os.path.join(dstbase, 'EFI', 'ubuntu', 'nested',
+                               'nested.cfg')
+            with open(dst, 'rb') as fp:
                 self.assertEqual(fp.read(), b'nested-from-image-boot-grub')
-
 
     def test_populate_bootfs_contents_seeded(self):
         # Test populate_bootfs_contents() behavior for the system-seed
@@ -719,10 +719,8 @@ class TestModelAssertionBuilder(TestCase):
             src = os.path.join(rootfs_grub_dir, 'grub.cfg')
             with open(src, 'wb') as fp:
                 fp.write(b'from-EFI-ubuntu')
-
             # Run the state machine.
             next(state)
-
             # Did the content copy happen as expected?
             with open(os.path.join(state.rootfs, 'at.dat'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'01234')
