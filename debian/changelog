@@ -9,7 +9,11 @@ ubuntu-image (1.9+20.04ubuntu2) UNRELEASED; urgency=medium
   * Do not create an empty /boot on the system-seed partition.
 
   [ Michael Hudson-Doyle ]
-  * Add dependency on fdisk now that it is no longer Essential. (LP: #1877485)
+  * Add dependency on fdisk now that it is no longer Essential.  (LP: #1877485)
+
+  [ Maciej Borzecki ]
+  * Do not overwrite the files that snap prepare-image has created.
+    (LP: #1884247)
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 27 Apr 2020 18:02:07 +0200
 
