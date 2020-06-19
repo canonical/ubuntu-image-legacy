@@ -211,6 +211,27 @@ class AbstractImageBuilderState(State):
                 os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
+    @classmethod
+    def _selective_copytree(cls, src, dst):
+        # Selectively copy entries from src to dst directory. Entries already
+        # existing at dst overwritten.
+        os.makedirs(dst, exist_ok=True)
+        shutil.copystat(src, dst)
+        for entry in os.scandir(src):
+            sname = os.path.join(src, entry.name)
+            dname = os.path.join(dst, entry.name)
+            if entry.is_file() or entry.is_symlink():
+                if os.path.exists(dname):
+                    continue
+                # copy files and recreate symlinks
+                shutil.copy2(sname, dname, follow_symlinks=False)
+            elif entry.is_dir():
+                # recursive copy directories
+                cls._selective_copytree(sname, dname)
+            else:
+                # will most likely raise shutil.SpecialFileError
+                shutil.copy2(sname, dname, follow_symlinks=False)
+
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
             if part.role is StructureRole.system_seed:
@@ -246,6 +267,7 @@ class AbstractImageBuilderState(State):
                     for filename in os.listdir(boot):
                         src = os.path.join(boot, filename)
                         dst = os.path.join(ubuntu, filename)
+                        # XXX: Use _selective_copytree?
                         shutil.move(src, dst)
                 else:
                     _logger.debug('No bootloader bits prepared in the rootfs '
@@ -278,15 +300,16 @@ class AbstractImageBuilderState(State):
                             sub_src = os.path.join(src, filename)
                             dst = os.path.join(target_dir, target, filename)
                             if os.path.isdir(sub_src):
-                                shutil.copytree(sub_src, dst, symlinks=True,
-                                                ignore_dangling_symlinks=True)
+                                self._selective_copytree(sub_src, dst)
                             else:
-                                shutil.copy(sub_src, dst)
+                                if not os.path.exists(dst):
+                                    shutil.copy(sub_src, dst)
                     else:
                         # XXX: If this is a directory instead of a file, give
                         # a useful error message instead of a traceback.
                         os.makedirs(os.path.dirname(dst), exist_ok=True)
-                        shutil.copy(src, dst)
+                        if not os.path.exists(dst):
+                            shutil.copy(src, dst)
 
     def populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
