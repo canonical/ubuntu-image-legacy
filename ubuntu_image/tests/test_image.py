@@ -111,6 +111,9 @@ class TestImage(TestCase):
         partitions = disk_info['partitiontable']
         # The device id is unpredictable.
         partitions.pop('id')
+        # Never sfdisk displays an additional field of 'sectorsize' that
+        # we're not really interested in.
+        partitions.pop('sectorsize', None)
         # The partition uuids as well.
         [p.pop('uuid') for p in partitions['partitions']]
         self.maxDiff = None
@@ -186,6 +189,9 @@ class TestImage(TestCase):
         #  Remove it so we can have the tests working for all series.
         if 'grain' in partitions:
             partitions.pop('grain')
+        # Never sfdisk displays an additional field of 'sectorsize' that
+        # we're not really interested in.
+        partitions.pop('sectorsize', None)
         self.assertEqual(partitions, {
             'label': 'dos',
             'device': self.img,
