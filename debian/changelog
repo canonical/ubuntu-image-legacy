@@ -15,6 +15,9 @@ ubuntu-image (1.9+20.04ubuntu4) UNRELEASED; urgency=medium
   * Do not overwrite the files that snap prepare-image has created.
     (LP: #1884247)
 
+  [ Dimitri John Ledkov ]
+  * Pacify flake8 in groovy.
+
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 26 Jun 2020 10:27:42 +0200
 
 ubuntu-image (1.9+20.04ubuntu3) groovy; urgency=medium
