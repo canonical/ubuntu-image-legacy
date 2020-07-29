@@ -196,7 +196,7 @@ GadgetYAML = Schema({
         Match('^[a-zA-Z0-9][-a-zA-Z0-9]*$'): Schema({
             Optional('schema', default='gpt' if has_new_voluptuous()
                      else VolumeSchema.gpt):
-                Enumify(VolumeSchema),
+            Enumify(VolumeSchema),
             Optional('bootloader'): Enumify(
                 BootLoader, preprocessor=methodcaller('replace', '-', '')),
             Optional('id'): Coerce(Id),
@@ -213,7 +213,7 @@ GadgetYAML = Schema({
                 Optional('id'): Coerce(UUID),
                 Optional('filesystem', default='none' if has_new_voluptuous()
                          else FileSystemType.none):
-                    Enumify(FileSystemType),
+                Enumify(FileSystemType),
                 Optional('filesystem-label'): str,
                 Optional('content'): Any(
                     [Schema({
@@ -227,8 +227,7 @@ GadgetYAML = Schema({
                         Optional('offset-write'): Any(
                             Coerce(Size32bit), RelativeOffset),
                         Optional('size'): Coerce(as_size),
-                        })
-                    ],
+                        })],
                 ),
                 Optional('update'): Schema({
                     Optional('edition'): All(
