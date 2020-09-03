@@ -7,6 +7,9 @@ ubuntu-image (1.9+20.04ubuntu4) UNRELEASED; urgency=medium
     - --cloud-init
     - Running the post-populate-rootfs hook.
   * Do not create an empty /boot on the system-seed partition.
+  * Switch the approach of building UC20 images to ensure that all partitions
+    defined in the gadget are considered in image size calculations.
+    (LP: #1859973)
 
   [ Michael Hudson-Doyle ]
   * Add dependency on fdisk now that it is no longer Essential.  (LP: #1877485)
@@ -18,7 +21,7 @@ ubuntu-image (1.9+20.04ubuntu4) UNRELEASED; urgency=medium
   [ Dimitri John Ledkov ]
   * Pacify flake8 in groovy.
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 26 Jun 2020 10:27:42 +0200
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 03 Sep 2020 10:20:28 +0200
 
 ubuntu-image (1.9+20.04ubuntu3) groovy; urgency=medium
 

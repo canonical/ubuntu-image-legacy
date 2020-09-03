@@ -232,8 +232,17 @@ class AbstractImageBuilderState(State):
                 # will most likely raise shutil.SpecialFileError
                 shutil.copy2(sname, dname, follow_symlinks=False)
 
+    def _should_skip_partition(self, part):
+        # Helper used to determine if a partition should be acted on or not.
+        return self.gadget.seeded and part.role in (
+            StructureRole.system_boot,
+            StructureRole.system_data,
+            StructureRole.system_save)
+
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             if part.role is StructureRole.system_seed:
                 # For seeded systems, the system-seed partition (which reuses
                 # the rootfs paths) is also the boot partition - so we need
@@ -320,8 +329,6 @@ class AbstractImageBuilderState(State):
         volume.part_images = []
         farthest_offset = 0
         for partnum, part in enumerate(volume.structures):
-            part_img = os.path.join(
-                volume.basedir, 'part{}.img'.format(partnum))
             # The system-data and system-seed partitions do not have to have
             # an explicit size set.
             if part.role in (StructureRole.system_data,
@@ -333,6 +340,13 @@ class AbstractImageBuilderState(State):
                                     'actual rootfs contents {}'.format(
                                         part.size, self.rootfs_size))
                     part.size = self.rootfs_size
+            # We do the set for farthest offset now as for image sizing we
+            # still need to consider partitions that we 'skip'.
+            farthest_offset = max(farthest_offset, (part.offset + part.size))
+            if self._should_skip_partition(part):
+                continue
+            part_img = os.path.join(
+                volume.basedir, 'part{}.img'.format(partnum))
             # Create the actual image files now.
             if part.role is StructureRole.system_data:
                 # The image for the root partition.
@@ -355,7 +369,6 @@ class AbstractImageBuilderState(State):
                     run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                         label_option, part_img))
             volume.part_images.append(part_img)
-            farthest_offset = max(farthest_offset, (part.offset + part.size))
         # Calculate or check the final image size.
         #
         # TODO: Hard-codes last 34 512-byte sectors for backup GPT,
@@ -423,6 +436,8 @@ class AbstractImageBuilderState(State):
                     dst = os.path.join(gadget, filename)
                     shutil.copy(src, dst)
         for partnum, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             part_img = volume.part_images[partnum]
             # In seeded images, the system-seed partition is basically the
             # rootfs partition - at least from the ubuntu-image POV.
@@ -503,7 +518,8 @@ class AbstractImageBuilderState(State):
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
-            if part.role is StructureRole.mbr or part.type == 'bare':
+            if (part.role is StructureRole.mbr or part.type == 'bare' or
+                    self._should_skip_partition(part)):
                 continue
             activate = False
             if (volume.schema is VolumeSchema.mbr and
@@ -525,7 +541,8 @@ class AbstractImageBuilderState(State):
                             seek=part.offset // image.sector_size,
                             count=ceil(part.size / image.sector_size),
                             conv='notrunc')
-            if part.role is StructureRole.mbr or part.type == 'bare':
+            if (part.role is StructureRole.mbr or part.type == 'bare' or
+                    self._should_skip_partition(part)):
                 continue
             image.set_parition_type(part_id, part.type)
             part_id += 1
