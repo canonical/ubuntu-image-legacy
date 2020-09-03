@@ -689,13 +689,20 @@ class TestModelAssertionBuilder(TestCase):
                 source='grub.conf',
                 target='EFI/ubuntu/grub.cfg',
                 )
-            part = SimpleNamespace(
+            part0 = SimpleNamespace(
                 role=StructureRole.system_seed,
                 filesystem=FileSystemType.vfat,
                 content=[contents1, contents2],
                 )
+            # This partition is unused and basically 'invalid', only exists
+            # here for us to make sure it was skipped and not acted on.
+            part1 = SimpleNamespace(
+                role=StructureRole.system_boot,
+                filesystem=FileSystemType.vfat,
+                content=[contents1, contents2],
+                )
             volume = SimpleNamespace(
-                structures=[part],
+                structures=[part0, part1],
                 bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
@@ -738,6 +745,10 @@ class TestModelAssertionBuilder(TestCase):
             efi_dir = os.path.join(state.rootfs, 'EFI', 'ubuntu')
             with open(os.path.join(efi_dir, 'grub.cfg'), 'rb') as fp:
                 self.assertEqual(fp.read(), b'from-EFI-ubuntu')
+            # Make sure the part1 dummy system-boot partition was really
+            # skipped and no copies for it have been made.
+            part1_path = os.path.join(workdir, 'volumes', 'volume1', 'part1')
+            self.assertFalse(os.path.exists(part1_path))
 
     def test_populate_bootfs_contents_content_mismatch(self):
         # If a content source ends in a slash, so must the target.
@@ -1273,8 +1284,15 @@ class TestModelAssertionBuilder(TestCase):
                 filesystem=FileSystemType.vfat,
                 size=None,
                 )
+            # This partition is unused and basically 'invalid', only exists
+            # here for us to make sure it was skipped and not acted on.
+            part2 = SimpleNamespace(
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0, part1],
+                structures=[part0, part1, part2],
                 schema=VolumeSchema.mbr,
                 bootloader=BootLoader.grub,
                 )
@@ -1308,6 +1326,8 @@ class TestModelAssertionBuilder(TestCase):
                 data = fp.read()
             self.assertEqual(data, b'\1' * 47 + b'\0' * 103)
             # Make sure the mkfs.ext4 call never happened.
+            # This check also guarentees that the dummy part2 partition is
+            # skipped and not acted on.
             self.assertEqual(len(mkfs_mock.call_args_list), 0)
             # Make sure there was only one run call and that it was for
             # mcopy of the seed partition.
@@ -1501,6 +1521,95 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(partitions[0], ('alpha', 4096))
             self.assertEqual(partitions[1], ('beta', 8192))
             self.assertEqual(partitions[2], ('writable', 10240))
+
+    def test_make_disk_with_parts_seeded(self):
+        # Make sure for seeded images we skip the right partitions.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=outputdir,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.rootfs_size = MiB(1)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='mbr',
+                role=StructureRole.mbr,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name='seed',
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_seed,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            part2 = SimpleNamespace(
+                name='data',
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=MiB(5),
+                offset=MiB(2),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order.
+                structures=[part0, part1, part2],
+                schema=VolumeSchema.gpt,
+                image_size=MiB(20),
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=True,
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            part1_img = os.path.join(state.images, 'part1.img')
+            with open(part1_img, 'wb') as fp:
+                fp.write(b'\2' * 12)
+            part2_img = os.path.join(state.images, 'part2.img')
+            with open(part2_img, 'wb') as fp:
+                fp.write(b'\3' * 13)
+            prep_state(state, workdir,
+                       [part2_img, part0_img, part1_img])
+            # Create the disk.
+            next(state)
+            # Verify the disk image's partition table.
+            disk_img = os.path.join(outputdir, 'volume1.img')
+            proc = run('sfdisk --json {}'.format(disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'] if 'name' in part else None, part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            self.assertEqual(len(partitions), 1)
+            self.assertEqual(partitions[0], ('seed', 2048))
 
     def test_make_disk_with_bare_parts(self):
         # The second structure has a role:bare meaning it is not wrapped in a
@@ -2079,6 +2188,17 @@ class TestModelAssertionBuilder(TestCase):
                 offset=MiB(1),
                 offset_write=None,
                 )
+            # This partition is unused and basically 'invalid', only exists
+            # here for us to make sure it was skipped and not acted on.
+            part2 = SimpleNamespace(
+                name='dummy',
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=MiB(10),
+                offset=MiB(100),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
                 structures=[part0, part1],
                 schema=VolumeSchema.gpt,
@@ -2098,6 +2218,10 @@ class TestModelAssertionBuilder(TestCase):
             # Check if the seed partition got the right size auto-selected.
             seed_part = state.gadget.volumes['volume1'].structures[1]
             self.assertEqual(seed_part.size, MiB(1))
+            # Make sure the part2 dummy  partition was really skipped and no
+            # actions have been performed on it.
+            self.assertFalse(os.path.exists(
+                os.path.join(volumes_dir, 'volume1', 'part2.img')))
 
     def test_image_size_calculated(self):
         # We let prepare_filesystems() calculate the disk image size.  The
@@ -2153,6 +2277,69 @@ class TestModelAssertionBuilder(TestCase):
             next(state)
             self.assertEqual(
                 state.gadget.volumes['volume1'].image_size, 2114560)
+
+    def test_image_size_calculated_seeded(self):
+        # Same as above, but this time we make sure that for seeded (UC20)
+        # images, all partitions are taken into consideration as expected
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                image_size=None,
+                output=None,
+                output_dir=None,
+                unpackdir=None,
+                workdir=workdir,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='21686148-6449-6E6f-744E-656564454649',
+                role=None,
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name=None,
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
+                role=StructureRole.system_seed,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            part2 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=MiB(2),
+                offset=MiB(2),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1, part2],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=True,
+                )
+            prep_state(state, workdir)
+            next(state)
+            self.assertEqual(
+                state.gadget.volumes['volume1'].image_size, 4211712)
 
     def test_image_size_explicit(self):
         # --image-size=5M overrides the implicit disk image size.

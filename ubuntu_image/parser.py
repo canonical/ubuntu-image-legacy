@@ -499,7 +499,9 @@ def parse(stream_or_string):
                 rootfs_seen = True
                 # For images to work the system-data (rootfs) partition needs
                 # to have the 'writable' filesystem label set.
-                if filesystem_label not in (None, 'writable'):
+                # For UC20 this requirement no longer stands.
+                if (filesystem_label not in (None, 'writable') and 
+                        not is_seeded):
                     raise GadgetSpecificationError(
                         '`role: system-data` structure must have an implicit '
                         "label, or 'writable': {}".format(filesystem_label))
@@ -549,10 +551,6 @@ def parse(stream_or_string):
                 structure_type, structure_id, structure_role,
                 filesystem, filesystem_label,
                 content_specs))
-            # If we found a system-seed partition, stop looking at other
-            # parts.
-            if is_seeded:
-                break
         # Sort structures by their offset.
         volume_specs[image_name] = VolumeSpec(
             schema, bootloader, image_id, structures)
