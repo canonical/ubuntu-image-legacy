@@ -500,7 +500,7 @@ def parse(stream_or_string):
                 # For images to work the system-data (rootfs) partition needs
                 # to have the 'writable' filesystem label set.
                 # For UC20 this requirement no longer stands.
-                if (filesystem_label not in (None, 'writable') and 
+                if (filesystem_label not in (None, 'writable') and
                         not is_seeded):
                     raise GadgetSpecificationError(
                         '`role: system-data` structure must have an implicit '

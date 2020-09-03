@@ -2200,7 +2200,7 @@ class TestModelAssertionBuilder(TestCase):
                 offset_write=None,
                 )
             volume = SimpleNamespace(
-                structures=[part0, part1],
+                structures=[part0, part1, part2],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
