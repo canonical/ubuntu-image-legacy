@@ -536,13 +536,14 @@ class AbstractImageBuilderState(State):
         # clobbers things like hybrid MBR partitions.
         part_id = 1
         for i, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             image.copy_blob(volume.part_images[i],
                             bs=image.sector_size,
                             seek=part.offset // image.sector_size,
                             count=ceil(part.size / image.sector_size),
                             conv='notrunc')
-            if (part.role is StructureRole.mbr or part.type == 'bare' or
-                    self._should_skip_partition(part)):
+            if part.role is StructureRole.mbr or part.type == 'bare':
                 continue
             image.set_parition_type(part_id, part.type)
             part_id += 1
