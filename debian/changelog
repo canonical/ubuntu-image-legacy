@@ -1,22 +1,23 @@
-ubuntu-image (1.10+20.10ubuntu1) groovy; urgency=medium
+ubuntu-image (1.10+18.04ubuntu1) bionic; urgency=medium
 
   [ Łukasz 'sil2100' Zemczak ]
-  * Add a quick option to disable console-conf.  (LP: #1866002)
-  * Disable some of the unsupported features for UC20 models.  (LP: #1875431)
+  * SRU tracking number LP: #1896744
+  * Add a quick option to disable console-conf.  (LP:1866002)
+  * Disable some of the unsupported features for UC20 models.  (LP:1875431)
     - --disable-console-conf
     - --cloud-init
     - Running the post-populate-rootfs hook.
   * Do not create an empty /boot on the system-seed partition.
   * Switch the approach of building UC20 images to ensure that all partitions
     defined in the gadget are considered in image size calculations.
-    (LP: #1859973)
+    (LP:1859973)
 
   [ Michael Hudson-Doyle ]
-  * Add dependency on fdisk now that it is no longer Essential.  (LP: #1877485)
+  * Add dependency on fdisk now that it is no longer Essential.  (LP:1877485)
 
   [ Maciej Borzecki ]
   * Do not overwrite the files that snap prepare-image has created.
-    (LP: #1884247)
+    (LP:1884247)
 
   [ Dimitri John Ledkov ]
   * Pacify flake8 in groovy.
