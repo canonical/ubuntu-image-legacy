@@ -55,8 +55,8 @@ def update_changelog(repo, series, version):
         changelog = Changelog(infp)
         changelog.distributions = series
         series_version = {
+            'groovy': '20.10',
             'focal': '20.04',
-            'eoan': '19.10',
             'bionic': '18.04',
             'xenial': '16.04',
             }[series]
@@ -148,20 +148,20 @@ def main():
                 print('version:', '{}+snap1'.format(version), file=outfp)
             else:
                 outfp.write(line)
-    new_version = update_changelog(repo, 'focal', version)
+    new_version = update_changelog(repo, 'groovy', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)
     make_source_package(working_dir)
-    # Now do the Eoan branch.
-    repo.git.checkout('eoan')
+    # Now do the Focal branch.
+    repo.git.checkout('focal')
     # This will almost certainly cause merge conflicts.
     try:
         repo.git.merge('master', '--no-commit')
     except GitCommandError:
-        continue_abort('Resolve merge master->eoan conflicts manually')
+        continue_abort('Resolve merge master->focal conflicts manually')
     munge_lp_bug_numbers(repo)
     sru_tracking_bug(repo, sru)
-    new_version = update_changelog(repo, 'eoan', version)
+    new_version = update_changelog(repo, 'focal', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)
     make_source_package(working_dir)
