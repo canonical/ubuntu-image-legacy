@@ -240,6 +240,40 @@ class TestParseArgs(TestCase):
         line = stderr.getvalue()
         self.assertIn('gadget tree is not allowed with --resume', line)
 
+    def test_uc20_temporary_disabled_features(self):
+        with TemporaryDirectory() as tmpdir:
+            model_path = os.path.join(tmpdir, 'model.assertion')
+            test_cases = {
+                'cloud-init':   (['snap', '--cloud-init', 'foo',
+                                  model_path], '--cloud-init'),
+                'console-conf': (['snap', '--disable-console-conf',
+                                  model_path], '--disable-console-conf'),
+                'both':         (['snap', '--cloud-init', 'foo',
+                                  '--disable-console-conf', model_path],
+                                 '--disable-console-conf --cloud-init'),
+            }
+            with open(model_path, 'w') as fd:
+                fd.write('type: model\nseries: 16\nbase: core20\n'
+                         'grade: dangerous\n(...)\n')
+            for name, test in test_cases.items():
+                stderr = StringIO()
+                with patch('sys.stderr', stderr):
+                    self.assertRaises(SystemExit,
+                                      parseargs,
+                                      test[0])
+                line = stderr.getvalue()
+                self.assertIn('base: core20 model assertion detected, the '
+                              'following features are unsupported: '
+                              '{}'.format(test[1]), line)
+
+    def test_uc20_normal_args_still_ok(self):
+        with TemporaryDirectory() as tmpdir:
+            model_path = os.path.join(tmpdir, 'model.assertion')
+            with open(model_path, 'w') as fd:
+                fd.write('type: model\nseries: 16\nbase: core20\n'
+                         'grade: dangerous\n(...)\n')
+                parseargs(['snap', model_path])
+
 
 class TestMain(TestCase):
     def setUp(self):

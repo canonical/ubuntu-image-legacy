@@ -60,6 +60,7 @@ class AbstractImageBuilderState(State):
         self.volumedir = None
         self.cloud_init = args.cloud_init
         self.disk_info = args.disk_info
+        self.disable_console_conf = args.disable_console_conf
         self.exitcode = 0
         self.done = False
         # Generic hook handling manager.
@@ -73,6 +74,7 @@ class AbstractImageBuilderState(State):
             args=self.args,
             cloud_init=self.cloud_init,
             disk_info=self.disk_info,
+            disable_console_conf=self.disable_console_conf,
             done=self.done,
             exitcode=self.exitcode,
             gadget=self.gadget,
@@ -93,6 +95,7 @@ class AbstractImageBuilderState(State):
         self.args = state['args']
         self.cloud_init = state['cloud_init']
         self.disk_info = state['disk_info']
+        self.disable_console_conf = state['disable_console_conf']
         self.done = state['done']
         self.exitcode = state['exitcode']
         self.gadget = state['gadget']
@@ -155,8 +158,14 @@ class AbstractImageBuilderState(State):
 
     def populate_rootfs_contents_hooks(self):
         # Separate populate step for firing the post-populate-rootfs hook.
-        env = {'UBUNTU_IMAGE_HOOK_ROOTFS': self.rootfs}
-        self.hook_manager.fire('post-populate-rootfs', env)
+        if self.gadget.seeded:
+            # Running this hook for model assertion builds is a bit weird,
+            # but makes even less sense for UC20 models.  Disable.
+            _logger.debug('Building from a seeded gadget - skipping the '
+                          'post-populate-rootfs hook execution: unsupported.')
+        else:
+            env = {'UBUNTU_IMAGE_HOOK_ROOTFS': self.rootfs}
+            self.hook_manager.fire('post-populate-rootfs', env)
         self._next.append(self.generate_disk_info)
 
     def generate_disk_info(self):
@@ -202,8 +211,38 @@ class AbstractImageBuilderState(State):
                 os.makedirs(target_dir, exist_ok=True)
         self._next.append(self.populate_bootfs_contents)
 
+    @classmethod
+    def _selective_copytree(cls, src, dst):
+        # Selectively copy entries from src to dst directory. Entries already
+        # existing at dst overwritten.
+        os.makedirs(dst, exist_ok=True)
+        shutil.copystat(src, dst)
+        for entry in os.scandir(src):
+            sname = os.path.join(src, entry.name)
+            dname = os.path.join(dst, entry.name)
+            if entry.is_file() or entry.is_symlink():
+                if os.path.exists(dname):
+                    continue
+                # copy files and recreate symlinks
+                shutil.copy2(sname, dname, follow_symlinks=False)
+            elif entry.is_dir():
+                # recursive copy directories
+                cls._selective_copytree(sname, dname)
+            else:
+                # will most likely raise shutil.SpecialFileError
+                shutil.copy2(sname, dname, follow_symlinks=False)
+
+    def _should_skip_partition(self, part):
+        # Helper used to determine if a partition should be acted on or not.
+        return self.gadget.seeded and part.role in (
+            StructureRole.system_boot,
+            StructureRole.system_data,
+            StructureRole.system_save)
+
     def _populate_one_bootfs(self, name, volume):
         for partnum, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             if part.role is StructureRole.system_seed:
                 # For seeded systems, the system-seed partition (which reuses
                 # the rootfs paths) is also the boot partition - so we need
@@ -237,6 +276,7 @@ class AbstractImageBuilderState(State):
                     for filename in os.listdir(boot):
                         src = os.path.join(boot, filename)
                         dst = os.path.join(ubuntu, filename)
+                        # XXX: Use _selective_copytree?
                         shutil.move(src, dst)
                 else:
                     _logger.debug('No bootloader bits prepared in the rootfs '
@@ -269,15 +309,16 @@ class AbstractImageBuilderState(State):
                             sub_src = os.path.join(src, filename)
                             dst = os.path.join(target_dir, target, filename)
                             if os.path.isdir(sub_src):
-                                shutil.copytree(sub_src, dst, symlinks=True,
-                                                ignore_dangling_symlinks=True)
+                                self._selective_copytree(sub_src, dst)
                             else:
-                                shutil.copy(sub_src, dst)
+                                if not os.path.exists(dst):
+                                    shutil.copy(sub_src, dst)
                     else:
                         # XXX: If this is a directory instead of a file, give
                         # a useful error message instead of a traceback.
                         os.makedirs(os.path.dirname(dst), exist_ok=True)
-                        shutil.copy(src, dst)
+                        if not os.path.exists(dst):
+                            shutil.copy(src, dst)
 
     def populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
@@ -288,8 +329,6 @@ class AbstractImageBuilderState(State):
         volume.part_images = []
         farthest_offset = 0
         for partnum, part in enumerate(volume.structures):
-            part_img = os.path.join(
-                volume.basedir, 'part{}.img'.format(partnum))
             # The system-data and system-seed partitions do not have to have
             # an explicit size set.
             if part.role in (StructureRole.system_data,
@@ -301,6 +340,13 @@ class AbstractImageBuilderState(State):
                                     'actual rootfs contents {}'.format(
                                         part.size, self.rootfs_size))
                     part.size = self.rootfs_size
+            # We do the set for farthest offset now as for image sizing we
+            # still need to consider partitions that we 'skip'.
+            farthest_offset = max(farthest_offset, (part.offset + part.size))
+            if self._should_skip_partition(part):
+                continue
+            part_img = os.path.join(
+                volume.basedir, 'part{}.img'.format(partnum))
             # Create the actual image files now.
             if part.role is StructureRole.system_data:
                 # The image for the root partition.
@@ -323,7 +369,6 @@ class AbstractImageBuilderState(State):
                     run('mkfs.vfat -s 1 -S 512 -F 32 {} {}'.format(
                         label_option, part_img))
             volume.part_images.append(part_img)
-            farthest_offset = max(farthest_offset, (part.offset + part.size))
         # Calculate or check the final image size.
         #
         # TODO: Hard-codes last 34 512-byte sectors for backup GPT,
@@ -391,6 +436,8 @@ class AbstractImageBuilderState(State):
                     dst = os.path.join(gadget, filename)
                     shutil.copy(src, dst)
         for partnum, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             part_img = volume.part_images[partnum]
             # In seeded images, the system-seed partition is basically the
             # rootfs partition - at least from the ubuntu-image POV.
@@ -471,7 +518,8 @@ class AbstractImageBuilderState(State):
                 part_offsets[part.name] = part.offset
             if part.offset_write is not None:
                 offset_writes.append((part.offset, part.offset_write))
-            if part.role is StructureRole.mbr or part.type == 'bare':
+            if (part.role is StructureRole.mbr or part.type == 'bare' or
+                    self._should_skip_partition(part)):
                 continue
             activate = False
             if (volume.schema is VolumeSchema.mbr and
@@ -488,6 +536,8 @@ class AbstractImageBuilderState(State):
         # clobbers things like hybrid MBR partitions.
         part_id = 1
         for i, part in enumerate(volume.structures):
+            if self._should_skip_partition(part):
+                continue
             image.copy_blob(volume.part_images[i],
                             bs=image.sector_size,
                             seek=part.offset // image.sector_size,
