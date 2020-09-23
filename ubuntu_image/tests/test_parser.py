@@ -598,6 +598,26 @@ volumes:
             ('`role: system-data` structure must have an implicit label, '
              "or 'writable': foobar"))
 
+    def test_volume_structure_role_system_data_label_seeded(self):
+        gadget_spec = parse("""\
+volumes:
+  first-image:
+    bootloader: u-boot
+    structure:
+        - type: 00000000-0000-0000-0000-0000beefface
+          role: system-seed
+          size: 100M
+        - type: 00000000-0000-0000-0000-0000feedface
+          size: 200
+          role: system-data
+          filesystem-label: foobar
+""")
+        self.assertTrue(gadget_spec.seeded)
+        self.assertEqual(len(gadget_spec.volumes), 1)
+        self.assertEqual(len(gadget_spec.volumes['first-image'].structures), 2)
+        structure = gadget_spec.volumes['first-image'].structures[1]
+        self.assertEqual(structure.filesystem_label, 'foobar')
+
     def test_volume_structure_type_none(self):
         gadget_spec = parse("""
 volumes:
@@ -1246,15 +1266,15 @@ volumes:
 """)
         self.assertEqual(len(gadget_spec.volumes), 1)
         self.assertTrue(gadget_spec.seeded)
-        # Also, check that all the paritions after system-seed have been
-        # skipped and no implicit system-data partition has been added at
+        # Also, check that no implicit system-data partition has been added at
         # the end of the volume.
         volume0 = gadget_spec.volumes['first-image']
-        self.assertEqual(len(volume0.structures), 2)
+        self.assertEqual(len(volume0.structures), 3)
         self.assertEqual(volume0.structures[0].role, None)
         self.assertEqual(volume0.structures[1].role, StructureRole.system_seed)
         self.assertEqual(volume0.structures[1].filesystem_label,
                          'ubuntu-seed')
+        self.assertEqual(volume0.structures[2].role, StructureRole.system_boot)
 
     def test_gadget_system_seed_explicit_label(self):
         gadget_spec = parse("""\

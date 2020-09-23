@@ -4,6 +4,7 @@ import os
 import shutil
 import logging
 
+from pathlib import Path
 from subprocess import CalledProcessError
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import snap
@@ -46,6 +47,8 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
         else:
             src = os.path.join(self.unpackdir, 'image')
             dst = os.path.join(self.rootfs, 'system-data')
+            # This is just a mount point.
+            os.makedirs(os.path.join(dst, 'boot'), exist_ok=True)
         for subdir in os.listdir(src):
             # LP: #1632134 - copy everything under the image directory except
             # /boot which goes to the boot partition. Unless this is a uc20
@@ -72,8 +75,12 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
                 print('instance-id: nocloud-static', file=fp)
             userdata_file = os.path.join(cloud_dir, 'user-data')
             shutil.copy(self.cloud_init, userdata_file)
-        # This is just a mount point.
-        os.makedirs(os.path.join(dst, 'boot'), exist_ok=True)
+        if self.disable_console_conf:
+            # For now we just touch /var/lib/console-conf/complete to disable
+            # console-conf on core images.
+            cc_dir = os.path.join(dst, 'var', 'lib', 'console-conf')
+            os.makedirs(cc_dir, exist_ok=True)
+            Path(os.path.join(cc_dir, 'complete')).touch()
         super().populate_rootfs_contents()
 
     def _write_manifest(self, snaps_dir, filename):

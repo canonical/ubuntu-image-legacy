@@ -252,6 +252,10 @@ def parseargs(argv=None):
         '-c', '--channel',
         default=None,
         help=_('The default snap channel to use'))
+    snap_cmd.add_argument(
+        '--disable-console-conf',
+        default=False, action='store_true',
+        help=_("""Disable console-conf on the resulting image."""))
     # Classic-based image options.
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
@@ -309,6 +313,27 @@ def parseargs(argv=None):
         if args.extra_snaps is not None:
             print('--extra-snaps is deprecated; use --snap instead',
                   file=sys.stderr)
+        # XXX: This is temporary
+        # Some features are currently unsupported for UC20 images.
+        # Error out early when those are requested.
+        if args.model_assertion and os.path.exists(args.model_assertion):
+            # Try to guess if we're building an UC20 image.
+            # Normally we don't want to do this, but if we want to give
+            # the user feedback early, we need to do this here.
+            # Otherwise we'd have to wait for u-i to pull in all the snaps,
+            # which can take a while.
+            with open(args.model_assertion) as fd:
+                if 'base: core20' in fd.read():
+                    unsupported = []
+                    if args.disable_console_conf:
+                        unsupported.append('--disable-console-conf')
+                    if args.cloud_init:
+                        unsupported.append('--cloud-init')
+                    if unsupported:  # pragma: no branch
+                        parser.error(
+                            'base: core20 model assertion detected, the '
+                            'following features are unsupported: {}'.format(
+                                ' '.join(unsupported)))
     else:
         if args.resume and args.gadget_tree:
             parser.error('gadget tree is not allowed with --resume')
@@ -319,6 +344,8 @@ def parseargs(argv=None):
                 parser.error('project or filesystem is required')
             elif args.project and args.filesystem:
                 parser.error('project and filesystem are mutually exclusive')
+        # And classic doesn't use console-conf
+        args.disable_console_conf = False
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
     # --until and --thru can take an int.

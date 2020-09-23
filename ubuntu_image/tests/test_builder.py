@@ -8,6 +8,7 @@ import logging
 from contextlib import ExitStack
 from itertools import product
 from pkg_resources import resource_filename
+from shutil import SpecialFileError
 from struct import unpack
 from subprocess import CalledProcessError
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -47,6 +48,15 @@ def prep_state(state, workdir, part_images=None):
         volume.part_images = [] if part_images is None else part_images
 
 
+def make_content_at(pdir, content):
+    # Generate content tree at given pdir location.
+    for where, what in content.items():
+        wpath = os.path.join(pdir, where)
+        os.makedirs(os.path.dirname(wpath), exist_ok=True)
+        with open(wpath, 'wb') as fp:
+            fp.write(what)
+
+
 class TestModelAssertionBuilder(TestCase):
     # XXX These tests relies on external resources, namely that the gadget and
     # kernel snaps in this model assertion can actually be downloaded from the
@@ -80,6 +90,7 @@ class TestModelAssertionBuilder(TestCase):
             workdir=None,
             hooks_directory=[],
             disk_info=None,
+            disable_console_conf=False,
             )
         state = self._resources.enter_context(XXXModelAssertionBuilder(args))
         state.run_thru('populate_bootfs_contents')
@@ -147,6 +158,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -188,6 +200,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -228,6 +241,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -269,6 +283,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -307,6 +322,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -346,6 +362,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -384,6 +401,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             # Fake some state expected by the method under test.
@@ -427,6 +445,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -488,6 +507,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -535,6 +555,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -551,13 +572,22 @@ class TestModelAssertionBuilder(TestCase):
                 source='bs/',
                 target='bt/',
                 )
+            contents3 = SimpleNamespace(
+                source='grub.conf',
+                target='EFI/ubuntu/grub.cfg',
+                )
+            contents4 = SimpleNamespace(
+                source='nested/',
+                target='EFI/ubuntu/',
+                )
             part = SimpleNamespace(
-                role=None,
+                role=StructureRole.system_boot,
                 filesystem_label='not a boot',
                 filesystem=FileSystemType.ext4,
-                content=[contents1, contents2],
+                content=[contents1, contents2, contents3, contents4],
                 )
             volume = SimpleNamespace(
+                bootloader=BootLoader.grub,
                 structures=[part],
                 )
             state.gadget = SimpleNamespace(
@@ -574,29 +604,58 @@ class TestModelAssertionBuilder(TestCase):
             # contents into the source locations.
             gadget_dir = os.path.join(unpackdir, 'gadget')
             os.makedirs(gadget_dir)
-            src = os.path.join(gadget_dir, 'as.dat')
-            with open(src, 'wb') as fp:
-                fp.write(b'01234')
-            src = os.path.join(gadget_dir, 'bs')
-            os.makedirs(src)
-            # Put a couple of files and a directory in the source, since
-            # directories are copied recursively.
-            with open(os.path.join(src, 'c.dat'), 'wb') as fp:
-                fp.write(b'56789')
-            srcdir = os.path.join(src, 'd')
-            os.makedirs(srcdir)
-            with open(os.path.join(srcdir, 'e.dat'), 'wb') as fp:
-                fp.write(b'0abcd')
+            gadget_content = {
+                'as.dat': b'01234',
+                'bs/c.dat': b'56789',
+                # Put a couple of files and a directory in the source, since
+                # directories are copied recursively.
+                'bs/d/e.dat': b'0abcd',
+                # Generate part of the gadget
+                'grub.conf': b'from-gadget',
+                # And some content to check collision/overwrite handling
+                'nested/very/nested.cfg': b'from-gadget',
+                'nested/very/nested-only-gadget.cfg': b'from-gadget',
+                'nested/very/much/much.cfg': b'from-gadget',
+                'nested/1': b'from-gadget',
+                'nested/2': b'from-gadget',
+            }
+            make_content_at(gadget_dir, gadget_content)
+            # While we're at it, also make sure the grub bootloader specific
+            # rootfs files are moved to the right places as well.
+            boot_dir = os.path.join(state.unpackdir, 'image', 'boot', 'grub')
+            os.makedirs(boot_dir)
+            # When those files get generated by snap prepare-image, they should
+            # not be overwritten by copies from unpacked gadget
+            boot_content = {
+                'grub.cfg': b'from-image-boot-grub',
+                '1': b'from-image-boot-grub',
+                'very/nested.cfg': b'from-image-boot-grub',
+                'very/very/nested.cfg': b'from-image-boot-grub',
+            }
+            make_content_at(boot_dir, boot_content)
+            dstbase = os.path.join(workdir, 'volumes', 'volume1', 'part0')
             # Run the state machine.
             next(state)
-            # Did all the files and directories get copied?
-            dstbase = os.path.join(workdir, 'volumes', 'volume1', 'part0')
-            with open(os.path.join(dstbase, 'at.dat'), 'rb') as fp:
-                self.assertEqual(fp.read(), b'01234')
-            with open(os.path.join(dstbase, 'bt', 'c.dat'), 'rb') as fp:
-                self.assertEqual(fp.read(), b'56789')
-            with open(os.path.join(dstbase, 'bt', 'd', 'e.dat'), 'rb') as fp:
-                self.assertEqual(fp.read(), b'0abcd')
+            expected_content = {
+                # Did all the files and directories get copied with the right
+                # names?
+                'at.dat': b'01234',
+                'bt/c.dat': b'56789',
+                'bt/d/e.dat': b'0abcd',
+                # Copied from gadget
+                'EFI/ubuntu/very/nested-only-gadget.cfg': b'from-gadget',
+                'EFI/ubuntu/very/much/much.cfg': b'from-gadget',
+                'EFI/ubuntu/1': b'from-image-boot-grub',
+                'EFI/ubuntu/2': b'from-gadget',
+                # Copied from image/boot/grrub generated content, not
+                # overwritten by gadget files
+                'EFI/ubuntu/grub.cfg': b'from-image-boot-grub',
+                'EFI/ubuntu/very/nested.cfg': b'from-image-boot-grub',
+                'EFI/ubuntu/very/very/nested.cfg': b'from-image-boot-grub',
+            }
+            for where, what in expected_content.items():
+                with open(os.path.join(dstbase, where), 'rb') as fp:
+                    self.assertEqual(fp.read(), what)
 
     def test_populate_bootfs_contents_seeded(self):
         # Test populate_bootfs_contents() behavior for the system-seed
@@ -613,6 +672,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -621,17 +681,28 @@ class TestModelAssertionBuilder(TestCase):
             # method under test.  The two paths (is-a-file and is-a-directory)
             # are differentiated by whether the source ends in a slash or not.
             # In that case, the target must also end in a slash.
-            contents = SimpleNamespace(
+            contents1 = SimpleNamespace(
                 source='as.dat',
                 target='at.dat',
                 )
-            part = SimpleNamespace(
+            contents2 = SimpleNamespace(
+                source='grub.conf',
+                target='EFI/ubuntu/grub.cfg',
+                )
+            part0 = SimpleNamespace(
                 role=StructureRole.system_seed,
                 filesystem=FileSystemType.vfat,
-                content=[contents],
+                content=[contents1, contents2],
+                )
+            # This partition is unused and basically 'invalid', only exists
+            # here for us to make sure it was skipped and not acted on.
+            part1 = SimpleNamespace(
+                role=StructureRole.system_boot,
+                filesystem=FileSystemType.vfat,
+                content=[contents1, contents2],
                 )
             volume = SimpleNamespace(
-                structures=[part],
+                structures=[part0, part1],
                 bootloader=BootLoader.grub,
                 )
             state.gadget = SimpleNamespace(
@@ -653,13 +724,18 @@ class TestModelAssertionBuilder(TestCase):
             src = os.path.join(gadget_dir, 'as.dat')
             with open(src, 'wb') as fp:
                 fp.write(b'01234')
-            # While we're at it, also make sure the bootloader specific rootfs
-            # files are moved to the right places as well.
-            boot_dir = os.path.join(state.unpackdir, 'image', 'boot', 'grub')
-            os.makedirs(boot_dir)
-            src = os.path.join(boot_dir, 'grub.cfg')
+            src = os.path.join(gadget_dir, 'grub.conf')
             with open(src, 'wb') as fp:
-                fp.write(b'43210')
+                fp.write(b'from-gadget')
+            # With system-seed role being used, there is no bootloader specific
+            # files, eveything is under the system-seed directory
+            rootfs_grub_dir = os.path.join(state.rootfs, 'EFI', 'ubuntu')
+            os.makedirs(rootfs_grub_dir)
+            # When this file gets generated by snap prepare-image, it should
+            # not be overwritten by copies from unpacked gadget
+            src = os.path.join(rootfs_grub_dir, 'grub.cfg')
+            with open(src, 'wb') as fp:
+                fp.write(b'from-EFI-ubuntu')
             # Run the state machine.
             next(state)
             # Did the content copy happen as expected?
@@ -668,7 +744,11 @@ class TestModelAssertionBuilder(TestCase):
             # Did we get the bootloader specific copies done?
             efi_dir = os.path.join(state.rootfs, 'EFI', 'ubuntu')
             with open(os.path.join(efi_dir, 'grub.cfg'), 'rb') as fp:
-                self.assertEqual(fp.read(), b'43210')
+                self.assertEqual(fp.read(), b'from-EFI-ubuntu')
+            # Make sure the part1 dummy system-boot partition was really
+            # skipped and no copies for it have been made.
+            part1_path = os.path.join(workdir, 'volumes', 'volume1', 'part1')
+            self.assertFalse(os.path.exists(part1_path))
 
     def test_populate_bootfs_contents_content_mismatch(self):
         # If a content source ends in a slash, so must the target.
@@ -685,6 +765,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -722,6 +803,65 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(
                 str(cm.exception), 'target must end in a slash: bt')
 
+    def test_populate_bootfs_contents_special_file(self):
+        # If a content source ends in a slash, so must the target.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                debug=False,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.  The two paths (is-a-file and is-a-directory)
+            # are differentiated by whether the source ends in a slash or not.
+            # In that case, the target must also end in a slash.
+            contents = SimpleNamespace(
+                source='bs/',
+                # No slash!
+                target='bt/',
+                )
+            part = SimpleNamespace(
+                role=StructureRole.system_boot,
+                filesystem_label='not a boot',
+                filesystem=FileSystemType.ext4,
+                content=[contents],
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.grub,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=False,
+                )
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
+            prep_state(state, workdir)
+            gadget_dir = os.path.join(unpackdir, 'gadget')
+            os.makedirs(gadget_dir)
+            src = os.path.join(gadget_dir, 'bs', 'd')
+            os.makedirs(src)
+            os.mkfifo(os.path.join(src, 'not-a-file'))
+            # Run the state machine.  Don't blat to stderr.
+            resources.enter_context(patch('ubuntu_image.state.log'))
+            with self.assertRaises(SpecialFileError) as cm:
+                next(state)
+            self.assertRegex(
+                str(cm.exception), '.*/not-a-file` is a named pipe')
+
     def test_populate_filesystems_none_type(self):
         # We do a bit-wise copy when the file system has no type.
         with ExitStack() as resources:
@@ -736,6 +876,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -830,6 +971,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -900,6 +1042,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -959,6 +1102,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -1040,6 +1184,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -1109,6 +1254,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 cmd='snap',
                 )
             # Jump right to the method under test.
@@ -1138,8 +1284,15 @@ class TestModelAssertionBuilder(TestCase):
                 filesystem=FileSystemType.vfat,
                 size=None,
                 )
+            # This partition is unused and basically 'invalid', only exists
+            # here for us to make sure it was skipped and not acted on.
+            part2 = SimpleNamespace(
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0, part1],
+                structures=[part0, part1, part2],
                 schema=VolumeSchema.mbr,
                 bootloader=BootLoader.grub,
                 )
@@ -1173,6 +1326,8 @@ class TestModelAssertionBuilder(TestCase):
                 data = fp.read()
             self.assertEqual(data, b'\1' * 47 + b'\0' * 103)
             # Make sure the mkfs.ext4 call never happened.
+            # This check also guarentees that the dummy part2 partition is
+            # skipped and not acted on.
             self.assertEqual(len(mkfs_mock.call_args_list), 0)
             # Make sure there was only one run call and that it was for
             # mcopy of the seed partition.
@@ -1201,6 +1356,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1252,6 +1408,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1365,6 +1522,95 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(partitions[1], ('beta', 8192))
             self.assertEqual(partitions[2], ('writable', 10240))
 
+    def test_make_disk_with_parts_seeded(self):
+        # Make sure for seeded images we skip the right partitions.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            outputdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=outputdir,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.make_disk)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            state.disk_img = os.path.join(workdir, 'disk.img')
+            state.rootfs_size = MiB(1)
+            os.makedirs(state.images)
+            # Craft a gadget schema.
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='mbr',
+                role=StructureRole.mbr,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name='seed',
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_seed,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            part2 = SimpleNamespace(
+                name='data',
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                size=MiB(5),
+                offset=MiB(2),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                # gadget.yaml appearance order.
+                structures=[part0, part1, part2],
+                schema=VolumeSchema.gpt,
+                image_size=MiB(20),
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=True,
+                )
+            # Set up images for the targeted test.  These represent the image
+            # files that would have already been crafted to write to the disk
+            # in early (untested here) stages of the state machine.
+            part0_img = os.path.join(state.images, 'part0.img')
+            with open(part0_img, 'wb') as fp:
+                fp.write(b'\1' * 11)
+            part1_img = os.path.join(state.images, 'part1.img')
+            with open(part1_img, 'wb') as fp:
+                fp.write(b'\2' * 12)
+            part2_img = os.path.join(state.images, 'part2.img')
+            with open(part2_img, 'wb') as fp:
+                fp.write(b'\3' * 13)
+            prep_state(state, workdir,
+                       [part2_img, part0_img, part1_img])
+            # Create the disk.
+            next(state)
+            # Verify the disk image's partition table.
+            disk_img = os.path.join(outputdir, 'volume1.img')
+            proc = run('sfdisk --json {}'.format(disk_img))
+            layout = json.loads(proc.stdout)
+            partitions = [
+                (part['name'] if 'name' in part else None, part['start'])
+                for part in layout['partitiontable']['partitions']
+                ]
+            self.assertEqual(len(partitions), 1)
+            self.assertEqual(partitions[0], ('seed', 2048))
+
     def test_make_disk_with_bare_parts(self):
         # The second structure has a role:bare meaning it is not wrapped in a
         # disk partition.
@@ -1381,6 +1627,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1468,6 +1715,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1599,6 +1847,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1670,6 +1919,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1751,6 +2001,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1809,6 +2060,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1853,6 +2105,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1909,6 +2162,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -1934,8 +2188,19 @@ class TestModelAssertionBuilder(TestCase):
                 offset=MiB(1),
                 offset_write=None,
                 )
+            # This partition is unused and basically 'invalid', only exists
+            # here for us to make sure it was skipped and not acted on.
+            part2 = SimpleNamespace(
+                name='dummy',
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=MiB(10),
+                offset=MiB(100),
+                offset_write=None,
+                )
             volume = SimpleNamespace(
-                structures=[part0, part1],
+                structures=[part0, part1, part2],
                 schema=VolumeSchema.gpt,
                 )
             state.gadget = SimpleNamespace(
@@ -1953,6 +2218,10 @@ class TestModelAssertionBuilder(TestCase):
             # Check if the seed partition got the right size auto-selected.
             seed_part = state.gadget.volumes['volume1'].structures[1]
             self.assertEqual(seed_part.size, MiB(1))
+            # Make sure the part2 dummy  partition was really skipped and no
+            # actions have been performed on it.
+            self.assertFalse(os.path.exists(
+                os.path.join(volumes_dir, 'volume1', 'part2.img')))
 
     def test_image_size_calculated(self):
         # We let prepare_filesystems() calculate the disk image size.  The
@@ -1970,6 +2239,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2008,6 +2278,69 @@ class TestModelAssertionBuilder(TestCase):
             self.assertEqual(
                 state.gadget.volumes['volume1'].image_size, 2114560)
 
+    def test_image_size_calculated_seeded(self):
+        # Same as above, but this time we make sure that for seeded (UC20)
+        # images, all partitions are taken into consideration as expected
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                image_size=None,
+                output=None,
+                output_dir=None,
+                unpackdir=None,
+                workdir=workdir,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.prepare_filesystems)
+            # Craft a gadget schema.
+            state.rootfs_size = MiB(1)
+            part0 = SimpleNamespace(
+                name='alpha',
+                type='21686148-6449-6E6f-744E-656564454649',
+                role=None,
+                filesystem=FileSystemType.none,
+                size=MiB(1),
+                offset=0,
+                offset_write=None,
+                )
+            part1 = SimpleNamespace(
+                name=None,
+                type='C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
+                role=StructureRole.system_seed,
+                filesystem=FileSystemType.ext4,
+                size=state.rootfs_size,
+                offset=MiB(1),
+                offset_write=None,
+                )
+            part2 = SimpleNamespace(
+                name=None,
+                type=('83', '0FC63DAF-8483-4772-8E79-3D69D8477DE4'),
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                size=MiB(2),
+                offset=MiB(2),
+                offset_write=None,
+                )
+            volume = SimpleNamespace(
+                structures=[part0, part1, part2],
+                schema=VolumeSchema.gpt,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=True,
+                )
+            prep_state(state, workdir)
+            next(state)
+            self.assertEqual(
+                state.gadget.volumes['volume1'].image_size, 4211712)
+
     def test_image_size_explicit(self):
         # --image-size=5M overrides the implicit disk image size.
         with ExitStack() as resources:
@@ -2022,6 +2355,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2074,6 +2408,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2128,6 +2463,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2195,6 +2531,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2283,6 +2620,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2342,6 +2680,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2409,6 +2748,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2490,6 +2830,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2549,6 +2890,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2617,6 +2959,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2686,6 +3029,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2762,6 +3106,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2810,6 +3155,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2857,6 +3203,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2908,6 +3255,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2955,6 +3303,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=diskinfo,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -2965,6 +3314,75 @@ class TestModelAssertionBuilder(TestCase):
             # Make sure the file is populated with the right contents.
             with open(os.path.join(state.rootfs, '.disk', 'info')) as fp:
                 self.assertEqual(fp.read(), 'Some disk info')
+
+    def test_disable_console_conf(self):
+        with ExitStack() as resources:
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=False,
+                snap=[],
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=True,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'image')
+            os.makedirs(os.path.join(image_dir, 'snap'))
+            os.makedirs(os.path.join(image_dir, 'var'))
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(seeded=False)
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Make sure that when disable-console-conf is passed, we create the
+            # right file on the rootfs.
+            self.assertTrue(os.path.exists(os.path.join(
+                state.rootfs, 'system-data', 'var', 'lib', 'console-conf',
+                'complete')))
+
+    def test_do_not_disable_console_conf_by_default(self):
+        with ExitStack() as resources:
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                channel='edge',
+                cloud_init=None,
+                debug=False,
+                snap=[],
+                extra_snaps=None,
+                model_assertion=self.model_assertion,
+                output=None,
+                output_dir=None,
+                workdir=None,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            image_dir = os.path.join(state.unpackdir, 'image')
+            os.makedirs(os.path.join(image_dir, 'snap'))
+            os.makedirs(os.path.join(image_dir, 'var'))
+            state.rootfs = resources.enter_context(TemporaryDirectory())
+            state.gadget = SimpleNamespace(seeded=False)
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents)
+            next(state)
+            # Just confirm that if we run ubuntu-image without
+            # --disable-console-conf (so by default), the file isn't there.
+            self.assertFalse(os.path.exists(os.path.join(
+                state.rootfs, 'system-data', 'var', 'lib', 'console-conf',
+                'complete')))
 
     def test_du_command_fails(self):
         with ExitStack() as resources:
@@ -2981,6 +3399,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -3020,6 +3439,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             # Jump right to the method under test.
             state = resources.enter_context(XXXModelAssertionBuilder(args))
@@ -3065,6 +3485,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -3105,6 +3526,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=None,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state._next.pop()
@@ -3132,6 +3554,7 @@ class TestModelAssertionBuilder(TestCase):
                 workdir=workdir,
                 hooks_directory=[],
                 disk_info=None,
+                disable_console_conf=False,
                 )
             state = resources.enter_context(XXXModelAssertionBuilder(args))
             state.unpackdir = resources.enter_context(TemporaryDirectory())
@@ -3170,3 +3593,36 @@ class TestModelAssertionBuilder(TestCase):
                 'unpack/gadget/meta/gadget.yaml',
                 'unpack/gadget/shim.efi.signed',
                 ])
+
+    def test_temporary_skip_hooks_on_uc20(self):
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            args = SimpleNamespace(
+                output=None,
+                output_dir=None,
+                model_assertion=self.model_assertion,
+                workdir=workdir,
+                hooks_directory=[],
+                cloud_init=None,
+                disk_info=None,
+                disable_console_conf=False,
+                debug=False,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state.unpackdir = resources.enter_context(TemporaryDirectory())
+            state._next.pop()
+            state._next.append(state.populate_rootfs_contents_hooks)
+            state.gadget = SimpleNamespace(
+                volumes={},
+                seeded=True,
+                )
+            prep_state(state, workdir)
+            mock = resources.enter_context(
+                patch('ubuntu_image.assertion_builder._logger.debug'))
+            next(state)
+            self.assertEqual(len(mock.call_args_list), 2)
+            posargs, kwargs = mock.call_args_list[1]
+            self.assertEqual(
+                posargs[0],
+                'Building from a seeded gadget - skipping the '
+                'post-populate-rootfs hook execution: unsupported.')
