@@ -72,6 +72,6 @@ Pull requests run the same test suite that archive promotion (i.e. -proposed
 to release pocket) runs.  You can reproduce this locally by building the
 source package (with ``gbp buildpackage -S``) and running::
 
-    $ autopkgtest ubuntu-image_1.9+20.04ubuntu1 .dsc -- schroot focal-amd64
+    $ autopkgtest ubuntu-image_1.9+20.04ubuntu1.dsc -- schroot focal-amd64
 
 with changes to the version number and Ubuntu distroseries as appropriate.
