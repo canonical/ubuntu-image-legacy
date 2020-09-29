@@ -16,7 +16,7 @@ from ubuntu_image.helpers import (
      DependencyError, GiB, MiB, PrivilegeError, as_bool, as_size,
      check_root_privilege, get_host_arch, get_host_distro,
      get_qemu_static_for_arch, live_build,
-     mkfs_ext4, run, snap, sparse_copy)
+     mkfs_ext4, run, snap, sparse_copy, _debug_log_run)
 from ubuntu_image.testing.helpers import (
      LiveBuildMocker, LogCapture, envar)
 from unittest import TestCase
@@ -144,11 +144,43 @@ class TestHelpers(TestCase):
             resources.enter_context(
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
+            mock_debug_log_run = resources.enter_context(
+                patch('ubuntu_image.helpers._debug_log_run'))
             run('/bin/false')
+            mock_debug_log_run.assert_not_called()
             self.assertEqual(log.logs, [
                 (logging.ERROR, 'COMMAND FAILED: /bin/false'),
                 (logging.ERROR, 'fake stdout'),
                 (logging.ERROR, 'fake stderr'),
+                ])
+
+    def test_run_with_debug(self):
+        with ExitStack() as resources:
+            log = resources.enter_context(LogCapture(level=logging.DEBUG))
+            resources.enter_context(
+                patch('ubuntu_image.helpers.subprocess_run',
+                      return_value=FakeProc()))
+            mock_debug_log_run = resources.enter_context(
+                patch('ubuntu_image.helpers._debug_log_run'))
+            run('/bin/false')
+            mock_debug_log_run.assert_called()
+            self.assertEqual(log.logs, [
+                (logging.ERROR, 'COMMAND FAILED: /bin/false'),
+                (logging.ERROR, 'fake stdout'),
+                (logging.ERROR, 'fake stderr'),
+                ])
+
+    def test_run__debug_log_run(self):
+        with ExitStack() as resources:
+            log = resources.enter_context(LogCapture(level=logging.DEBUG))
+            _debug_log_run('/bin/false', 'fake stdout', 'fake stderr')
+
+            self.assertEqual(log.logs, [
+                (logging.DEBUG, ' > RUN: /bin/false'),
+                (logging.DEBUG, '   OUT:'),
+                (logging.DEBUG, '        fake stdout'),
+                (logging.DEBUG, '   ERR:'),
+                (logging.DEBUG, '        fake stderr'),
                 ])
 
     def test_run_fails_no_output(self):
