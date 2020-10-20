@@ -452,7 +452,8 @@ class AbstractImageBuilderState(State):
                 # e2fsprogs.
                 mkfs_ext4(part_img, self.rootfs, self.args.cmd,
                           part.filesystem_label, preserve_ownership=True)
-                # XXX: This is a workaround!
+                # XXX: This is a workaround for mkfs.ext4 sparsifying our
+                # classic rootfses swapfile.
                 if self.args.cmd == 'classic':
                     unsparse_swapfile_ext4(part_img)
             elif part.filesystem is FileSystemType.none:
