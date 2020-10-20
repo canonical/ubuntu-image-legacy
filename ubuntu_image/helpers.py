@@ -25,6 +25,7 @@ __all__ = [
     'run',
     'snap',
     'sparse_copy',
+    'unsparse_swapfile_ext4',
     ]
 
 
@@ -207,6 +208,17 @@ def mount(img):
         run('sudo mount -oloop {} {}'.format(img, mountpoint))
         resources.callback(run, 'sudo umount {}'.format(mountpoint))
         yield mountpoint
+
+
+def unsparse_swapfile_ext4(img_file):
+    # A workaround for mkfs.ext4 messing up our rootfs swapfiles by turning
+    # them to sparse files without us asking.
+    with mount(img_file) as mountpoint:
+        swapfile_path = os.path.join(mountpoint, 'swapfile')
+        if os.path.exists(swapfile_path):
+            cmd = ('dd if={swapfile} of={swapfile} conv=notrunc '
+                   'bs=1M'.format(swapfile=swapfile_path))
+            run(cmd, stdout=None, stderr=None, capture_output=False)
 
 
 def mkfs_ext4(img_file, contents_dir, image_type, label='writable',

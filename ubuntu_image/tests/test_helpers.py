@@ -16,7 +16,7 @@ from ubuntu_image.helpers import (
      DependencyError, GiB, MiB, PrivilegeError, as_bool, as_size,
      check_root_privilege, get_host_arch, get_host_distro,
      get_qemu_static_for_arch, live_build,
-     mkfs_ext4, run, snap, sparse_copy)
+     mkfs_ext4, run, snap, sparse_copy, unsparse_swapfile_ext4)
 from ubuntu_image.testing.helpers import (
      LiveBuildMocker, LogCapture, envar)
 from unittest import TestCase
@@ -65,10 +65,12 @@ def is_sparse(path):
 
 
 class MountMocker:
-    def __init__(self, results_dir):
+    def __init__(self, results_dir, contents_dir=None):
         self.mountpoint = None
         self.results_dir = results_dir
         self.preserves_ownership = False
+        self.contents_dir = contents_dir
+        self.dd_called = False
 
     def run(self, command, *args, **kws):
         if 'mkfs.ext4' in command:
@@ -84,6 +86,10 @@ class MountMocker:
             # which will be a temporary directory, so that we can verify its
             # contents later.
             self.mountpoint = command.split()[-1]
+            if self.contents_dir:
+                subprocess_run('cp {}/* {}'.format(
+                    self.contents_dir, self.mountpoint), shell=True,
+                    capture_output=False)
         elif command.startswith('sudo umount'):
             # Just ignore the umount command since we never mounted anything,
             # and it's a temporary directory anyway.
@@ -101,6 +107,10 @@ class MountMocker:
             # way of mocking this as everything else would require root.
             if re.search(r'--preserve=[^ ]*ownership', command):
                 self.preserves_ownership = True
+        elif command.startswith('dd'):
+            # dd is a safe command so we should just run it.
+            subprocess_run(command, shell=True, capture_output=False)
+            self.dd_called = True
 
 
 class TestHelpers(TestCase):
@@ -570,3 +580,37 @@ class TestHelpers(TestCase):
             mock_geteuid.assert_called_with()
             self.assertEqual(
                 cm.exception.user_name, 'test')
+
+    def test_unsparse_swapfile_ext4(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            results_dir = os.path.join(tmpdir, 'results')
+            os.makedirs(results_dir)
+            # Empty swapfile.
+            swapfile = os.path.join(results_dir, 'swapfile')
+            run('dd if=/dev/zero of={} bs=10M count=1'.format(swapfile),
+                stdout=None, stderr=None, capture_output=False)
+            # Image file.
+            img_file = resources.enter_context(NamedTemporaryFile())
+            mock = MountMocker(results_dir, results_dir)
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            # Now the actual test.
+            unsparse_swapfile_ext4(img_file)
+            self.assertTrue(mock.dd_called)
+
+    def test_unsparse_swapfile_ext4_no_swap(self):
+        with ExitStack() as resources:
+            tmpdir = resources.enter_context(TemporaryDirectory())
+            results_dir = os.path.join(tmpdir, 'results')
+            os.makedirs(results_dir)
+            # No swapfile, just some file.
+            open(os.path.join(results_dir, 'foobar'), 'w')
+            # Image file.
+            img_file = resources.enter_context(NamedTemporaryFile())
+            mock = MountMocker(results_dir, results_dir)
+            resources.enter_context(
+                patch('ubuntu_image.helpers.run', mock.run))
+            # Now the actual test.
+            unsparse_swapfile_ext4(img_file)
+            self.assertFalse(mock.dd_called)

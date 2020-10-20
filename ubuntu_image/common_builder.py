@@ -9,7 +9,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from tempfile import TemporaryDirectory
 from ubuntu_image.helpers import (
-     DoesNotFit, MiB, mkfs_ext4, run)
+     DoesNotFit, MiB, mkfs_ext4, run, unsparse_swapfile_ext4)
 from ubuntu_image.hooks import HookManager
 from ubuntu_image.image import Image
 from ubuntu_image.parser import (
@@ -452,6 +452,9 @@ class AbstractImageBuilderState(State):
                 # e2fsprogs.
                 mkfs_ext4(part_img, self.rootfs, self.args.cmd,
                           part.filesystem_label, preserve_ownership=True)
+                # XXX: This is a workaround!
+                if self.args.cmd == 'classic':
+                    unsparse_swapfile_ext4(part_img)
             elif part.filesystem is FileSystemType.none:
                 image = Image(part_img, part.size)
                 offset = 0
