@@ -1126,7 +1126,7 @@ class TestClassicBuilder(TestCase):
                            """))
 
     def test_workaround_sparse_swapfile(self):
-        # TODO
+        # Test if the swapfile unsparsing workaround is fired.
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             unpackdir = resources.enter_context(TemporaryDirectory())
