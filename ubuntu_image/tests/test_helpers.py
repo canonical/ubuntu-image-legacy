@@ -9,7 +9,7 @@ from collections import OrderedDict
 from contextlib import ExitStack
 from pkg_resources import resource_filename
 from shutil import copytree
-from subprocess import run as subprocess_run
+from subprocess import DEVNULL, run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from types import SimpleNamespace
 from ubuntu_image.helpers import (
@@ -89,7 +89,7 @@ class MountMocker:
             if self.contents_dir:
                 subprocess_run('cp {}/* {}'.format(
                     self.contents_dir, self.mountpoint), shell=True,
-                    capture_output=False)
+                    stdout=DEVNULL, stderr=DEVNULL)
         elif command.startswith('sudo umount'):
             # Just ignore the umount command since we never mounted anything,
             # and it's a temporary directory anyway.
@@ -109,7 +109,7 @@ class MountMocker:
                 self.preserves_ownership = True
         elif command.startswith('dd'):
             # dd is a safe command so we should just run it.
-            subprocess_run(command, shell=True, capture_output=False)
+            subprocess_run(command, shell=True, stdout=DEVNULL, stderr=DEVNULL)
             self.dd_called = True
 
 
@@ -589,7 +589,7 @@ class TestHelpers(TestCase):
             # Empty swapfile.
             swapfile = os.path.join(results_dir, 'swapfile')
             run('dd if=/dev/zero of={} bs=10M count=1'.format(swapfile),
-                stdout=None, stderr=None, capture_output=False)
+                stdout=DEVNULL, stderr=DEVNULL)
             # Image file.
             img_file = resources.enter_context(NamedTemporaryFile())
             mock = MountMocker(results_dir, results_dir)

@@ -10,7 +10,7 @@ import contextlib
 from contextlib import ExitStack, contextmanager
 from distutils.spawn import find_executable
 from parted import Device
-from subprocess import PIPE, run as subprocess_run
+from subprocess import DEVNULL, PIPE, run as subprocess_run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from ubuntu_image.state import ExpectedError
 
@@ -218,7 +218,7 @@ def unsparse_swapfile_ext4(img_file):
         if os.path.exists(swapfile_path):
             cmd = ('dd if={swapfile} of={swapfile} conv=notrunc '
                    'bs=1M'.format(swapfile=swapfile_path))
-            run(cmd, stdout=None, stderr=None, capture_output=False)
+            run(cmd, stdout=DEVNULL, stderr=DEVNULL)
 
 
 def mkfs_ext4(img_file, contents_dir, image_type, label='writable',
