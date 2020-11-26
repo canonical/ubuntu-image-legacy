@@ -8,7 +8,7 @@ ubuntu-image (1.10+20.10ubuntu4) UNRELEASED; urgency=medium
   [ Łukasz 'sil2100' Zemczak ]
   * Add python3.9 to the test envlists.
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 26 Nov 2020 16:06:54 +0100
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 26 Nov 2020 16:47:42 +0100
 
 ubuntu-image (1.10+20.10ubuntu2) groovy; urgency=medium
 
