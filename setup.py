@@ -46,7 +46,7 @@ if Changelog is None:
     __version__ = 'dev'
 else:
     with open('debian/changelog', encoding='utf-8') as infp:
-        __version__ = str(Changelog(infp).get_version())
+        __version__ = str(Changelog(infp).version)
         # Write the version out to the package directory so `ubuntu-image
         # --version` can display it.
         with open('ubuntu_image/version.txt', 'w', encoding='utf-8') as outfp:
