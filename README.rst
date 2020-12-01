@@ -48,7 +48,7 @@ Project details
 
 The ``gadget.yaml`` specification has moved to `the snapcraft forum`_.
 
-.. _`the snapcraft forum`: https://forum.snapcraft.io/t/the-gadget-snap/696
+.. _`the snapcraft forum`: https://forum.snapcraft.io/t/the-gadget-snap
 
 
 Developing
