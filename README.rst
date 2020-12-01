@@ -46,9 +46,9 @@ Project details
 * Manual page: man ubuntu-image
   (https://github.com/CanonicalLtd/ubuntu-image/blob/master/ubuntu-image.rst)
 
-The ``gadget.yaml`` specification has moved to `the snapcore repository`_.
+The ``gadget.yaml`` specification has moved to `the snapcraft forum`_.
 
-.. _`the snapcore repository`: https://github.com/snapcore/snapd/wiki/Gadget-snap
+.. _`the snapcraft forum`: https://forum.snapcraft.io/t/the-gadget-snap/696
 
 
 Developing
