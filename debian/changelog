@@ -1,4 +1,4 @@
-ubuntu-image (1.10+20.10ubuntu4) UNRELEASED; urgency=medium
+ubuntu-image (1.10+20.10ubuntu4) hirsute; urgency=medium
 
   * Add python3.9 to the test envlists.
   * Minor README fixups and additions, minor test-related compatibility
