@@ -1,8 +1,10 @@
 ubuntu-image (1.10+20.10ubuntu4) UNRELEASED; urgency=medium
 
   * Add python3.9 to the test envlists.
+  * Minor README fixups and additions, minor test-related compatibility
+    changes.
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 26 Nov 2020 16:47:42 +0100
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 13 Jan 2021 11:27:53 +0100
 
 ubuntu-image (1.10+20.10ubuntu3) hirsute; urgency=medium
 
