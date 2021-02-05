@@ -281,44 +281,67 @@ class AbstractImageBuilderState(State):
                 else:
                     _logger.debug('No bootloader bits prepared in the rootfs '
                                   '- skipping boot copies.')
-            gadget_dir = os.path.join(self.unpackdir, 'gadget')
+
             if part.filesystem is not FileSystemType.none:
-                for content in part.content:
-                    src = os.path.join(gadget_dir, content.source)
-                    dst = os.path.join(target_dir, content.target)
-                    if content.source.endswith('/'):
-                        # This is a directory copy specification.  The target
-                        # must also end in a slash.
-                        #
-                        # XXX: If this is a file instead of a directory, give
-                        # a useful error message instead of a traceback.
-                        #
-                        # XXX: We should assert this constraint in the parser.
-                        target, slash, tail = content.target.rpartition('/')
-                        if slash != '/' and tail != '':
-                            raise ValueError(
-                                'target must end in a slash: {}'.format(
-                                    content.target))
-                        # The target of a recursive directory copy is the
-                        # target directory name, with or without a trailing
-                        # slash necessary at least to handle the case of
-                        # recursive copy into the root directory), so make
-                        # sure here that it exists.
-                        os.makedirs(dst, exist_ok=True)
-                        for filename in os.listdir(src):
-                            sub_src = os.path.join(src, filename)
-                            dst = os.path.join(target_dir, target, filename)
-                            if os.path.isdir(sub_src):
-                                self._selective_copytree(sub_src, dst)
-                            else:
-                                if not os.path.exists(dst):
-                                    shutil.copy(sub_src, dst)
-                    else:
-                        # XXX: If this is a directory instead of a file, give
-                        # a useful error message instead of a traceback.
-                        os.makedirs(os.path.dirname(dst), exist_ok=True)
-                        if not os.path.exists(dst):
-                            shutil.copy(src, dst)
+                # The "snap prepare-image" in snapd 2.50 or later
+                # provides a top-level directory "resolved-content"
+                # under that there is a tree of
+                # <volume-name>/part<NR> gadget/kernel content
+                # that is resolved and layed out correctly and just
+                # needs to get copied.
+                resolved_content_dir = os.path.join(
+                    self.unpackdir, "resolved-content", name,
+                    "part{}".format(partnum))
+                if os.path.isdir(resolved_content_dir):
+                    self._selective_copytree(resolved_content_dir, target_dir)
+                else:
+                    # Not using "snap prepare-image" (or old snap
+                    # binary) - the below code path will not
+                    # understand new style "$kernel:" references in
+                    # gadget.yaml and will fail if used with these
+                    # references.
+                    gadget_dir = os.path.join(self.unpackdir, 'gadget')
+                    for content in part.content:
+                        src = os.path.join(gadget_dir, content.source)
+                        dst = os.path.join(target_dir, content.target)
+                        if content.source.endswith('/'):
+                            # This is a directory copy specification.
+                            # The target must also end in a slash.
+                            #
+                            # XXX: If this is a file instead of a
+                            # directory, give a useful error message
+                            # instead of a traceback.
+                            #
+                            # XXX: We should assert this constraint in
+                            # the parser.
+                            target, slash, tail = content.target.rpartition(
+                                '/')
+                            if slash != '/' and tail != '':
+                                raise ValueError(
+                                    'target must end in a slash: {}'.format(
+                                        content.target))
+                            # The target of a recursive directory copy is the
+                            # target directory name, with or without a trailing
+                            # slash necessary at least to handle the case of
+                            # recursive copy into the root directory), so make
+                            # sure here that it exists.
+                            os.makedirs(dst, exist_ok=True)
+                            for filename in os.listdir(src):
+                                sub_src = os.path.join(src, filename)
+                                dst = os.path.join(
+                                    target_dir, target, filename)
+                                if os.path.isdir(sub_src):
+                                    self._selective_copytree(sub_src, dst)
+                                else:
+                                    if not os.path.exists(dst):
+                                        shutil.copy(sub_src, dst)
+                        else:
+                            # XXX: If this is a directory instead of a
+                            # file, give a useful error message
+                            # instead of a traceback.
+                            os.makedirs(os.path.dirname(dst), exist_ok=True)
+                            if not os.path.exists(dst):
+                                shutil.copy(src, dst)
 
     def populate_bootfs_contents(self):
         for name, volume in self.gadget.volumes.items():
