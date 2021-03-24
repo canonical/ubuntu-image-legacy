@@ -55,6 +55,7 @@ def update_changelog(repo, series, version):
         changelog = Changelog(infp)
         changelog.distributions = series
         series_version = {
+            'hirsute': '21.04',
             'groovy': '20.10',
             'focal': '20.04',
             'bionic': '18.04',
@@ -148,6 +149,19 @@ def main():
                 print('version:', '{}+snap1'.format(version), file=outfp)
             else:
                 outfp.write(line)
+    new_version = update_changelog(repo, 'hirsute', version)
+    continue_abort('Pausing for manual review and commit')
+    tag_or_skip(repo, new_version)
+    make_source_package(working_dir)
+    # Now do the Groovy branch.
+    repo.git.checkout('groovy')
+    # This will almost certainly cause merge conflicts.
+    try:
+        repo.git.merge('master', '--no-commit')
+    except GitCommandError:
+        continue_abort('Resolve merge master->groovy conflicts manually')
+    munge_lp_bug_numbers(repo)
+    sru_tracking_bug(repo, sru)
     new_version = update_changelog(repo, 'groovy', version)
     continue_abort('Pausing for manual review and commit')
     tag_or_skip(repo, new_version)
