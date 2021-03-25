@@ -1,10 +1,10 @@
-ubuntu-image (1.10+20.10ubuntu5) UNRELEASED; urgency=medium
+ubuntu-image (1.10+20.10ubunt5) UNRELEASED; urgency=medium
 
   [ Michael Vogt ]
   * Use "resolved-content" directory provided by newer versions
     of "snap prepare-image". (LP: #1636927)
 
- -- Michael Vogt <michael.vogt@ubuntu.com>  Tue, 09 Mar 2021 12:05:29 +0100
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 25 Mar 2021 14:55:14 +0100
 
 ubuntu-image (1.10+20.10ubuntu4) hirsute; urgency=medium
 
