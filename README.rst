@@ -46,9 +46,9 @@ Project details
 * Manual page: man ubuntu-image
   (https://github.com/CanonicalLtd/ubuntu-image/blob/master/ubuntu-image.rst)
 
-The ``gadget.yaml`` specification has moved to `the snapcore repository`_.
+The ``gadget.yaml`` specification has moved to `the snapcraft forum`_.
 
-.. _`the snapcore repository`: https://github.com/snapcore/snapd/wiki/Gadget-snap
+.. _`the snapcraft forum`: https://forum.snapcraft.io/t/the-gadget-snap
 
 
 Developing
@@ -72,6 +72,6 @@ Pull requests run the same test suite that archive promotion (i.e. -proposed
 to release pocket) runs.  You can reproduce this locally by building the
 source package (with ``gbp buildpackage -S``) and running::
 
-    $ autopkgtest ubuntu-image_1.9+20.04ubuntu1 .dsc -- schroot focal-amd64
+    $ autopkgtest ubuntu-image_1.9+20.04ubuntu1.dsc -- schroot focal-amd64
 
 with changes to the version number and Ubuntu distroseries as appropriate.
