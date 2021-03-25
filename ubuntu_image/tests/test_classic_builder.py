@@ -64,6 +64,7 @@ class TestClassicBuilder(TestCase):
         # even if gadget tree is placed locally on the machine.
         workdir = self._resources.enter_context(TemporaryDirectory())
         args = SimpleNamespace(
+            cmd='classic',
             project='ubuntu-cpc',
             suite='xenial',
             arch='amd64',
@@ -108,6 +109,7 @@ class TestClassicBuilder(TestCase):
         unpackdir = os.path.join(workdir, 'unpack')
         mock = LiveBuildMocker(unpackdir)
         args = SimpleNamespace(
+            cmd='classic',
             project='ubuntu-cpc',
             suite='xenial',
             arch='amd64',
@@ -154,6 +156,7 @@ class TestClassicBuilder(TestCase):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -212,6 +215,7 @@ class TestClassicBuilder(TestCase):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             args = SimpleNamespace(
+                cmd='classic',
                 project=None,
                 suite='xenial',
                 arch='amd64',
@@ -270,6 +274,7 @@ class TestClassicBuilder(TestCase):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -330,6 +335,7 @@ class TestClassicBuilder(TestCase):
                 NamedTemporaryFile('w', encoding='utf-8'))
             print('cloud init user data', end='', flush=True, file=cloud_init)
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -390,6 +396,7 @@ class TestClassicBuilder(TestCase):
                 NamedTemporaryFile('w', encoding='utf-8'))
             print('cloud init user data', end='', flush=True, file=cloud_init)
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -452,6 +459,7 @@ class TestClassicBuilder(TestCase):
         with ExitStack() as resources:
             workdir = resources.enter_context(TemporaryDirectory())
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -520,6 +528,7 @@ class TestClassicBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -613,6 +622,7 @@ class TestClassicBuilder(TestCase):
             workdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -666,6 +676,7 @@ class TestClassicBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -729,6 +740,7 @@ class TestClassicBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -837,6 +849,7 @@ class TestClassicBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -887,6 +900,7 @@ class TestClassicBuilder(TestCase):
             unpackdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -944,6 +958,7 @@ class TestClassicBuilder(TestCase):
                 'with_proposed': 'PROPOSED',
                 }
             kwargs_skel = {
+                'cmd': 'classic',
                 'workdir': '/tmp',
                 'output_dir': '/tmp',
                 'hooks_directory': '/tmp',
@@ -1056,6 +1071,7 @@ class TestClassicBuilder(TestCase):
             outputdir = resources.enter_context(TemporaryDirectory())
             # Fast forward a state machine to the method under test.
             args = SimpleNamespace(
+                cmd='classic',
                 project='ubuntu-cpc',
                 suite='xenial',
                 arch='amd64',
@@ -1108,3 +1124,73 @@ class TestClassicBuilder(TestCase):
                            bar 3.12.3-0ubuntu1
                            baz 2.3
                            """))
+
+    def test_workaround_sparse_swapfile(self):
+        # Test if the swapfile unsparsing workaround is fired.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cmd='classic',
+                project='ubuntu-cpc',
+                suite='xenial',
+                arch='amd64',
+                image_format='img',
+                unpackdir=unpackdir,
+                workdir=workdir,
+                debug=None,
+                cloud_init=None,
+                output=None,
+                subproject=None,
+                subarch=None,
+                output_dir=None,
+                with_proposed=None,
+                extra_ppas=None,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                gadget_tree=self.gadget_tree,
+                filesystem=None,
+                )
+            # Jump right to the method under test.
+            state = resources.enter_context(XXXClassicBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_filesystems)
+            # Set up expected state.
+            state.unpackdir = unpackdir
+            state.images = os.path.join(workdir, '.images')
+            os.makedirs(state.images)
+            part0_img = os.path.join(state.images, 'part0.img')
+            # Craft a gadget specification.
+            part = SimpleNamespace(
+                role=StructureRole.system_data,
+                filesystem=FileSystemType.ext4,
+                filesystem_label='writable',
+                size=150,
+                )
+            volume = SimpleNamespace(
+                structures=[part],
+                bootloader=BootLoader.grub,
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=False,
+                )
+            prep_state(state, workdir, [part0_img])
+            # Prepare the dummy swapfile on the rootfs
+            state.rootfs = os.path.join(workdir, 'rootfs')
+            os.makedirs(state.rootfs)
+            swap_path = os.path.join(state.rootfs, 'swapfile')
+            open(swap_path, 'w')
+            # Mock out the mkfs.ext4 call, and we'll just test the contents
+            # directory (i.e. what would go in the ext4 file system).
+            mock_mkfs = resources.enter_context(
+                patch('ubuntu_image.common_builder.mkfs_ext4'))
+            mock_unsparse = resources.enter_context(
+                patch('ubuntu_image.common_builder.unsparse_swapfile_ext4'))
+            next(state)
+            # Check that mkfs.ext4 got called, after which we tried to
+            # unsparse the swapfile as expected.
+            self.assertEqual(len(mock_mkfs.call_args_list), 1)
+            self.assertEqual(len(mock_unsparse.call_args_list), 1)

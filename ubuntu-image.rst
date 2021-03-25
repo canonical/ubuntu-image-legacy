@@ -9,9 +9,9 @@ Generate a bootable disk image
 :Authors:
     Barry Warsaw <barry@ubuntu.com>,
     Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>
-:Date: 2020-04-28
+:Date: 2020-10-22
 :Copyright: 2016-2020 Canonical Ltd.
-:Version: 1.9
+:Version: 1.10
 :Manual section: 1
 
 
@@ -317,6 +317,26 @@ post-populate-rootfs
 
         ``UBUNTU_IMAGE_HOOK_ROOTFS``
             Includes the absolute path to the rootfs contents.
+
+
+NOTES
+=====
+
+Sometimes, for various reasons, ``ubuntu-image`` may perform specific
+workarounds that might require some explanation to understand the reasoning
+behind them.
+
+Classic swapfile manual unsparsing
+----------------------------------
+
+When building a classic image, if ``ubuntu-image`` notices the existence of a
+``/swapfile`` on the image's rootfs, it will proactively attempt to unsparse
+it.  The reason for that is that ``ubuntu-image`` assumes that the ``/swapfile``
+file will be used as a swapfile on the target system, and due to undocumented
+behavior of ``mkfs.ext4 -d`` large empty files are converted into sparse files
+automatically during filesystem population.  This essentially makes such files
+unusable as swapfiles.  So just in case, ``ubuntu-image`` does an in-place
+``dd`` call of the hard-coded path swapfile to ensure it's no longer sparse.
 
 
 SEE ALSO

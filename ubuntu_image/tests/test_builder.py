@@ -657,6 +657,72 @@ class TestModelAssertionBuilder(TestCase):
                 with open(os.path.join(dstbase, where), 'rb') as fp:
                     self.assertEqual(fp.read(), what)
 
+    def test_populate_bootfs_contents_from_prepare_image(self):
+        # This test provides coverage for populate_bootfs_contents() when
+        # snap prepare-image with content resolving support is used.
+        with ExitStack() as resources:
+            workdir = resources.enter_context(TemporaryDirectory())
+            unpackdir = resources.enter_context(TemporaryDirectory())
+            # Fast forward a state machine to the method under test.
+            args = SimpleNamespace(
+                cloud_init=None,
+                output=None,
+                output_dir=None,
+                unpackdir=unpackdir,
+                workdir=workdir,
+                hooks_directory=[],
+                disk_info=None,
+                disable_console_conf=False,
+                )
+            state = resources.enter_context(XXXModelAssertionBuilder(args))
+            state._next.pop()
+            state._next.append(state.populate_bootfs_contents)
+            # Now we have to craft enough of gadget definition to drive the
+            # method under test.
+            part = SimpleNamespace(
+                role=StructureRole.system_boot,
+                filesystem=FileSystemType.ext4,
+                )
+            volume = SimpleNamespace(
+                bootloader=BootLoader.grub,
+                structures=[part],
+                )
+            state.gadget = SimpleNamespace(
+                volumes=dict(volume1=volume),
+                seeded=False,
+                )
+            # Since we're not running make_temporary_directories(), just set
+            # up some additional expected state.
+            state.unpackdir = unpackdir
+            prep_state(state, workdir)
+            # Run the method, the testable effects of which copy all
+            # the files in the source directory. I.e.
+            # <unpackdir>/resolved-content/volume1/part0/some-dir/some-file
+            # into the target directory <workdir>/part0. So put some
+            # contents into the source locations.
+            resolved_content_dir = os.path.join(
+                unpackdir, 'resolved-content/volume1/part0/')
+            os.makedirs(resolved_content_dir)
+            resolved_content = {
+                'at.dat': b'01234',
+                'bt/c.dat': b'56789',
+                # Put a couple of files and a directory in the source, since
+                # directories are copied recursively.
+                'bt/d/e.dat': b'0abcd',
+            }
+            make_content_at(resolved_content_dir, resolved_content)
+            dstbase = os.path.join(workdir, 'volumes', 'volume1', 'part0')
+            # Run the state machine.
+            next(state)
+            expected_content = {
+                'at.dat': b'01234',
+                'bt/c.dat': b'56789',
+                'bt/d/e.dat': b'0abcd',
+            }
+            for where, what in expected_content.items():
+                with open(os.path.join(dstbase, where), 'rb') as fp:
+                    self.assertEqual(fp.read(), what)
+
     def test_populate_bootfs_contents_seeded(self):
         # Test populate_bootfs_contents() behavior for the system-seed
         # partition.

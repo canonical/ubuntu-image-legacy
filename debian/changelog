@@ -1,3 +1,26 @@
+ubuntu-image (1.11+21.04ubuntu1) hirsute; urgency=medium
+
+  [ Michael Vogt ]
+  * Use "resolved-content" directory provided by newer versions
+    of "snap prepare-image". (LP: #1636927)
+
+  [ Brian Murray ]
+  * Fix a typo in README.rst.
+
+  [ Łukasz 'sil2100' Zemczak ]
+  * Add a workaround for mkfs.ext4 forcefully sparsifying our classic image
+    swapfile (LP: #1900718)
+  * Add python3.9 to the test envlists.
+  * Minor README fixups and additions, minor test-related compatibility
+    changes.
+
+  [ Sebastien Bacher ]
+  * setup.py:
+    - get the version in a way which is compatible with the current
+      python-debian
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 25 Mar 2021 14:55:14 +0100
+
 ubuntu-image (1.10+20.04ubuntu1) focal; urgency=medium
 
   [ Łukasz 'sil2100' Zemczak ]
