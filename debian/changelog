@@ -1,4 +1,4 @@
-ubuntu-image (1.10+20.10ubunt5) UNRELEASED; urgency=medium
+ubuntu-image (1.11+21.04ubuntu1) hirsute; urgency=medium
 
   [ Michael Vogt ]
   * Use "resolved-content" directory provided by newer versions
