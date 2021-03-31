@@ -313,27 +313,6 @@ def parseargs(argv=None):
         if args.extra_snaps is not None:
             print('--extra-snaps is deprecated; use --snap instead',
                   file=sys.stderr)
-        # XXX: This is temporary
-        # Some features are currently unsupported for UC20 images.
-        # Error out early when those are requested.
-        if args.model_assertion and os.path.exists(args.model_assertion):
-            # Try to guess if we're building an UC20 image.
-            # Normally we don't want to do this, but if we want to give
-            # the user feedback early, we need to do this here.
-            # Otherwise we'd have to wait for u-i to pull in all the snaps,
-            # which can take a while.
-            with open(args.model_assertion) as fd:
-                if 'base: core20' in fd.read():
-                    unsupported = []
-                    if args.disable_console_conf:
-                        unsupported.append('--disable-console-conf')
-                    if args.cloud_init:
-                        unsupported.append('--cloud-init')
-                    if unsupported:  # pragma: no branch
-                        parser.error(
-                            'base: core20 model assertion detected, the '
-                            'following features are unsupported: {}'.format(
-                                ' '.join(unsupported)))
     else:
         if args.resume and args.gadget_tree:
             parser.error('gadget tree is not allowed with --resume')
