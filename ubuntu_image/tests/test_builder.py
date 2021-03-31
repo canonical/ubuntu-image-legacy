@@ -184,49 +184,6 @@ class TestModelAssertionBuilder(TestCase):
             self.assertFalse(os.path.exists(
                 os.path.join(seed_path, 'meta-data')))
 
-    def test_populate_rootfs_contents_with_cloud_init(self):
-        with ExitStack() as resources:
-            cloud_init = resources.enter_context(
-                NamedTemporaryFile('w', encoding='utf-8'))
-            print('cloud init user data', end='', flush=True, file=cloud_init)
-            args = SimpleNamespace(
-                channel='edge',
-                cloud_init=cloud_init.name,
-                snap=None,
-                extra_snaps=None,
-                model_assertion=self.model_assertion,
-                output=None,
-                output_dir=None,
-                workdir=None,
-                hooks_directory=[],
-                disk_info=None,
-                disable_console_conf=False,
-                )
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            # Fake some state expected by the method under test.
-            state.unpackdir = resources.enter_context(TemporaryDirectory())
-            image_dir = os.path.join(state.unpackdir, 'image')
-            os.makedirs(os.path.join(image_dir, 'snap'))
-            os.makedirs(os.path.join(image_dir, 'var'))
-            state.rootfs = resources.enter_context(TemporaryDirectory())
-            state.gadget = SimpleNamespace(seeded=False)
-            system_data = os.path.join(state.rootfs, 'system-data')
-            os.makedirs(system_data)
-            # Jump right to the state method we're trying to test.
-            state._next.pop()
-            state._next.append(state.populate_rootfs_contents)
-            next(state)
-            # Both the user data and the seed metadata should exist.
-            seed_path = os.path.join(
-                state.rootfs,
-                'system-data', 'var', 'lib', 'cloud', 'seed', 'nocloud-net')
-            user_data = os.path.join(seed_path, 'user-data')
-            meta_data = os.path.join(seed_path, 'meta-data')
-            with open(user_data, 'r', encoding='utf-8') as fp:
-                self.assertEqual(fp.read(), 'cloud init user data')
-            with open(meta_data, 'r', encoding='utf-8') as fp:
-                self.assertEqual(fp.read(), 'instance-id: nocloud-static\n')
-
     def test_populate_rootfs_contents_with_etc_and_stuff(self):
         # LP: #1632134
         with ExitStack() as resources:
@@ -3380,75 +3337,6 @@ class TestModelAssertionBuilder(TestCase):
             # Make sure the file is populated with the right contents.
             with open(os.path.join(state.rootfs, '.disk', 'info')) as fp:
                 self.assertEqual(fp.read(), 'Some disk info')
-
-    def test_disable_console_conf(self):
-        with ExitStack() as resources:
-            # Fast forward a state machine to the method under test.
-            args = SimpleNamespace(
-                channel='edge',
-                cloud_init=None,
-                debug=False,
-                snap=[],
-                extra_snaps=None,
-                model_assertion=self.model_assertion,
-                output=None,
-                output_dir=None,
-                workdir=None,
-                hooks_directory=[],
-                disk_info=None,
-                disable_console_conf=True,
-                )
-            # Jump right to the method under test.
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state.unpackdir = resources.enter_context(TemporaryDirectory())
-            image_dir = os.path.join(state.unpackdir, 'image')
-            os.makedirs(os.path.join(image_dir, 'snap'))
-            os.makedirs(os.path.join(image_dir, 'var'))
-            state.rootfs = resources.enter_context(TemporaryDirectory())
-            state.gadget = SimpleNamespace(seeded=False)
-            state._next.pop()
-            state._next.append(state.populate_rootfs_contents)
-            next(state)
-            # Make sure that when disable-console-conf is passed, we create the
-            # right file on the rootfs.
-            self.assertTrue(os.path.exists(os.path.join(
-                state.rootfs, 'system-data', 'var', 'lib', 'console-conf',
-                'complete')))
-
-    def test_do_not_disable_console_conf_by_default(self):
-        with ExitStack() as resources:
-            # Fast forward a state machine to the method under test.
-            args = SimpleNamespace(
-                channel='edge',
-                cloud_init=None,
-                debug=False,
-                snap=[],
-                extra_snaps=None,
-                model_assertion=self.model_assertion,
-                output=None,
-                output_dir=None,
-                workdir=None,
-                hooks_directory=[],
-                disk_info=None,
-                disable_console_conf=False,
-                )
-            # Jump right to the method under test.
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state = resources.enter_context(XXXModelAssertionBuilder(args))
-            state.unpackdir = resources.enter_context(TemporaryDirectory())
-            image_dir = os.path.join(state.unpackdir, 'image')
-            os.makedirs(os.path.join(image_dir, 'snap'))
-            os.makedirs(os.path.join(image_dir, 'var'))
-            state.rootfs = resources.enter_context(TemporaryDirectory())
-            state.gadget = SimpleNamespace(seeded=False)
-            state._next.pop()
-            state._next.append(state.populate_rootfs_contents)
-            next(state)
-            # Just confirm that if we run ubuntu-image without
-            # --disable-console-conf (so by default), the file isn't there.
-            self.assertFalse(os.path.exists(os.path.join(
-                state.rootfs, 'system-data', 'var', 'lib', 'console-conf',
-                'complete')))
 
     def test_du_command_fails(self):
         with ExitStack() as resources:

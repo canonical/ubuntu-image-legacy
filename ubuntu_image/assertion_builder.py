@@ -4,7 +4,6 @@ import os
 import shutil
 import logging
 
-from pathlib import Path
 from subprocess import CalledProcessError
 from ubuntu_image.common_builder import AbstractImageBuilderState
 from ubuntu_image.helpers import snap
@@ -23,8 +22,10 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
         # prepare-image.
         extra_snaps = (self.args.snap or []) + (self.args.extra_snaps or [])
         try:
-            snap(self.args.model_assertion, self.unpackdir,
-                 self.args.channel, extra_snaps)
+            snap(self.args.model_assertion, self.unpackdir, self.workdir,
+                 channel=self.args.channel, extra_snaps=extra_snaps,
+                 cloud_init=self.cloud_init,
+                 disable_console_conf=self.disable_console_conf)
         except CalledProcessError:
             if self.args.debug:
                 _logger.exception('Full debug traceback follows')
@@ -64,23 +65,6 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             # in that case as it can cause issues when base snaps want to ship
             # default configuration there.
             os.rmdir(etc_cloud)
-        if self.cloud_init is not None:
-            # LP: #1633232 - Only write out meta-data when the --cloud-init
-            # parameter is given.
-            seed_dir = os.path.join(dst, 'var', 'lib', 'cloud', 'seed')
-            cloud_dir = os.path.join(seed_dir, 'nocloud-net')
-            os.makedirs(cloud_dir, exist_ok=True)
-            metadata_file = os.path.join(cloud_dir, 'meta-data')
-            with open(metadata_file, 'w', encoding='utf-8') as fp:
-                print('instance-id: nocloud-static', file=fp)
-            userdata_file = os.path.join(cloud_dir, 'user-data')
-            shutil.copy(self.cloud_init, userdata_file)
-        if self.disable_console_conf:
-            # For now we just touch /var/lib/console-conf/complete to disable
-            # console-conf on core images.
-            cc_dir = os.path.join(dst, 'var', 'lib', 'console-conf')
-            os.makedirs(cc_dir, exist_ok=True)
-            Path(os.path.join(cc_dir, 'complete')).touch()
         super().populate_rootfs_contents()
 
     def _write_manifest(self, snaps_dir, filename):
