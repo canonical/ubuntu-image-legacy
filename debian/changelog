@@ -1,4 +1,4 @@
-ubuntu-image (1.11+21.04ubuntu2) UNRELEASED; urgency=medium
+ubuntu-image (1.11+21.04ubuntu2) hirsute; urgency=medium
 
   * Refreshed manpage.
   * debian/control: remove the explicit grub-common dependency in
