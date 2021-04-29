@@ -1,11 +1,21 @@
-ubuntu-image (1.11+21.04ubuntu2) UNRELEASED; urgency=medium
+ubuntu-image (1.11+21.04ubuntu3) UNRELEASED; urgency=medium
 
   * For ubuntu-core images, delegate image customization such as disabling
     console-conf and cloud-init user-data to snap prepare-image.  This way
     those two options should finally start working on UC20 as well.
     (LP: #1875431)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Wed, 31 Mar 2021 16:21:35 +0200
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 29 Apr 2021 12:49:54 +0200
+
+ubuntu-image (1.11+21.04ubuntu2) hirsute; urgency=medium
+
+  * Refreshed manpage.
+  * debian/control: remove the explicit grub-common dependency in
+    python3-ubuntu-image.  This was added as a workaround for snapd using
+    grub-editenv without an explicit dependency - but since long they switched
+    to using a native implementation instead.
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 09 Apr 2021 11:14:38 +0200
 
 ubuntu-image (1.11+21.04ubuntu1) hirsute; urgency=medium
 
