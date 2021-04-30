@@ -2,6 +2,7 @@
 
 import os
 import re
+import json
 import errno
 import logging
 
@@ -232,7 +233,8 @@ class TestHelpers(TestCase):
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
             tmpdir = resources.enter_context(TemporaryDirectory())
-            snap(model, tmpdir)
+            tmpworkdir = resources.enter_context(TemporaryDirectory())
+            snap(model, tmpdir, tmpworkdir)
             self.assertEqual(len(mock.call_args_list), 1)
             args, kws = mock.call_args_list[0]
         self.assertEqual(args[0], ['snap', 'prepare-image', model, tmpdir])
@@ -245,7 +247,8 @@ class TestHelpers(TestCase):
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
             tmpdir = resources.enter_context(TemporaryDirectory())
-            snap(model, tmpdir, channel='edge')
+            tmpworkdir = resources.enter_context(TemporaryDirectory())
+            snap(model, tmpdir, tmpworkdir, channel='edge')
             self.assertEqual(len(mock.call_args_list), 1)
             args, kws = mock.call_args_list[0]
         self.assertEqual(
@@ -260,7 +263,9 @@ class TestHelpers(TestCase):
                 patch('ubuntu_image.helpers.subprocess_run',
                       return_value=FakeProc()))
             tmpdir = resources.enter_context(TemporaryDirectory())
-            snap(model, tmpdir, extra_snaps=('foo', 'bar=edge', 'baz=18/beta'))
+            tmpworkdir = resources.enter_context(TemporaryDirectory())
+            snap(model, tmpdir, tmpworkdir,
+                 extra_snaps=('foo', 'bar=edge', 'baz=18/beta'))
             self.assertEqual(len(mock.call_args_list), 1)
             args, kws = mock.call_args_list[0]
         self.assertEqual(
@@ -268,6 +273,46 @@ class TestHelpers(TestCase):
             ['snap', 'prepare-image',
              '--snap=foo', '--snap=bar=edge', '--snap=baz=18/beta',
              model, tmpdir])
+
+    def test_snap_with_customization(self):
+        # Test all combinations of possible image customization.
+        model = resource_filename('ubuntu_image.tests.data', 'model.assertion')
+        test_cases = (
+            # --cloud-init=XXX
+            ({'cloud_init': '/foo/bar/user-data'},
+             {'cloud-init-user-data': '/foo/bar/user-data'}),
+            # --disable-console-conf
+            ({'disable_console_conf': True},
+             {'console-conf': 'disabled'}),
+            # --cloud-init=XXX --disable-console-conf
+            ({'cloud_init': '/foo/bar/user-data',
+              'disable_console_conf': True},
+             {'cloud-init-user-data': '/foo/bar/user-data',
+              'console-conf': 'disabled'}),
+        )
+        for kwargs, result in test_cases:
+            with ExitStack() as resources:
+                resources.enter_context(LogCapture())
+                mock = resources.enter_context(
+                    patch('ubuntu_image.helpers.subprocess_run',
+                          return_value=FakeProc()))
+                tmpdir = resources.enter_context(TemporaryDirectory())
+                tmpworkdir = resources.enter_context(TemporaryDirectory())
+                snap(model, tmpdir, tmpworkdir,
+                     **kwargs)
+                self.assertEqual(len(mock.call_args_list), 1)
+                customize_path = os.path.join(tmpworkdir, 'customization')
+                self.assertTrue(os.path.exists(customize_path))
+                with open(customize_path) as fp:
+                    self.assertDictEqual(
+                        json.load(fp),
+                        result)
+                args, kws = mock.call_args_list[0]
+            self.assertEqual(
+                args[0],
+                ['snap', 'prepare-image',
+                 '--customize={}'.format(customize_path),
+                 model, tmpdir])
 
     def test_live_build(self):
         with ExitStack() as resources:

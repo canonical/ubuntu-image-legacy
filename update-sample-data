@@ -67,8 +67,9 @@ def main():
     args = parseargs()
     with ExitStack() as resources:
         tempdir = resources.enter_context(TemporaryDirectory())
+        workdir = resources.enter_context(TemporaryDirectory())
         zipfile = resources.enter_context(ZipFile(args.output, 'w'))
-        snap(args.model, tempdir, args.channel)
+        snap(args.model, tempdir, workdir, args.channel)
         for dirpath, dirnames, filenames in os.walk(tempdir):
             if len(filenames) == 0:
                 # We need the directory, even though there are no files.

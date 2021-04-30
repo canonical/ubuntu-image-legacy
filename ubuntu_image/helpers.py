@@ -3,6 +3,7 @@
 import os
 import re
 import pwd
+import json
 import shutil
 import logging
 import contextlib
@@ -124,7 +125,8 @@ def run(command, *, check=True, **args):
     return proc
 
 
-def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
+def snap(model_assertion, root_dir, workdir, channel=None, extra_snaps=None,
+         cloud_init=None, disable_console_conf=None):
     snap_cmd = os.environ.get('UBUNTU_IMAGE_SNAP_CMD', 'snap')
     # Create a list of the command arguments to run.  We do it this way rather
     # than just .format() into a template string in order to have a more
@@ -137,6 +139,18 @@ def snap(model_assertion, root_dir, channel=None, extra_snaps=None):
     if extra_snaps:
         arg_list.append(SPACE.join('--snap={}'.format(extra)
                         for extra in extra_snaps))
+    # Extra customizations supported by prepare-image.
+    customize = {}
+    if cloud_init:
+        customize['cloud-init-user-data'] = cloud_init
+    if disable_console_conf:
+        # For now by default console-conf is always enabled.
+        customize['console-conf'] = 'disabled'
+    if customize:
+        customize_path = os.path.join(workdir, 'customization')
+        with open(customize_path, 'w') as fp:
+            json.dump(customize, fp)
+        arg_list.append('--customize={}'.format(customize_path))
     arg_list.extend([model_assertion, root_dir])
     cmd = SPACE.join(arg_list)
     run(cmd, stdout=None, stderr=None, env=os.environ)

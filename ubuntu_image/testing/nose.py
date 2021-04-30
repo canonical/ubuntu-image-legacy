@@ -76,8 +76,9 @@ class MockerBase:
 
 
 class SecondAndOnwardMock(MockerBase):
-    def snap_mock(self, model_assertion, root_dir,
-                  channel=None, extra_snaps=None):
+    def snap_mock(self, model_assertion, root_dir, workdir,
+                  channel=None, extra_snaps=None,
+                  cloud_init=None, disable_console_conf=None):
         run_tmp = os.path.join(
             self._tmpdir,
             self._checksum(model_assertion, channel))
@@ -85,7 +86,9 @@ class SecondAndOnwardMock(MockerBase):
         if not os.path.isdir(run_tmp):
             os.makedirs(tmp_root)
             with patch('ubuntu_image.helpers.run', mock_run):
-                real_snap(model_assertion, tmp_root, channel)
+                real_snap(model_assertion, tmp_root, self._tmpdir, channel,
+                          cloud_init=cloud_init,
+                          disable_console_conf=disable_console_conf)
         # copytree() requires that the destination directories do not exist.
         # Since this code only ever executes during the test suite, and even
         # though only when mocking `snap` for speed, this is always safe.
@@ -94,8 +97,9 @@ class SecondAndOnwardMock(MockerBase):
 
 
 class AlwaysMock(MockerBase):
-    def snap_mock(self, model_assertion, root_dir,
-                  channel=None, extra_snaps=None):
+    def snap_mock(self, model_assertion, root_dir, workdir,
+                  channel=None, extra_snaps=None,
+                  cloud_init=None, disable_console_conf=None):
         zipfile = resource_filename(
             'ubuntu_image.tests.data',
             '{}.zip'.format(self._checksum(model_assertion, channel)))
