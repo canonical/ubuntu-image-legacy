@@ -256,6 +256,11 @@ def parseargs(argv=None):
         '--disable-console-conf',
         default=False, action='store_true',
         help=_("""Disable console-conf on the resulting image."""))
+    snap_cmd.add_argument(
+        '--factory-image',
+        default=False, action='store_true',
+        help=_("""Hint that the image is meant to boot in a device
+        factory."""))
     # Classic-based image options.
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
@@ -325,6 +330,8 @@ def parseargs(argv=None):
                 parser.error('project and filesystem are mutually exclusive')
         # And classic doesn't use console-conf
         args.disable_console_conf = False
+        # nor has a concept of factory images
+        args.factory_image = False
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
     # --until and --thru can take an int.

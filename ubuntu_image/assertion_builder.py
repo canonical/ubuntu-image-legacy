@@ -25,7 +25,8 @@ class ModelAssertionBuilder(AbstractImageBuilderState):
             snap(self.args.model_assertion, self.unpackdir, self.workdir,
                  channel=self.args.channel, extra_snaps=extra_snaps,
                  cloud_init=self.cloud_init,
-                 disable_console_conf=self.disable_console_conf)
+                 disable_console_conf=self.disable_console_conf,
+                 factory_image=self.factory_image)
         except CalledProcessError:
             if self.args.debug:
                 _logger.exception('Full debug traceback follows')

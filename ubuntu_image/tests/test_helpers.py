@@ -289,6 +289,9 @@ class TestHelpers(TestCase):
               'disable_console_conf': True},
              {'cloud-init-user-data': '/foo/bar/user-data',
               'console-conf': 'disabled'}),
+            # --factory-image (UC20 only)
+            ({'factory_image': True},
+             {'boot-flags': ['factory']}),
         )
         for kwargs, result in test_cases:
             with ExitStack() as resources:
