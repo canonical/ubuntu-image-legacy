@@ -1,5 +1,6 @@
 ubuntu-image (1.11+21.04ubuntu3) UNRELEASED; urgency=medium
 
+  [ Łukasz 'sil2100' Zemczak ]
   * For ubuntu-core images, delegate image customization such as disabling
     console-conf and cloud-init user-data to snap prepare-image.  This way
     those two options should finally start working on UC20 as well.
@@ -7,7 +8,10 @@ ubuntu-image (1.11+21.04ubuntu3) UNRELEASED; urgency=medium
   * debian/control: bump the snapd dependency to a version that will most
     likely have support for the prepare-image customization.
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Thu, 29 Apr 2021 13:06:56 +0200
+  [ Samuele Pedroni ]
+  * Add --factory-image command option.  (LP: #1929236)
+
+ -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 21 May 2021 18:10:41 +0200
 
 ubuntu-image (1.11+21.04ubuntu2) hirsute; urgency=medium
 
