@@ -61,6 +61,7 @@ class AbstractImageBuilderState(State):
         self.cloud_init = args.cloud_init
         self.disk_info = args.disk_info
         self.disable_console_conf = args.disable_console_conf
+        self.factory_image = args.factory_image
         self.exitcode = 0
         self.done = False
         # Generic hook handling manager.
@@ -75,6 +76,7 @@ class AbstractImageBuilderState(State):
             cloud_init=self.cloud_init,
             disk_info=self.disk_info,
             disable_console_conf=self.disable_console_conf,
+            factory_image=self.factory_image,
             done=self.done,
             exitcode=self.exitcode,
             gadget=self.gadget,
@@ -96,6 +98,7 @@ class AbstractImageBuilderState(State):
         self.cloud_init = state['cloud_init']
         self.disk_info = state['disk_info']
         self.disable_console_conf = state['disable_console_conf']
+        self.factory_image = state['factory_image']
         self.done = state['done']
         self.exitcode = state['exitcode']
         self.gadget = state['gadget']
