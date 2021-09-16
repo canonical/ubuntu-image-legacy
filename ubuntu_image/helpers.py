@@ -126,7 +126,8 @@ def run(command, *, check=True, **args):
 
 
 def snap(model_assertion, root_dir, workdir, channel=None, extra_snaps=None,
-         cloud_init=None, disable_console_conf=None, factory_image=None):
+         cloud_init=None, disable_console_conf=None, factory_image=None,
+         validation=None):
     snap_cmd = os.environ.get('UBUNTU_IMAGE_SNAP_CMD', 'snap')
     # Create a list of the command arguments to run.  We do it this way rather
     # than just .format() into a template string in order to have a more
@@ -149,6 +150,10 @@ def snap(model_assertion, root_dir, workdir, channel=None, extra_snaps=None,
     if factory_image:
         # The factory image hint for UC20 is set as a boot flag
         customize['boot-flags'] = ['factory']
+    if validation:
+        # The default behavior is encoded in prepare-image, pass the
+        # option if set
+        customize['validation'] = validation
     if customize:
         customize_path = os.path.join(workdir, 'customization')
         with open(customize_path, 'w') as fp:
