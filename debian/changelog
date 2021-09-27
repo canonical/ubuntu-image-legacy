@@ -10,6 +10,7 @@ ubuntu-image (1.11+21.04ubuntu3) UNRELEASED; urgency=medium
 
   [ Samuele Pedroni ]
   * Add --factory-image command option.  (LP: #1929236)
+  * Add --validation command option.
 
  -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Fri, 21 May 2021 18:10:41 +0200
 
