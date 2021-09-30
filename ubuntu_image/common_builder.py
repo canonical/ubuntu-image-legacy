@@ -62,6 +62,7 @@ class AbstractImageBuilderState(State):
         self.disk_info = args.disk_info
         self.disable_console_conf = args.disable_console_conf
         self.factory_image = args.factory_image
+        self.validation = args.validation
         self.exitcode = 0
         self.done = False
         # Generic hook handling manager.
@@ -77,6 +78,7 @@ class AbstractImageBuilderState(State):
             disk_info=self.disk_info,
             disable_console_conf=self.disable_console_conf,
             factory_image=self.factory_image,
+            validation=self.validation,
             done=self.done,
             exitcode=self.exitcode,
             gadget=self.gadget,
@@ -99,6 +101,7 @@ class AbstractImageBuilderState(State):
         self.disk_info = state['disk_info']
         self.disable_console_conf = state['disable_console_conf']
         self.factory_image = state['factory_image']
+        self.validation = state['validation']
         self.done = state['done']
         self.exitcode = state['exitcode']
         self.gadget = state['gadget']

@@ -292,6 +292,11 @@ class TestHelpers(TestCase):
             # --factory-image (UC20 only)
             ({'factory_image': True},
              {'boot-flags': ['factory']}),
+            # --validation=enforce|ignore
+            ({'validation': 'enforce'},
+             {'validation': 'enforce'}),
+            ({'validation': 'ignore'},
+             {'validation': 'ignore'}),
         )
         for kwargs, result in test_cases:
             with ExitStack() as resources:

@@ -261,6 +261,12 @@ def parseargs(argv=None):
         default=False, action='store_true',
         help=_("""Hint that the image is meant to boot in a device
         factory."""))
+    snap_cmd.add_argument(
+        '--validation',
+        default=None, action='store', choices=['ignore', 'enforce'],
+        help=_("""Control whether validations should be ignored or
+        enforced.""")
+        )
     # Classic-based image options.
     classic_cmd.add_argument(
         'gadget_tree', nargs='?',
@@ -332,6 +338,8 @@ def parseargs(argv=None):
         args.disable_console_conf = False
         # nor has a concept of factory images
         args.factory_image = False
+        # no validations either
+        args.validation = None
     if args.resume and args.workdir is None:
         parser.error('--resume requires --workdir')
     # --until and --thru can take an int.

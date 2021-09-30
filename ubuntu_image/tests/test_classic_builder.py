@@ -81,6 +81,7 @@ class TestClassicBuilder(TestCase):
             disk_info=None,
             disable_console_conf=False,
             factory_image=False,
+            validation=None,
             gadget_tree=self.gadget_tree,
             filesystem=None,
             )
@@ -127,6 +128,7 @@ class TestClassicBuilder(TestCase):
             disk_info=None,
             disable_console_conf=False,
             factory_image=False,
+            validation=None,
             gadget_tree=self.gadget_tree,
             filesystem=None,
             )
@@ -175,6 +177,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -235,6 +238,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -295,6 +299,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -357,6 +362,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -419,6 +425,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -483,6 +490,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -554,6 +562,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -649,6 +658,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -705,6 +715,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -770,6 +781,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -880,6 +892,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -932,6 +945,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -979,6 +993,7 @@ class TestClassicBuilder(TestCase):
                 'disk_info': None,
                 'disable_console_conf': False,
                 'factory_image': False,
+                'validation': None,
                 'output': None,
                 'cloud_init': None,
                 'gadget_tree': None,
@@ -1050,6 +1065,7 @@ class TestClassicBuilder(TestCase):
                 'disk_info': None,
                 'disable_console_conf': False,
                 'factory_image': False,
+                'validation': None,
                 'output': None,
                 'cloud_init': None,
                 'gadget_tree': None,
@@ -1106,6 +1122,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
@@ -1168,6 +1185,7 @@ class TestClassicBuilder(TestCase):
                 disk_info=None,
                 disable_console_conf=False,
                 factory_image=False,
+                validation=None,
                 gadget_tree=self.gadget_tree,
                 filesystem=None,
                 )
